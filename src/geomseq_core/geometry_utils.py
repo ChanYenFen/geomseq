@@ -216,11 +216,8 @@ def sort_points_no_crossing_native(points, start_pt=None,
     """C++-backed greedy + 2-opt sort for plain points, rejecting greedy
     candidates whose new edge would cross an already-committed edge.
 
-    `is_closed` is currently a dead parameter on the native side -- see the
-    TODO in native/sort_points_no_crossing.cpp (the implicit closing edge
-    isn't checked yet). `use_two_opt=True` can reintroduce crossings (also
-    noted there); leave it off if the no-crossing guarantee matters.
-    Returns (sorted points, original indices).
+    `is_closed` is unused pending native support (TODO in sort_points_no_crossing.cpp);
+    avoid `use_two_opt=True` if the guarantee matters, since 2-opt can reintroduce crossings.
     """
     if not points:
         return [], []

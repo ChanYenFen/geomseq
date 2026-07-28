@@ -1,5 +1,6 @@
 *.pyc
 __pycache__/
+.DS_Store
 
 # C++ build artifacts (geomseq_core.dll is kept; these are MSVC intermediates)
 src/geomseq_core/native/*.obj
