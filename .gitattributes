@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+src/geomseq_core/native/nanoflann.hpp linguist-vendored
