@@ -11,11 +11,8 @@ traversal path. A pure-Python implementation worked, but performance
 dropped sharply at scale — minutes, not seconds, past a few thousand
 geometries.
 
-The core algorithms — spatial sequencing and its supporting
-primitives — were reimplemented in C++ for raw speed. The C++ layer
-never touches CAD geometry directly; only flat coordinate arrays
-cross the language boundary, keeping the core portable and
-independently testable.
+The core algorithms — spatial sequencing and its supporting primitives
+ — were reimplemented in C++ for raw speed and scalability at large n.
 
 ## Design
 

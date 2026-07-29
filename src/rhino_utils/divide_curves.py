@@ -1,13 +1,6 @@
 """
-Divides (possibly multi-segment / joined) curves into division points +
-arc-length lookups. Handles segment reparameterization so lookups stay a
-single continuous, monotonically increasing sequence across the whole curve
-(not reset to 0 per segment). Also emits corner_indices marking segment-joint
-positions, for downstream use with redistribute_lookups_component.py.
-
-Depends on RhinoCommon but not on any GH-specific input handling -- that
-lives in gh/divide_curves_component.py, which is a thin shell around
-DivideCurves and process_curve below.
+Divides (possibly multi-segment) curves into points + a continuous arc-length lookup
++ corner_indices at segment joints. RhinoCommon-dependent; GH input handling is in gh/divide_curves_component.py.
 """
 
 import Rhino.Geometry as rg

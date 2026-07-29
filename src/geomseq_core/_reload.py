@@ -2,14 +2,8 @@ import sys
 
 
 def unload_modules(top_level_module_name):
-    """
-    Unloads all modules named starting with the specified string.
-
-    This is adapted from COMPAS to facilitate dynamic reloading in Rhino/GH.
-
-    Args:
-        top_level_module_name (str): The name of the library (e.g., 'geomseq_core')
-    """
+    """Unloads all modules starting with `top_level_module_name` (e.g. 'geomseq_core'),
+    adapted from COMPAS to support dynamic reloading in Rhino/GH."""
     # 1. Identify all related modules
     modules_to_remove = [
         m for m in sys.modules.keys()

@@ -1,12 +1,6 @@
 """
-Path Optimization Module for GeomSeq
-Focus: Geometric path sorting for embroidery and CNC toolpaths.
-
-Wrapper functions only (sort_curves_native, sort_points_native) -- no GH
-entry point here. GH components run sort_curves_component.py /
-sort_points_component.py directly, which import these and handle their own
-dev-mode hot-reload (see the _reload.unload_modules calls there); this module
-just needs to be importable, so it uses the plain dev/package import fallback.
+Path Optimization Module for GeomSeq -- embroidery/CNC toolpath sorting. Wrapper functions
+only (sort_curves_native, sort_points_native, redistribute_lookups_native); GH entry points and hot-reload live in gh/*_component.py, so this module just needs to stay importable.
 """
 
 __author__ = "Yen-Fen Chan"
@@ -26,32 +20,15 @@ except ImportError:
     import native_bridge
 
 
-# ===========================================================================
-# Native (C++) backend: same greedy + 2-opt, compiled into geomseq_core.dll.
-# Drop-in replacement for sort_curves_by_rtree with an added knn_k parameter.
-# DLL loading / ctypes signature binding lives in native_bridge.py.
-# ===========================================================================
+# Native (C++) backend (geomseq_core.dll): same greedy + 2-opt algorithm as
+# sort_curves_by_rtree, plus a knn_k parameter; DLL binding lives in native_bridge.py.
 
 
 def sort_curves_native(curves, start_pt=None,
                        use_two_opt=False, two_opt_max_passes=10, knn_k=12,
                        if_flip=True, return_travel_points=False):
-    """C++-backed drop-in replacement for sort_curves_by_rtree.
-
-    Same inputs/outputs; `knn_k` controls how many neighbors the greedy step
-    queries per hop (8-16 is typical). `if_flip=False` fixes curve direction
-    (connect head->tail only): reversal stays 0 and 2-opt is skipped.
-    `start_pt=None` defaults to the origin (see misc.start_pt_to_buffer).
-
-    `return_travel_points=False` (default) keeps the return value at
-    (sorted curves, original indices), unchanged from before this parameter
-    existed. Pass True to additionally get a third item: a list of n
-    ((start_x,y,z), (end_x,y,z)) tuples, one per travel segment (segment 0 is
-    start_pt to the first curve; the rest are curve-to-curve gaps) -- plain
-    tuples, not rg.Point3d/rg.Line, since this module doesn't depend on
-    Rhino; build those on the caller's side, e.g. rg.Line(rg.Point3d(*p1),
-    rg.Point3d(*p2)).
-    """
+    """C++-backed drop-in replacement for sort_curves_by_rtree: `knn_k` sets neighbors queried per greedy hop, `if_flip=False` fixes curve direction (head->tail only, skipping reversal/2-opt), and `start_pt=None` defaults to the origin.
+    `return_travel_points=True` adds a 3rd return item: a list of n plain (start_xyz, end_xyz) tuples, one per travel segment -- not Rhino types, since this module doesn't depend on Rhino."""
     if not curves:
         return ([], []) if not return_travel_points else ([], [], [])
 
@@ -102,13 +79,8 @@ def sort_curves_native(curves, start_pt=None,
 
 def sort_points_native(points, start_pt=None,
                         use_two_opt=False, two_opt_max_passes=10, knn_k=12):
-    """C++-backed greedy + 2-opt sort for plain points (no direction/reversal
-    concept -- points don't have a head/tail to flip).
-
-    Same inputs as sort_curves_native minus `if_flip`. `start_pt=None`
-    defaults to the origin (see misc.start_pt_to_buffer). Returns (sorted
-    points, original indices).
-    """
+    """C++-backed greedy + 2-opt sort for plain points (no direction/reversal, unlike sort_curves_native); same inputs minus `if_flip`, `start_pt=None` defaults to the origin.
+    Returns (sorted points, original indices)."""
     if not points:
         return [], []
 
@@ -140,18 +112,8 @@ def sort_points_native(points, start_pt=None,
 
 
 def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indices=None):
-    """C++-backed density redistribution of arc-length lookups (see
-    native/redistribute_lookups.cpp). Redistributes density along a curve
-    without touching the curve itself -- `lookups` and the return value are
-    both flat lists of arc-length floats, not Rhino geometry.
-
-    mode: 0 = dense_center (sparse at both ends, dense in the middle),
-          1 = dense_sides (dense at both ends, sparse in the middle).
-    corner_indices: indices into `lookups` that must appear exactly in the
-    result (e.g. polyline vertices); None/empty means no corners to preserve.
-
-    Returns a new list of arc-length lookups.
-    """
+    """C++-backed density redistribution of arc-length lookups (native/redistribute_lookups.cpp); `lookups`/return are flat arc-length floats, not Rhino geometry. `mode`: 0=dense_center (sparse ends, dense middle), 1=dense_sides (dense ends, sparse middle); `corner_indices` are lookup indices that must survive exactly (e.g. polyline vertices).
+    Returns a new list of arc-length lookups."""
     if not lookups:
         return []
 
@@ -182,12 +144,8 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
         corner_ptr = None
         num_corners = 0
 
-    # Upper bound: total_length/min_step natural steps (the native side's
-    # edge_step/mid_step always bottom out at min(high, low), regardless of
-    # which one the caller passed as smaller -- using `low` alone here
-    # undercounts, and overflows out_lookups, when high < low) + at most one
-    # extra point per corner (a corner truncates one step into two) + slack
-    # for the initial point and floating-point rounding.
+    # Upper bound: total_length/min_step steps (native's edge_step/mid_step bottom out at
+    # min(high, low), so using `low` alone would undercount + overflow when high < low), plus slack per corner and for rounding.
     min_step = low if low < high else high
     max_possible_points = int(total_length / min_step) + num_corners + 10
 
