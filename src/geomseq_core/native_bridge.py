@@ -49,13 +49,6 @@ def load_dll():
     ]
     lib.sort_points.restype = None
 
-    # sort_points_no_crossing is shelved (native/sort_points_no_crossing.cpp
-    # + geometry2d.cpp exist but aren't compiled into the official geomseq_core.dll
-    # build -- see README's Build command). Don't bind it here: `lib.x.argtypes`
-    # does a symbol lookup immediately, so if it's ever missing from the DLL
-    # this would raise AttributeError and take sort_curves/sort_points down
-    # with it, since they all share this one load_dll() call.
-
     # void redistribute_lookups(const double*, int, double, double, int, double, const int*, int, double*, int*)
     lib.redistribute_lookups.argtypes = [
         ctypes.POINTER(ctypes.c_double),  # lookups (n)

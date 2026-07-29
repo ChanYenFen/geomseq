@@ -1,8 +1,6 @@
 """
 Redistribute Lookups Component for GeomSeq
-GH entry point: arc-length density redistribution
-(geometry_utils.redistribute_lookups_native). Pure 1D arithmetic -- no
-Rhino.Geometry needed here; lookups in and out are flat float lists.
+GH entry point: arc-length density redistribution (geometry_utils.redistribute_lookups_native); pure 1D, no Rhino.Geometry needed.
 """
 
 import os
@@ -32,10 +30,7 @@ from geomseq_core.geometry_utils import redistribute_lookups_native
 if __name__ == "__main__":
     nested_lookups = th.tree_to_list(lookups_tree)  # type: ignore
 
-    # corner_indices_tree is optional. When unconnected this environment hands
-    # back an empty DataTree (not None), and th.tree_to_list() raises IndexError
-    # on that -- so "is not None" alone isn't enough of a guard. Fall back to
-    # "no corners" on any failure to read it.
+    # corner_indices_tree is optional.
     try:
         nested_corners = th.tree_to_list(corner_indices_tree)
     except Exception:

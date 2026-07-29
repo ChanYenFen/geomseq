@@ -36,9 +36,8 @@ def _resolve_start_point():
 
 
 if __name__ == "__main__":
-    # th.tree_to_list() returns None on large (~5000 item) DataTrees; read
-    # .Branches directly instead. Falls back to treating curves_tree as one
-    # group if GH already simplified a single-branch tree into a plain list.
+    # th.tree_to_list() returns None on large (~5000 item) DataTrees; read .Branches
+    # directly, falling back to a single group if GH simplified to a plain list.
     if curves_tree is None:  # type: ignore
         print("[geomseq_core] curves_tree input is None -- check it's actually connected/internalized")
         nested_groups = []

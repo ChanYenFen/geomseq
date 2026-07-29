@@ -45,7 +45,6 @@ Grasshopper, a plain script, or any other front end.
 | `sort_curves` | greedy k-NN + 2-opt ordering of curves to minimize travel (direction-aware: reversal flags + optional per-segment travel points) | ✅ |
 | `sort_points` | single-point sibling of `sort_curves` (no direction/reversal concept) | ✅ |
 | `redistribute_lookups` | redistribute arc-length lookups to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
-| `sort_points_no_crossing` + `geometry2d` (orientation / segment intersection) | crossing-free greedy + 2-opt variant | 🗄️ shelved — implemented (`native/sort_points_no_crossing.cpp`, `native/geometry2d.cpp`) but not compiled into the official dll; a converged `sort_points` 2-opt already yields a non-crossing path in practice, so there's no active need driving this yet 
 
 ## Layout
 
@@ -56,8 +55,6 @@ src/
 │   │   ├── sort_curves.cpp
 │   │   ├── sort_points.cpp             # single-point sibling of sort_curves (no direction/reversal)
 │   │   ├── redistribute_lookups.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
-│   │   ├── sort_points_no_crossing.cpp # shelved: crossing-free variant, not built into the dll
-│   │   ├── geometry2d.cpp / .h         # shelved: orientation / segment-intersection primitives (used only by sort_points_no_crossing)
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
 │   │   ├── archive/                    # superseded reference implementations (e.g. pre-windowing 2-opt)
 │   │   └── geomseq_core.dll            # official .cpp files compiled into one binary (also .dylib / .so per platform)
@@ -87,11 +84,6 @@ cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_loo
 # macOS / Linux
 clang++ -std=c++17 -O2 -shared -fPIC -o geomseq_core.dylib sort_curves.cpp sort_points.cpp redistribute_lookups.cpp
 ```
-
-`sort_points_no_crossing.cpp` + `geometry2d.cpp` are shelved (kept in
-`native/` but deliberately left out of the build -- see native_bridge.py's
-comment above the shelved-feature note). Don't add them to the command above
-unless that feature gets picked back up.
 
 The Python bridge auto-selects the right binary (`.dll` / `.dylib` / `.so`) by
 platform, so the same Python code runs everywhere.

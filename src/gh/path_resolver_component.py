@@ -1,13 +1,6 @@
 """
 Path Resolver Component for GeomSeq
-GH entry point: locates this project's src/ module folders relative to
-wherever the .gh document itself has been saved, and adds them to sys.path
-so downstream GHPython components (sort_curves_component.py, etc.) can
-`import geomseq_core` / `import rhino_utils` regardless of machine or
-install location. Must run before any component that imports those.
-
-GH input: `modules` -- list of module folder/file names to locate under
-geomseq/src/ (e.g. ["geomseq_core", "rhino_utils"]).
+GH entry point: locates src/ module folders relative to the saved .gh file and adds them to sys.path, so other components can import geomseq_core/rhino_utils regardless of machine.
 """
 
 import os
@@ -52,9 +45,6 @@ else:
             else:
                 script_dirs.append(os.path.normpath(found))
 
-# sys.path needs each module's *parent* folder (src/), not the module folder
-# itself, since downstream components do `import geomseq_core` /
-# `import rhino_utils`, not `import <folder contents directly>`.
 for module_dir in script_dirs:
     parent_dir = os.path.dirname(module_dir)
     if parent_dir not in sys.path:

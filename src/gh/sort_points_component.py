@@ -38,9 +38,8 @@ def _resolve_start_point():
 
 
 if __name__ == "__main__":
-    # th.tree_to_list() returns None on large (~5000 item) DataTrees; read
-    # .Branches directly instead. Falls back to treating points_tree as one
-    # group if GH already simplified a single-branch tree into a plain list.
+    # th.tree_to_list() returns None on large (~5000 item) DataTrees; read .Branches
+    # directly, falling back to a single group if GH simplified to a plain list.
     if points_tree is None:  # type: ignore
         print("[geomseq_core] points_tree input is None -- check it's actually connected/internalized")
         nested_groups = []
@@ -51,15 +50,12 @@ if __name__ == "__main__":
 
     final_nested_points = []   # [[sorted_group0], [sorted_group1], ...]
     final_nested_indices = []  # [[order0], [order1], ...] -- original index per sorted point
-    flattened_points = []
-    flattened_points = []
 
     current_start_pt = _resolve_start_point()
 
     KNN_K      = 12
     USE_2OPT   = True
     MAX_PASSES = 10
-
 
     for i, group in enumerate(nested_groups):
         # Sort the current group, using the last point of the previous group as start_pt

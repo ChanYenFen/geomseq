@@ -1,7 +1,6 @@
 """
 Divide Curves Component for GeomSeq
-GH entry point: thin GH-input wiring around rhino_utils.divide_curves
-(DivideCurves + process_curve there do the actual work).
+GH entry point: thin wiring around rhino_utils.divide_curves (DivideCurves + process_curve do the work).
 """
 
 import os
@@ -12,8 +11,6 @@ import ghpythonlib.treehelpers as th
 try:
     import rhino_utils
 except ImportError:
-    # Dev mode: rhino_utils isn't installed / not on sys.path yet -- add its
-    # parent src/ dir (this file lives in src/gh/, rhino_utils in src/rhino_utils/).
     _SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _SRC not in sys.path:
         sys.path.insert(0, _SRC)
