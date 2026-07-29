@@ -28,43 +28,53 @@ _reload.unload_modules("geomseq_core.geometry_utils")
 from geomseq_core.geometry_utils import sort_points_native
 
 
+def _resolve_start_point():
+    """Unconnected optional GH input (missing or None) reads as the origin."""
+    try:
+        value = start_point
+    except NameError:
+        return rg.Point3d(0, 0, 0)
+    return rg.Point3d(0, 0, 0) if value is None else value
+
+
 if __name__ == "__main__":
-    nested_groups = th.tree_to_list(points_tree)  # type: ignore
+    # th.tree_to_list() returns None on large (~5000 item) DataTrees; read
+    # .Branches directly instead. Falls back to treating points_tree as one
+    # group if GH already simplified a single-branch tree into a plain list.
+    if points_tree is None:  # type: ignore
+        print("[geomseq_core] points_tree input is None -- check it's actually connected/internalized")
+        nested_groups = []
+    elif hasattr(points_tree, "Branches"):  # type: ignore
+        nested_groups = [list(branch) for branch in points_tree.Branches]  # type: ignore
+    else:
+        nested_groups = [list(points_tree)]  # type: ignore
 
     final_nested_points = []   # [[sorted_group0], [sorted_group1], ...]
-    all_flattened_points = []  # [pt, pt, pt, ...]
+    final_nested_indices = []  # [[order0], [order1], ...] -- original index per sorted point
+    flattened_points = []
+    flattened_points = []
 
-    current_start_pt = rg.Point3d(0, 0, 0)
+    current_start_pt = _resolve_start_point()
 
     KNN_K      = 12
     USE_2OPT   = True
     MAX_PASSES = 10
 
-    # import time                      # ← 加這行
-    # t0 = time.perf_counter()         # ← 加這行
 
     for i, group in enumerate(nested_groups):
         # Sort the current group, using the last point of the previous group as start_pt
-        sorted_group, _ = sort_points_native(group, current_start_pt,
-                                              use_two_opt=USE_2OPT,
-                                              two_opt_max_passes=MAX_PASSES,
-                                              knn_k=KNN_K)
+        sorted_group, order = sort_points_native(group, current_start_pt,
+                                                   use_two_opt=USE_2OPT,
+                                                   two_opt_max_passes=MAX_PASSES,
+                                                   knn_k=KNN_K)
 
         final_nested_points.append(sorted_group)
-        all_flattened_points.extend(sorted_group)
+        final_nested_indices.append(order)
 
         # Update the start point for the next group
         if sorted_group:
             current_start_pt = sorted_group[-1]
 
-    # t1 = time.perf_counter()         # ← 加這行
-    # print("total: %.3fs, groups: %d, sizes: %s" %              # ← 加這行
-    #       (t1 - t0, len(nested_groups),
-    #        [len(g) for g in nested_groups]))
-
-    # --- Output to Grasshopper ---
-    # DataTree output (preserves group structure)
-    out_points_tree = th.list_to_tree(final_nested_points)
-
-    # Flat list output
-    out_points_flat = all_flattened_points
+    # --- Output to Grasshopper (tree only, preserves group structure) ---
+    sorted_points_tree = th.list_to_tree(final_nested_points)
+    sorted_indices_tree = th.list_to_tree(final_nested_indices)
