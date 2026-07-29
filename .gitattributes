@@ -2,3 +2,4 @@
 * text=auto
 
 src/geomseq_core/native/nanoflann.hpp linguist-vendored
+src/gh/definitions/*.gh linguist-generated

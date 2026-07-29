@@ -1,12 +1,21 @@
 # geomseq
 
-A 2D computational geometry library in C++, with thin Python bindings.
+A C++ library for 2D spatial sequencing and geometric primitives,
+with thin Python bindings.
 
-`geomseq_core` provides fast, dependency-light primitives for planar geometry —
-point/curve ordering, orientation tests, segment intersection, and related
-operations. The core is pure C++ operating on flat coordinate arrays and knows
-nothing about any CAD environment; a thin Python layer bridges it into
-Rhino/Grasshopper for input and visualization.
+## Background
+
+This C++ library grew out of a real bottleneck in a computational
+design pipeline: sorting thousands of geometries into an efficient
+traversal path. A pure-Python implementation worked, but performance
+dropped sharply at scale — minutes, not seconds, past a few thousand
+geometries.
+
+The core algorithms — spatial sequencing and its supporting
+primitives — were reimplemented in C++ for raw speed. The C++ layer
+never touches CAD geometry directly; only flat coordinate arrays
+cross the language boundary, keeping the core portable and
+independently testable.
 
 ## Design
 
@@ -15,40 +24,53 @@ testable:
 
 ```
 Visualization (Grasshopper)   draw results, interactive debugging
+        │
         │  2D coords + result data
+        │
 Bridge (Python)               array marshaling, CAD <-> coordinate mapping
+        │
         │  flat (x, y) arrays
+        │
 Core (C++)                    pure numerical geometry — no CAD dependency
 ```
 
-The C++ core only ever receives and returns numbers (coordinates, indices,
-flags). It never returns rendering instructions — how to draw a result is the
-caller's decision. This keeps the core usable from Grasshopper, a plain script,
-or any other front end.
+The core never returns rendering instructions — how to draw a
+result is always the caller's decision. This keeps it usable from
+Grasshopper, a plain script, or any other front end.
 
 ## Modules
 
 | Module | Purpose | Status |
 |--------|---------|--------|
-| `sort_curves` | greedy k-NN + 2-opt ordering of curves/points to minimize travel | ✅ |
+| `sort_curves` | greedy k-NN + 2-opt ordering of curves to minimize travel (direction-aware: reversal flags + optional per-segment travel points) | ✅ |
+| `sort_points` | single-point sibling of `sort_curves` (no direction/reversal concept) | ✅ |
 | `redistribute_lookups` | redistribute arc-length lookups to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
-| _(planned)_ orientation | signed area / clockwise test for polygons | — |
-| _(planned)_ segment intersection | self-intersections of a polyline (2D) | — |
+| `sort_points_no_crossing` + `geometry2d` (orientation / segment intersection) | crossing-free greedy + 2-opt variant | 🗄️ shelved — implemented (`native/sort_points_no_crossing.cpp`, `native/geometry2d.cpp`) but not compiled into the official dll; a converged `sort_points` 2-opt already yields a non-crossing path in practice, so there's no active need driving this yet 
 
 ## Layout
 
 ```
 src/
-└── geomseq_core/            # Python package
-    ├── native/                 # C++ core
-    │   ├── sort_curves.cpp
-    │   ├── sort_points.cpp     # single-point sibling of sort_curves (no direction/reversal)
-    │   ├── redistribute_lookups.cpp # arc-length density redistribution (pure 1D, no kd-tree)
-    │   ├── nanoflann.hpp       # vendored kd-tree (BSD 2-Clause)
-    │   └── geomseq_core.dll    # all official .cpp compiled into one binary (also .dylib / .so per platform)
-    ├── native_bridge.py        # ctypes loading + signatures (platform-aware)
-    ├── geometry_utils.py       # Python-facing API
-    └── misc.py                 # coordinate <-> flat-buffer marshaling
+├── geomseq_core/                       # pure-numeric core, no Rhino dependency
+│   ├── native/                         # C++ source + compiled binaries
+│   │   ├── sort_curves.cpp
+│   │   ├── sort_points.cpp             # single-point sibling of sort_curves (no direction/reversal)
+│   │   ├── redistribute_lookups.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
+│   │   ├── sort_points_no_crossing.cpp # shelved: crossing-free variant, not built into the dll
+│   │   ├── geometry2d.cpp / .h         # shelved: orientation / segment-intersection primitives (used only by sort_points_no_crossing)
+│   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
+│   │   ├── archive/                    # superseded reference implementations (e.g. pre-windowing 2-opt)
+│   │   └── geomseq_core.dll            # official .cpp files compiled into one binary (also .dylib / .so per platform)
+│   ├── native_bridge.py                # ctypes loading + signatures (platform-aware)
+│   ├── geometry_utils.py               # Python-facing wrappers (sort_curves_native, sort_points_native, ...)
+│   ├── misc.py                         # coordinate <-> flat-buffer marshaling
+│   └── _reload.py                      # dev-mode module unloading for GH hot-reload
+├── rhino_utils/                        # depends on RhinoCommon; logic complex/reusable enough not to be a thin GH shell
+│   ├── divide_curves.py                # curve -> division points + arc-length lookups
+│   └── sample_curve_points.py          # arc-length lookups -> points on a curve
+└── gh/                                 # thin Grasshopper component shells (GH I/O only, calls into the layers above)
+    ├── definitions/                    # .gh example files
+    └── *_component.py
 ```
 
 ## Build
