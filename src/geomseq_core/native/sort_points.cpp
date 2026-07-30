@@ -1,12 +1,6 @@
 // sort_points.cpp
-// Native point sorting for the Embroidery pipeline. Single-point sibling of
-// sort_curves.cpp: same greedy nearest-neighbor (k-NN via kd-tree) + 2-opt
-// algorithm, but over plain points instead of curve endpoints -- so there is
-// no direction/reversal concept here.
-//
-// Deliberately duplicates the small kd-tree plumbing (point cloud adaptor,
-// KDTree typedef, dist_pts) instead of sharing a header with sort_curves.cpp,
-// to avoid touching that file's already-verified logic.
+// Single-point sibling of sort_curves.cpp -- same greedy k-NN + 2-opt, but
+// over plain points (no direction/reversal); kd-tree plumbing is duplicated rather than shared.
 
 #include "nanoflann.hpp"
 #include <vector>

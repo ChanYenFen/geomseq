@@ -1,8 +1,6 @@
 // sort_curves.cpp
-// Native curve sorting for the Embroidery pipeline.
-// Algorithm: greedy nearest-neighbor (k-NN via kd-tree) + 2-opt.
-// Called from Rhino/GH Python via ctypes. Geometry never crosses the
-// boundary: only endpoint coordinates in, index permutation out.
+// Greedy k-NN (kd-tree) + 2-opt ordering of curve endpoints. Called from
+// Python via ctypes -- only endpoint coordinates cross the boundary, never geometry.
 
 #include "nanoflann.hpp"
 #include <vector>

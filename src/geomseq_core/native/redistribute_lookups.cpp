@@ -1,17 +1,6 @@
 // redistribute_lookups.cpp
-// Redistributes arc-length "lookups" along a curve to a new density profile,
-// without touching the curve itself -- purely 1D arc-length arithmetic. The
-// Python side turns the returned lookups back into curve points via
-// curve.LengthParameter() + curve.PointAt().
-//
-// mode 0 (dense_center): points sparse near both ends, dense in the middle.
-// mode 1 (dense_sides):   points dense near both ends, sparse in the middle.
-// flat_pct controls how much of the curve (centered) stays at constant
-// density; the rest fades between `low` and `high` step sizes.
-//
-// corner_indices names positions in `lookups` that must survive exactly in
-// the output (e.g. polyline vertices) -- the gradient must not skip over or
-// blur them away.
+// Redistributes arc-length lookups along a curve to a new density profile --
+// pure 1D arithmetic; the curve itself is never touched (Python maps the result back via curve.PointAt()).
 
 #if defined(_WIN32)
     #define DLL_EXPORT __declspec(dllexport)
