@@ -8,6 +8,7 @@ __date__ = "2026.03.05"
 __update__ = "2026.07.04"
 
 import ctypes
+import math
 
 try:
     # Package import (pip-installed geomseq_core, or `from geomseq_core import geometry_utils`).
@@ -167,3 +168,56 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
 
     return list(out_lookups[:out_count.value])
 
+def build_turn_waypoints_native(Ex, Ey, a_vx, a_vy, Sx, Sy, b_vx, b_vy,
+                                 theta_max_deg, step_len, extend_len):
+    """C++-backed smooth polygonal turn between two path segments
+    (native/build_turn_waypoints.cpp).
+
+    Ex, Ey / Sx, Sy: end of the current path / start of the next path.
+    a_vx, a_vy: heading leaving E (not necessarily unit length).
+    b_vx, b_vy: desired heading into S (not necessarily unit length).
+    theta_max_deg: max turn angle per step, in degrees. Values <= 1e-6 are
+    treated as 1 degree for buffer sizing, mirroring the native side's own
+    fallback for the same input, so the two stay in agreement.
+    step_len: arc step length; must be > 0.
+    extend_len: forward offset before the turn begins (>= 0).
+
+    Returns (exit_pts, entry_pts): waypoints leaving E and waypoints
+    arriving at S, each a list of plain (x, y) tuples -- no Rhino objects
+    built here, consistent with this module's no-Rhino-dependency principle.
+    """
+    if step_len <= 0:
+        raise ValueError(f"step_len must be > 0, got {step_len}")
+
+    lib = native_bridge.load_dll()
+
+    # Buffer size follows the .cpp header comment's own suggested
+    # ceil(180/theta_max_deg) + 2, using the same <= 1e-6 -> 1-degree
+    # fallback the native side applies internally -- so this is sized for
+    # what the DLL actually runs, not a division by a ~0 or negative value.
+    effective_theta = theta_max_deg if theta_max_deg > 1e-6 else 1.0
+    max_points = math.ceil(180 / effective_theta) + 2
+
+    out_exit_pts    = (ctypes.c_double * (max_points * 2))()
+    out_exit_count  = ctypes.c_int()
+    out_entry_pts   = (ctypes.c_double * (max_points * 2))()
+    out_entry_count = ctypes.c_int()
+
+    lib.build_turn_waypoints(
+        Ex, Ey, a_vx, a_vy, Sx, Sy, b_vx, b_vy,
+        theta_max_deg, step_len, extend_len,
+        out_exit_pts, ctypes.byref(out_exit_count),
+        out_entry_pts, ctypes.byref(out_entry_count),
+    )
+
+    # Flat buffer -> (x, y) tuples, only the actually-written prefix.
+    exit_pts = [
+        (out_exit_pts[i * 2], out_exit_pts[i * 2 + 1])
+        for i in range(out_exit_count.value)
+    ]
+    entry_pts = [
+        (out_entry_pts[i * 2], out_entry_pts[i * 2 + 1])
+        for i in range(out_entry_count.value)
+    ]
+
+    return exit_pts, entry_pts

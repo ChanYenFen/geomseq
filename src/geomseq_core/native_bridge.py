@@ -64,5 +64,22 @@ def load_dll():
     ]
     lib.redistribute_lookups.restype = None
 
+    # void build_turn_waypoints(....)
+    lib.build_turn_waypoints.argtypes = [
+        ctypes.c_double, ctypes.c_double,   # Ex, Ey
+        ctypes.c_double, ctypes.c_double,   # a_vx, a_vy
+        ctypes.c_double, ctypes.c_double,   # Sx, Sy
+        ctypes.c_double, ctypes.c_double,   # b_vx, b_vy
+        ctypes.c_double,                     # theta_max_deg
+        ctypes.c_double,                     # step_len
+        ctypes.c_double,                     # extend_len
+        ctypes.POINTER(ctypes.c_double),    # out_exit_pts
+        ctypes.POINTER(ctypes.c_int),       # out_exit_count
+        ctypes.POINTER(ctypes.c_double),    # out_entry_pts
+        ctypes.POINTER(ctypes.c_int),       # out_entry_count
+    ]
+    lib.build_turn_waypoints.restype = None
+
+
     _DLL = lib
     return lib

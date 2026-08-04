@@ -42,6 +42,7 @@ Grasshopper, a plain script, or any other front end.
 | `sort_curves` | greedy k-NN + 2-opt ordering of curves to minimize travel (direction-aware: reversal flags + optional per-segment travel points) | ✅ |
 | `sort_points` | single-point sibling of `sort_curves` (no direction/reversal concept) | ✅ |
 | `redistribute_lookups` | redistribute arc-length lookups to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
+| `build_turn_waypoints` | smooth polygonal turn waypoints between two path segments' end/start headings | ✅ |
 
 ## Layout
 
@@ -52,6 +53,7 @@ src/
 │   │   ├── sort_curves.cpp
 │   │   ├── sort_points.cpp             # single-point sibling of sort_curves (no direction/reversal)
 │   │   ├── redistribute_lookups.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
+│   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
 │   │   ├── archive/                    # superseded reference implementations (e.g. pre-windowing 2-opt)
 │   │   └── geomseq_core.dll            # official .cpp files compiled into one binary (also .dylib / .so per platform)
@@ -71,15 +73,16 @@ src/
 
 Rebuild the native library after editing any `.cpp`. All official sources
 compile into one shared library (`native_bridge.py` loads a single DLL and
-expects `sort_curves`, `sort_points`, and `redistribute_lookups` all exported
-from it), per platform (same code, different compiler):
+expects `sort_curves`, `sort_points`, `redistribute_lookups`, and
+`build_turn_waypoints` all exported from it), per platform (same code,
+different compiler):
 
 ```
 # Windows (x64 Native Tools Command Prompt)
-cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp /Fe:geomseq_core.dll
+cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp /Fe:geomseq_core.dll
 
 # macOS / Linux
-clang++ -std=c++17 -O2 -shared -fPIC -o geomseq_core.dylib sort_curves.cpp sort_points.cpp redistribute_lookups.cpp
+clang++ -std=c++17 -O2 -shared -fPIC -o geomseq_core.dylib sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp
 ```
 
 The Python bridge auto-selects the right binary (`.dll` / `.dylib` / `.so`) by
