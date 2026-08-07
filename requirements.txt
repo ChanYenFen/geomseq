@@ -1,1 +1,9 @@
-# Add Python dependencies here
+# No third-party dependencies.
+#
+# The core needs only the Python standard library (ctypes, array, math)
+# plus a compiled geomseq_core binary -- see the Build section in README.md.
+#
+# src/rhino_utils/ and src/gh/ import Rhino.Geometry, ghpythonlib and
+# Grasshopper, which ship with Rhino 8 and are not installable from pip.
+#
+# tests/ run on plain CPython with the standard library alone.

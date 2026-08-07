@@ -42,7 +42,7 @@ Grasshopper, a plain script, or any other front end.
 | `sort_curves` | greedy k-NN + 2-opt ordering of curves to minimize travel (direction-aware: reversal flags + optional per-segment travel points) | ✅ |
 | `sort_points` | single-point sibling of `sort_curves` (no direction/reversal concept) | ✅ |
 | `redistribute_lookups` | redistribute arc-length lookups to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
-| `build_turn_waypoints` | smooth polygonal turn waypoints between two path segments' end/start headings | ✅ |
+| `build_turn_waypoints` | travel path between two segments: extends each end into the gap, then fillets both corners so no waypoint turns by more than `theta_max_deg` | ✅ |
 
 ## Layout
 
@@ -67,6 +67,10 @@ src/
 └── gh/                                 # thin Grasshopper component shells (GH I/O only, calls into the layers above)
     ├── definitions/                    # .gh example files
     └── *_component.py
+
+tests/                                  # property tests, plain CPython (no Rhino)
+├── fixtures/                           # JSON inputs for the sort tests
+└── test_*.py
 ```
 
 ## Build
@@ -88,12 +92,33 @@ clang++ -std=c++17 -O2 -shared -fPIC -o geomseq_core.dylib sort_curves.cpp sort_
 The Python bridge auto-selects the right binary (`.dll` / `.dylib` / `.so`) by
 platform, so the same Python code runs everywhere.
 
+## Tests
+
+Property tests, run on plain CPython — no Rhino, since the core only ever sees
+coordinate arrays. Needs a compiled binary for the current platform (see Build):
+
+```
+python tests/test_sort_curves.py
+python tests/test_sort_points.py
+python tests/test_redistribute_lookups.py
+```
+
+Each prints one line per case, then `All tests passed`. The sort tests assert the
+result is a permutation of the input and that travel distance never exceeds the
+input order's. The redistribute test asserts the output spans the full arc
+length, increases strictly, reproduces every corner exactly, and keeps step sizes
+within `[low, high]` — except the final step onto `total_length` and steps
+rescaled to land on a corner, which the native side breaks the band for by
+design.
+
 ## Notes
 
-- The C++ core is CAD-independent and can be unit-tested on plain coordinate
-  arrays without Rhino.
-- Correctness is verified by cross-checking against a reference implementation
-  (e.g. total travel distance for ordering).
+- The C++ core is CAD-independent: it takes and returns plain coordinate arrays,
+  so it is testable without Rhino (see Tests) and reusable from any front end.
+- `redistribute_lookups`'s `flat_pct` is a **percent (0–100), not a 0–1
+  fraction** — `100.0` holds one density for the whole curve, `0.0` fades across
+  its entire length. Nothing validates the range, so `1.0` silently gives an
+  almost fully graded curve rather than a uniform one.
 - `sort_curves`'s 2-opt pass dispatches on `n`: exhaustive O(n²) at or below
   ~10,000 curves, a windowed kd-tree version (K=500 nearest candidate edges,
   ~O(n log n)) above that. Cut a 50k-curve case from ~3 min to ~43s; below

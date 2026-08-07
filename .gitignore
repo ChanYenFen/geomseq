@@ -7,6 +7,10 @@ src/geomseq_core/native/*.obj
 src/geomseq_core/native/*.lib
 src/geomseq_core/native/*.exp
 
+# Linux build is CI-only -- Rhino doesn't run there, so unlike the committed
+# .dll/.dylib there's nothing to distribute.
+src/geomseq_core/native/*.so
+
 # Rhino history/lock files
 *.rhl
 *.3dmbak

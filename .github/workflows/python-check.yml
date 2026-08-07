@@ -1,7 +1,34 @@
 name: Python Checks
+
 on: [push]
+
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Linux counterpart of the Windows/macOS commands in README's Build
+      # section -- keep the source list in sync with those.
+      #
+      # Built in place: native_bridge.py loads <this dir>/geomseq_core.so by
+      # platform, and expects exactly that name (not libgeomseq_core.so).
+      #
+      # *.cpp is the four official sources; archive/ holds superseded versions
+      # and is a subdirectory, so this non-recursive glob skips it.
+      #
+      # -pthread: nanoflann references std::thread/std::mutex even though its
+      # n_thread_build defaults to 1 and the concurrent build path never runs.
+      - name: Build geomseq_core.so
+        working-directory: src/geomseq_core/native
+        run: g++ -std=c++17 -O2 -shared -fPIC -pthread -o geomseq_core.so *.cpp
+
+      - name: Run tests
+        run: |
+          python tests/test_sort_curves.py
+          python tests/test_sort_points.py
+          python tests/test_redistribute_lookups.py
