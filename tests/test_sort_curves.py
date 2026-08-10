@@ -1,8 +1,6 @@
 """Property tests for sort_curves_native (fixtures/sort_curves_cases.json).
-
-Plain CPython, no Rhino: sort_curves_native only touches PointAtStart/PointAtEnd
-and Duplicate/Reverse, so _Seg is enough to stand in for a curve.
-"""
+Plain CPython, no Rhino: it only touches PointAtStart/PointAtEnd and
+Duplicate/Reverse, so _Seg is enough to stand in for a curve."""
 
 import json
 import math

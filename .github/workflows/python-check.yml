@@ -32,3 +32,4 @@ jobs:
           python tests/test_sort_curves.py
           python tests/test_sort_points.py
           python tests/test_redistribute_lookups.py
+          python tests/test_build_turn_waypoints.py

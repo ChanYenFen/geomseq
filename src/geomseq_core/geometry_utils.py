@@ -168,26 +168,34 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
 
     return list(out_lookups[:out_count.value])
 
+def _unit(vx, vy):
+    """Unit vector, or the input unchanged at zero length (matches native unit_vec)."""
+    n = math.hypot(vx, vy)
+    return (vx / n, vy / n) if n else (vx, vy)
+
+
 def build_turn_waypoints_native(Ex, Ey, a_vx, a_vy, Sx, Sy, b_vx, b_vy,
                                  theta_max_deg, step_len, extend_len):
-    """C++-backed smooth polygonal turn between two path segments
-    (native/build_turn_waypoints.cpp).
-
-    Ex, Ey / Sx, Sy: end of the current path / start of the next path.
-    a_vx, a_vy: heading leaving E (not necessarily unit length).
-    b_vx, b_vy: desired heading into S (not necessarily unit length).
-    theta_max_deg: max turn angle per step, in degrees. Values <= 1e-6 are
-    treated as 1 degree for buffer sizing, mirroring the native side's own
-    fallback for the same input, so the two stay in agreement.
-    step_len: arc step length; must be > 0.
-    extend_len: forward offset before the turn begins (>= 0).
-
-    Returns (exit_pts, entry_pts): waypoints leaving E and waypoints
-    arriving at S, each a list of plain (x, y) tuples -- no Rhino objects
-    built here, consistent with this module's no-Rhino-dependency principle.
-    """
+    """C++-backed smooth turn from path end E (heading a_v) to next start S (heading b_v); each end is extended `extend_len` into the gap and its corner filleted under `theta_max_deg`, `step_len` must be > 0.
+    Returns (exit_pts, entry_pts) as plain (x, y) tuples, not Rhino types."""
     if step_len <= 0:
         raise ValueError(f"step_len must be > 0, got {step_len}")
+
+    # The native side caps the turn per waypoint within each fillet, but the
+    # exit->entry junction is only smooth when both fillets have room to open
+    # up. Warn rather than raise -- the output is still usable, just kinkier.
+    gap = math.hypot(Sx - Ex, Sy - Ey)
+    if gap < 2.0 * extend_len:
+        print(f"[geomseq_core] build_turn_waypoints_native: warning: E-S distance {gap:.4f} "
+              f"< 2*extend_len {2.0 * extend_len:.4f}, junction angle not guaranteed")
+
+    a_hx, a_hy = _unit(a_vx, a_vy)
+    b_hx, b_hy = _unit(b_vx, b_vy)
+    bridge = math.hypot((Sx - b_hx * extend_len) - (Ex + a_hx * extend_len),
+                        (Sy - b_hy * extend_len) - (Ey + a_hy * extend_len))
+    if bridge < step_len:
+        print(f"[geomseq_core] build_turn_waypoints_native: warning: E_extend-S_extend distance "
+              f"{bridge:.4f} < step_len {step_len:.4f}, junction angle not guaranteed")
 
     lib = native_bridge.load_dll()
 

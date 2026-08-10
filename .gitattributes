@@ -2,4 +2,5 @@
 * text=auto
 
 src/geomseq_core/native/nanoflann.hpp linguist-vendored
+tests/*.py linguist-detectable=false
 src/gh/definitions/*.gh linguist-generated

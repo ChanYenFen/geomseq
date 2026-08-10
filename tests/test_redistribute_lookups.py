@@ -1,10 +1,6 @@
-"""Property tests for redistribute_lookups_native; cases are inline.
-
-Plain floats in and out, so nothing needs stubbing.
-
-Steps stay within [low, high] except where the native side must break the band
-to land exactly on a corner or on total_length -- both are exempted below.
-"""
+"""Property tests for redistribute_lookups_native; cases are inline, plain floats.
+Steps stay within [low, high] except where the native side breaks the band to
+land exactly on a corner or on total_length -- both are exempted below."""
 
 import math
 import os
@@ -23,9 +19,8 @@ def even_lookups(total_length, n):
     return [total_length * i / (n - 1) for i in range(n)]
 
 
-# flat_pct is a PERCENT (0-100), not a 0-1 fraction: the native side computes
-# fade_len = total_length * (100 - flat_pct) / 200. So 100.0 holds one density
-# the whole way, and 0.0 fades across the entire length.
+# flat_pct is a PERCENT (0-100), not a 0-1 fraction: 100.0 holds one density
+# the whole way, 0.0 fades across the entire length.
 CASES = [
     dict(name="mode0_dense_center", lookups=even_lookups(100.0, 101),
          low=2.0, high=8.0, mode=0, flat_pct=50.0, corner_indices=None),

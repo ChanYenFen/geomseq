@@ -101,6 +101,7 @@ coordinate arrays. Needs a compiled binary for the current platform (see Build):
 python tests/test_sort_curves.py
 python tests/test_sort_points.py
 python tests/test_redistribute_lookups.py
+python tests/test_build_turn_waypoints.py
 ```
 
 Each prints one line per case, then `All tests passed`. The sort tests assert the
@@ -109,7 +110,8 @@ input order's. The redistribute test asserts the output spans the full arc
 length, increases strictly, reproduces every corner exactly, and keeps step sizes
 within `[low, high]` — except the final step onto `total_length` and steps
 rescaled to land on a corner, which the native side breaks the band for by
-design.
+design. The turn test asserts both ends stay pinned to their extend points and
+that no waypoint turns by more than `theta_max_deg` (see Notes).
 
 ## Notes
 
@@ -119,6 +121,12 @@ design.
   fraction** — `100.0` holds one density for the whole curve, `0.0` fades across
   its entire length. Nothing validates the range, so `1.0` silently gives an
   almost fully graded curve rather than a uniform one.
+- `build_turn_waypoints` caps the per-waypoint turn at `theta_max_deg` **within
+  each fillet, but not across the exit→entry junction** — the two fillets are
+  built independently and their endpoints need not meet along the chord. With
+  `step_len` large relative to the E–S gap the junction can kink sharply (e.g.
+  62° at `theta_max_deg=30`). Callers needing a hard cap should check the gap
+  before calling, or keep `step_len` well under it.
 - `sort_curves`'s 2-opt pass dispatches on `n`: exhaustive O(n²) at or below
   ~10,000 curves, a windowed kd-tree version (K=500 nearest candidate edges,
   ~O(n log n)) above that. Cut a 50k-curve case from ~3 min to ~43s; below

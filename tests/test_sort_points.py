@@ -1,9 +1,6 @@
 """Property tests for sort_points_native (fixtures/sort_points_cases.json).
-
-Plain CPython, no Rhino: sort_points_native only reads .X/.Y/.Z and returns the
-same objects re-indexed, so _Pt is enough. No Duplicate/Reverse to stub here --
-points have no direction to flip, unlike curves.
-"""
+Plain CPython, no Rhino: it only reads .X/.Y/.Z and re-indexes the same objects,
+so _Pt suffices -- no Duplicate/Reverse, points have no direction to flip."""
 
 import json
 import math
