@@ -4,7 +4,22 @@ on: [push]
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux (g++)
+          - os: windows-latest
+            name: windows (msvc)
+          # macos-13 is the last Intel runner; macos-latest is arm64.
+          - os: macos-13
+            name: macos intel (clang++)
+          - os: macos-latest
+            name: macos arm64 (clang++)
+
     steps:
       - uses: actions/checkout@v4
 
@@ -12,21 +27,39 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Linux counterpart of the Windows/macOS commands in README's Build
-      # section -- keep the source list in sync with those.
-      #
-      # Built in place: native_bridge.py loads <this dir>/geomseq_core.so by
-      # platform, and expects exactly that name (not libgeomseq_core.so).
+      # Each build mirrors the matching command in README's Build section --
+      # keep them in sync. All build in place: native_bridge.py loads
+      # <geomseq_core>/native/geomseq_core.{so,dll,dylib} by platform, and
+      # expects exactly those names (not libgeomseq_core.so).
       #
       # *.cpp is the four official sources; archive/ holds superseded versions
-      # and is a subdirectory, so this non-recursive glob skips it.
+      # and is a subdirectory, so these non-recursive globs skip it.
       #
       # -pthread: nanoflann references std::thread/std::mutex even though its
       # n_thread_build defaults to 1 and the concurrent build path never runs.
-      - name: Build geomseq_core.so
+      - name: Build geomseq_core.so (linux)
+        if: runner.os == 'Linux'
         working-directory: src/geomseq_core/native
         run: g++ -std=c++17 -O2 -shared -fPIC -pthread -o geomseq_core.so *.cpp
 
+      - name: Build geomseq_core.dylib (macos)
+        if: runner.os == 'macOS'
+        working-directory: src/geomseq_core/native
+        run: clang++ -std=c++17 -O2 -shared -fPIC -pthread -o geomseq_core.dylib *.cpp
+
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # cmd, not bash: Git Bash mangles cl.exe's /Fe: flag into a path.
+      # Sources are listed explicitly because cmd does not expand globs.
+      - name: Build geomseq_core.dll (windows)
+        if: runner.os == 'Windows'
+        working-directory: src/geomseq_core/native
+        shell: cmd
+        run: cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp /Fe:geomseq_core.dll
+
+      # `python` (not python3) on every platform -- setup-python puts it on PATH.
       - name: Run tests
         run: |
           python tests/test_sort_curves.py

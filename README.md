@@ -113,6 +113,21 @@ rescaled to land on a corner, which the native side breaks the band for by
 design. The turn test asserts both ends stay pinned to their extend points and
 that no waypoint turns by more than `theta_max_deg` (see Notes).
 
+## CI
+
+Every push builds the native library and runs the four test files on a matrix of
+Windows (MSVC), macOS Intel and arm64 (clang++), and Linux (g++).
+
+Linux is **not** a deployment target — Rhino does not run there. That job is a
+portability check on the C++ core alone: it proves the numeric layer builds and
+behaves identically under a third toolchain, independent of any CAD host. The
+same is true of what CI covers everywhere — it exercises `geomseq_core` only.
+`rhino_utils/` and `gh/` need RhinoCommon and are verified by hand in Rhino.
+
+CI also rebuilds the binary from source on every run, so the `.dll` / `.dylib`
+committed to this repo are never the ones under test. Rebuild and re-commit them
+when the C++ changes; a green CI badge says nothing about their freshness.
+
 ## Notes
 
 - The C++ core is CAD-independent: it takes and returns plain coordinate arrays,
