@@ -6,6 +6,8 @@ import math
 import os
 import sys
 
+import pytest
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "src"))
 
@@ -65,11 +67,6 @@ def check_case(name, lookups, low, high, mode, flat_pct, corner_indices):
     print(f"{name:<28} n_out={len(out):5d}   step[{min(steps):7.3f},{max(steps):7.3f}]")
 
 
-def main():
-    for case in CASES:
-        check_case(**case)
-    print("All tests passed")
-
-
-if __name__ == "__main__":
-    main()
+@pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
+def test_redistribute_lookups(case):
+    check_case(**case)

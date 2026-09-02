@@ -6,6 +6,8 @@ import math
 import os
 import sys
 
+import pytest
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "src"))
 
@@ -86,11 +88,6 @@ def check_case(name, E_prev, E, S, S_next, theta_max_deg, step_len, extend_len, 
           f"   max_turn={worst:7.3f}")
 
 
-def main():
-    for case in CASES:
-        check_case(**case)
-    print("All tests passed")
-
-
-if __name__ == "__main__":
-    main()
+@pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
+def test_build_turn_waypoints(case):
+    check_case(**case)

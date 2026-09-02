@@ -7,6 +7,8 @@ import math
 import os
 import sys
 
+import pytest
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "src"))
 
@@ -15,6 +17,9 @@ from geomseq_core.geometry_utils import sort_points_native
 FIXTURES = os.path.join(_HERE, "fixtures", "sort_points_cases.json")
 KNN_K, USE_2OPT, MAX_PASSES = 12, True, 10
 TOL = 1e-9
+
+with open(FIXTURES, encoding="utf-8") as fh:
+    CASES = json.load(fh)
 
 
 class _Pt:
@@ -29,7 +34,8 @@ def travel_distance(points):
     return sum(math.hypot(c.X - p.X, c.Y - p.Y) for p, c in zip(points, points[1:]))
 
 
-def check_case(name, coords):
+@pytest.mark.parametrize("name, coords", CASES.items(), ids=list(CASES.keys()))
+def test_sort_points(name, coords):
     points = [_Pt(x, y) for x, y in coords]
     n = len(points)
 
@@ -44,15 +50,3 @@ def check_case(name, coords):
         f"{name}: sorted travel {sorted_dist:.6f} exceeds naive {naive_dist:.6f}")
 
     print(f"{name:<28} travel={sorted_dist:12.3f}   naive={naive_dist:12.3f}")
-
-
-def main():
-    with open(FIXTURES, encoding="utf-8") as fh:
-        cases = json.load(fh)
-    for name, coords in cases.items():
-        check_case(name, coords)
-    print("All tests passed")
-
-
-if __name__ == "__main__":
-    main()

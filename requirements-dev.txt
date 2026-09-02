@@ -1,0 +1,5 @@
+# Dev/test-only dependencies -- not needed to use geomseq_core itself
+# (see requirements.txt). Install with:
+#   pip install -r requirements-dev.txt
+
+pytest

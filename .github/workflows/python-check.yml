@@ -27,6 +27,9 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
       # Each build mirrors the matching command in README's Build section --
       # keep them in sync. All build in place: native_bridge.py loads
       # <geomseq_core>/native/geomseq_core.{so,dll,dylib} by platform, and
@@ -60,9 +63,7 @@ jobs:
         run: cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp /Fe:geomseq_core.dll
 
       # `python` (not python3) on every platform -- setup-python puts it on PATH.
+      # Tests are now pytest-parametrized (no __main__ block), so they must be
+      # collected via pytest, not run as plain scripts.
       - name: Run tests
-        run: |
-          python tests/test_sort_curves.py
-          python tests/test_sort_points.py
-          python tests/test_redistribute_lookups.py
-          python tests/test_build_turn_waypoints.py
+        run: python -m pytest tests/ -v
