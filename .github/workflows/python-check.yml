@@ -14,9 +14,9 @@ jobs:
             name: linux (g++)
           - os: windows-latest
             name: windows (msvc)
-          # macos-13 is the last Intel runner; macos-latest is arm64.
-          - os: macos-13
-            name: macos intel (clang++)
+          # arm64 only -- GitHub no longer allocates Intel macOS runners
+          # (macos-13 jobs queue until the 24h limit, then cancel). Intel is
+          # covered by building and testing locally on an Intel Mac.
           - os: macos-latest
             name: macos arm64 (clang++)
 

@@ -116,7 +116,9 @@ that no waypoint turns by more than `theta_max_deg` (see Notes).
 ## CI
 
 Every push builds the native library and runs the four test files on a matrix of
-Windows (MSVC), macOS Intel and arm64 (clang++), and Linux (g++).
+Windows (MSVC), macOS arm64 (clang++), and Linux (g++). Intel macOS is not in the
+matrix — GitHub no longer allocates those runners — so it is verified by building
+and testing locally on an Intel Mac.
 
 Linux is **not** a deployment target — Rhino does not run there. That job is a
 portability check on the C++ core alone: it proves the numeric layer builds and
