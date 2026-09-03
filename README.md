@@ -81,16 +81,29 @@ expects `sort_curves`, `sort_points`, `redistribute_lookups`, and
 `build_turn_waypoints` all exported from it), per platform (same code,
 different compiler):
 
+Run these from `src/geomseq_core/native/`:
+
 ```
 # Windows (x64 Native Tools Command Prompt)
 cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp /Fe:geomseq_core.dll
 
-# macOS / Linux
-clang++ -std=c++17 -O2 -shared -fPIC -o geomseq_core.dylib sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp
+# macOS
+clang++ -std=c++17 -O2 -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp
+lipo -archs geomseq_core.dylib      # expect: x86_64 arm64
+
+# Linux
+g++ -std=c++17 -O2 -shared -fPIC -pthread -o geomseq_core.so *.cpp
 ```
 
+Both `-arch` flags are required on macOS. Without them clang builds only the
+host architecture, and the result fails to load in Rhino 8 on the other one —
+it runs natively on Apple Silicon, not under Rosetta. Either Mac can build the
+universal binary; only the host architecture can be tested locally, and CI's
+arm64 runner covers the other half.
+
 The Python bridge auto-selects the right binary (`.dll` / `.dylib` / `.so`) by
-platform, so the same Python code runs everywhere.
+platform. Only `.dll` and `.dylib` are committed — Rhino does not run on Linux,
+so the `.so` exists solely as an ephemeral CI build.
 
 ## Tests
 
@@ -98,13 +111,11 @@ Property tests, run on plain CPython — no Rhino, since the core only ever sees
 coordinate arrays. Needs a compiled binary for the current platform (see Build):
 
 ```
-python tests/test_sort_curves.py
-python tests/test_sort_points.py
-python tests/test_redistribute_lookups.py
-python tests/test_build_turn_waypoints.py
+pip install -r requirements-dev.txt
+python -m pytest tests/
 ```
 
-Each prints one line per case, then `All tests passed`. The sort tests assert the
+Every fixture case is its own parametrized test (17 in total). The sort tests assert the
 result is a permutation of the input and that travel distance never exceeds the
 input order's. The redistribute test asserts the output spans the full arc
 length, increases strictly, reproduces every corner exactly, and keeps step sizes
@@ -115,20 +126,37 @@ that no waypoint turns by more than `theta_max_deg` (see Notes).
 
 ## CI
 
-Every push builds the native library and runs the four test files on a matrix of
-Windows (MSVC), macOS arm64 (clang++), and Linux (g++). Intel macOS is not in the
-matrix — GitHub no longer allocates those runners — so it is verified by building
-and testing locally on an Intel Mac.
+Every push rebuilds the native library from source and runs the whole suite under
+`pytest` on three runners:
 
-Linux is **not** a deployment target — Rhino does not run there. That job is a
-portability check on the C++ core alone: it proves the numeric layer builds and
-behaves identically under a third toolchain, independent of any CAD host. The
-same is true of what CI covers everywhere — it exercises `geomseq_core` only.
-`rhino_utils/` and `gh/` need RhinoCommon and are verified by hand in Rhino.
+| Runner | Toolchain | Role |
+|--------|-----------|------|
+| `windows-latest` | MSVC | deployment target |
+| `macos-latest` | clang++ (arm64) | deployment target |
+| `ubuntu-latest` | g++ | portability guard |
 
-CI also rebuilds the binary from source on every run, so the `.dll` / `.dylib`
-committed to this repo are never the ones under test. Rebuild and re-commit them
-when the C++ changes; a green CI badge says nothing about their freshness.
+`fail-fast` is off, so one platform breaking still reports the other two.
+
+### Why Linux, when Rhino cannot run there
+
+The `.so` it produces is thrown away — nobody ships it. The job earns its place
+as a *third toolchain*: a different standard library catches code that merely
+happens to compile under the other two. It already has. Vendored nanoflann uses
+`std::thread` and `std::mutex` without including `<mutex>` or `<thread>`, leaning
+on transitive includes that MSVC and libc++ provide but other implementations do
+not. Two platforms would never have surfaced that.
+
+It is also the cheapest guard available: ~10s per run, against ~28s for Windows.
+
+### What CI does not cover
+
+- **`rhino_utils/` and `gh/`** — they need RhinoCommon, which no runner has. Verified by hand in Rhino.
+- **Intel macOS** — GitHub no longer allocates those runners (jobs queue until the 24h limit, then cancel). Built and tested locally on an Intel Mac instead.
+- **The committed `.dll` / `.dylib`** — CI compiles its own, so a green badge says nothing about whether the binaries in this repo are current, or built for the right architecture. Rebuild and re-commit them whenever the C++ changes.
+- **Undefined behaviour all three toolchains happen to tolerate** — passing on three is evidence of portability, not proof of it.
+
+CI also builds macOS for the host architecture only; the universal binary in
+Build is for distribution, and only its native half could be executed anywhere.
 
 ## Notes
 
