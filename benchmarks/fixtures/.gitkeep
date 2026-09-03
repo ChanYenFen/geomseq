@@ -1,0 +1,11 @@
+Recorded benchmark inputs live here, one dataset per file.
+
+Empty is a valid state: with no fixtures present the benchmark runs on
+synthetic uniform data only. Drop a file in and its cases appear automatically
+-- no code change needed.
+
+Naming: points_<name>.json or curves_<name>.json. The kind is in the filename
+so the harness can list fixtures without parsing megabytes of JSON.
+
+Format and the list of datasets worth recording:
+../../docs/benchmark-fixtures.md

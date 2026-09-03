@@ -2,7 +2,10 @@
 run.py's how it gets timed. Each function's axis differs; see ../README.md.
 Stand-in geometry mirrors tests/, so no Rhino types are needed."""
 
+import glob
+import json
 import math
+import os
 import random
 
 from geomseq_core.geometry_utils import (
@@ -70,6 +73,46 @@ def make_segments(n, seed=1, min_len=5.0, max_len=20.0):
     return out
 
 
+# --------------------------------------------------------------------------
+# Recorded fixtures -- optional, additive; see ../../docs/benchmark-fixtures.md
+# --------------------------------------------------------------------------
+
+FIXTURE_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fixtures")
+
+_FIXTURE_CACHE = {}
+
+
+def fixture_paths(kind):
+    """Fixture files of `kind` ("points" / "curves"). Kind is in the filename so
+    globbing does not have to parse megabytes just to find out."""
+    return sorted(glob.glob(os.path.join(FIXTURE_DIR, "%s_*.json" % kind)))
+
+
+def load_fixture(path):
+    """Parse (and cache) one fixture -> its `data` list. Multi-MB files, so this
+    is deliberately lazy: nothing is read until a case using it actually runs."""
+    if path not in _FIXTURE_CACHE:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        _FIXTURE_CACHE[path] = doc["data"]
+    return _FIXTURE_CACHE[path]
+
+
+def fixture_name(path):
+    """points_real_lettering.json -> real_lettering."""
+    return os.path.basename(path).split("_", 1)[1].rsplit(".", 1)[0]
+
+
+def sample(data, n, seed=1):
+    """`n` items drawn from `data`, seeded. Sampling rather than slicing keeps
+    the distribution (clustering included) comparable across n; a slice would be
+    one region of the design and would muddy the scaling exponent."""
+    if n >= len(data):
+        return list(data)
+    return random.Random(seed).sample(list(data), n)
+
+
 def even_lookups(total_length, n):
     """Evenly spaced arc-length samples, as a real curve division would give."""
     return [total_length * i / (n - 1) for i in range(n)]
@@ -117,25 +160,36 @@ TWO_OPT_CHEAP_LIMIT = 8000  # above this, exhaustive 2-opt runs into minutes
 KNN_K, MAX_PASSES = 12, 10
 
 
+def _point_sources():
+    """(label, builder, available_n) -- uniform synthetic first as the control,
+    then any recorded fixture. available_n caps the sweep so a case never claims
+    an n the fixture cannot supply."""
+    out = [("uniform", make_points, None)]
+    for path in fixture_paths("points"):
+        data = load_fixture(path)
+        out.append((fixture_name(path),
+                    lambda n, d=data: [_Pt(x, y) for x, y in sample(d, n)],
+                    len(data)))
+    return out
+
+
 def _sort_points_cases():
     cases = []
-    for n in SORT_POINTS_SIZES:
-        cases.append(Case(
-            "sort_points", "greedy_n%d" % n,
-            setup=lambda n=n: make_points(n),
-            run=lambda p: sort_points_native(p, use_two_opt=False,
-                                             two_opt_max_passes=MAX_PASSES, knn_k=KNN_K),
-            axis=dict(n=n, two_opt=False),
-        ))
-    for n in SORT_POINTS_SIZES:
-        cases.append(Case(
-            "sort_points", "2opt_n%d" % n,
-            setup=lambda n=n: make_points(n),
-            run=lambda p: sort_points_native(p, use_two_opt=True,
-                                             two_opt_max_passes=MAX_PASSES, knn_k=KNN_K),
-            axis=dict(n=n, two_opt=True),
-            heavy=(n > TWO_OPT_CHEAP_LIMIT),
-        ))
+    sources = _point_sources()
+    for two_opt in (False, True):
+        for label, build, avail in sources:
+            for n in SORT_POINTS_SIZES:
+                if avail is not None and n > avail:
+                    continue
+                cases.append(Case(
+                    "sort_points",
+                    "%s_%s_n%d" % (label, "2opt" if two_opt else "greedy", n),
+                    setup=lambda n=n, build=build: build(n),
+                    run=lambda p, t=two_opt: sort_points_native(
+                        p, use_two_opt=t, two_opt_max_passes=MAX_PASSES, knn_k=KNN_K),
+                    axis=dict(data=label, n=n, two_opt=two_opt),
+                    heavy=(two_opt and n > TWO_OPT_CHEAP_LIMIT),
+                ))
     return cases
 
 
@@ -147,33 +201,47 @@ SORT_CURVES_SIZES = [1000, 4000, 8000, 12000, 16000]
 SORT_CURVES_HEAVY_ABOVE = 12000
 
 
+def _curve_sources():
+    """As _point_sources, for curves. Fixture rows are [x0, y0, x1, y1], the
+    same shape tests/fixtures/sort_curves_cases.json already uses."""
+    out = [("uniform", make_segments, None)]
+    for path in fixture_paths("curves"):
+        data = load_fixture(path)
+        out.append((fixture_name(path),
+                    lambda n, d=data: [_Seg(*row) for row in sample(d, n)],
+                    len(data)))
+    return out
+
+
 def _sort_curves_cases():
     cases = []
-    for n in SORT_CURVES_SIZES:
-        cases.append(Case(
-            "sort_curves", "greedy_n%d" % n,
-            setup=lambda n=n: make_segments(n),
-            run=lambda c: sort_curves_native(c, use_two_opt=False, if_flip=True,
-                                             two_opt_max_passes=MAX_PASSES, knn_k=KNN_K),
-            axis=dict(n=n, two_opt=False, if_flip=True),
-        ))
-    for n in SORT_CURVES_SIZES:
-        cases.append(Case(
-            "sort_curves", "2opt_n%d" % n,
-            setup=lambda n=n: make_segments(n),
-            run=lambda c: sort_curves_native(c, use_two_opt=True, if_flip=True,
-                                             two_opt_max_passes=MAX_PASSES, knn_k=KNN_K),
-            axis=dict(n=n, two_opt=True, if_flip=True,
-                      two_opt_path=("exhaustive" if n <= 10000 else "windowed")),
-            heavy=(n > SORT_CURVES_HEAVY_ABOVE),
-        ))
+    sources = _curve_sources()
+    for two_opt in (False, True):
+        for label, build, avail in sources:
+            for n in SORT_CURVES_SIZES:
+                if avail is not None and n > avail:
+                    continue
+                axis = dict(data=label, n=n, two_opt=two_opt, if_flip=True)
+                if two_opt:
+                    axis["two_opt_path"] = "exhaustive" if n <= 10000 else "windowed"
+                cases.append(Case(
+                    "sort_curves",
+                    "%s_%s_n%d" % (label, "2opt" if two_opt else "greedy", n),
+                    setup=lambda n=n, build=build: build(n),
+                    run=lambda c, t=two_opt: sort_curves_native(
+                        c, use_two_opt=t, if_flip=True,
+                        two_opt_max_passes=MAX_PASSES, knn_k=KNN_K),
+                    axis=axis,
+                    heavy=(two_opt and n > SORT_CURVES_HEAVY_ABOVE),
+                ))
     for n in [1000, 8000, 16000]:
         cases.append(Case(
-            "sort_curves", "fixeddir_n%d" % n,
+            "sort_curves", "uniform_fixeddir_n%d" % n,
             setup=lambda n=n: make_segments(n),
             run=lambda c: sort_curves_native(c, use_two_opt=True, if_flip=False,
                                              two_opt_max_passes=MAX_PASSES, knn_k=KNN_K),
-            axis=dict(n=n, two_opt="skipped (if_flip=False)", if_flip=False),
+            axis=dict(data="uniform", n=n,
+                      two_opt="skipped (if_flip=False)", if_flip=False),
         ))
     return cases
 
@@ -193,12 +261,6 @@ def travel_distance(curves):
                for p, c in zip(curves, curves[1:]))
 
 
-def _observe_travel(curves):
-    ordered, _ = sort_curves_native(curves, use_two_opt=False,
-                                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
-    return dict(greedy_travel=round(travel_distance(ordered), 1))
-
-
 def _crossover_cases():
     cases = []
     for n in CROSSOVER_SIZES:
@@ -216,10 +278,10 @@ def _crossover_cases():
                 return dict(travel=round(travel_distance(ordered), 1))
 
             cases.append(Case(
-                "sort_curves_crossover", "%s_n%d" % (label, n),
+                "sort_curves_crossover", "uniform_%s_n%d" % (label, n),
                 setup=lambda n=n: make_segments(n),
                 run=run, observe=observe,
-                axis=dict(n=n, path=label,
+                axis=dict(data="uniform", n=n, path=label,
                           auto_would_pick=("exhaustive" if n <= 10000 else "windowed")),
                 heavy=(n > CROSSOVER_HEAVY_ABOVE),
             ))
