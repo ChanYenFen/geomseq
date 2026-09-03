@@ -125,6 +125,15 @@ extern "C" {
 //               0 = direction is fixed, connect head->tail only. In this
 //               mode reversal is always 0, and 2-opt is skipped because
 //               reversing a sub-sequence would flip curve directions.
+//   two_opt_mode : which 2-opt implementation to use.
+//               0 = auto: pick by TWO_OPT_WINDOW_THRESHOLD (the shipping
+//                   behaviour -- callers that do not care pass 0)
+//               1 = force exhaustive, 2 = force windowed.
+//               Exists so the two paths can be measured against each other at
+//               the same n. Under `auto` they never overlap, which makes the
+//               crossover impossible to observe from outside and the
+//               threshold impossible to re-calibrate after a WINDOW_K or
+//               hardware change. Not intended for production callers.
 //
 // Outputs (caller pre-allocates, we fill):
 //   out_order         : n ints -> original curve indices in sorted order
@@ -143,6 +152,7 @@ DLL_EXPORT void sort_curves(
     int           two_opt_max_passes,
     int           knn_k,
     int           if_flip,
+    int           two_opt_mode,
     int*          out_order,
     int*          out_reversal,
     double*       out_travel_points)
@@ -286,7 +296,14 @@ DLL_EXPORT void sort_curves(
     if (use_two_opt && if_flip && n > 3) {
         const int TWO_OPT_WINDOW_THRESHOLD = 10000;
 
-        if (n <= TWO_OPT_WINDOW_THRESHOLD) {
+        // two_opt_mode overrides the threshold: 0 = auto (ship behaviour),
+        // 1 = exhaustive, 2 = windowed. Anything else falls back to auto
+        // rather than picking a path by accident.
+        bool use_windowed = (two_opt_mode == 1) ? false
+                          : (two_opt_mode == 2) ? true
+                          : (n > TWO_OPT_WINDOW_THRESHOLD);
+
+        if (!use_windowed) {
             // --- Exhaustive: test every (i, j) pair ---
             bool improved = true;
             int  passes   = 0;

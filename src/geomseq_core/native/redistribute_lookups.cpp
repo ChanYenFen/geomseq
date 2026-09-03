@@ -11,19 +11,22 @@
 extern "C" {
 
 // Inputs (read-only):
-//   lookups        : original evenly-spaced arc-length samples; only
-//                    lookups[n-1] (total curve length) and, via
-//                    corner_indices, specific entries are used -- the rest
-//                    of the original spacing is discarded and regenerated.
-//   n              : number of lookups
+//   total_length   : arc length of the whole curve (the old `lookups[n-1]`)
 //   low            : smallest step size (used at the density peak)
 //   high           : largest step size (used at the sparsest point)
 //   mode           : 0 = dense_center, 1 = dense_sides
 //   flat_pct       : percent of total_length (centered) held at constant
 //                    density; the remainder fades between low and high
-//   corner_indices : indices into `lookups` that must appear exactly in the
-//                    output; may be nullptr if num_corners == 0
-//   num_corners    : length of corner_indices, 0 if none
+//   corner_lengths : arc lengths that must appear exactly in the output,
+//                    ascending; may be nullptr if num_corners == 0
+//   num_corners    : length of corner_lengths, 0 if none
+//
+// This used to take the whole original lookup array plus corner *indices* into
+// it. It never read more than the last element and the corner entries, so at
+// 100k input samples ~97% of the call's wall time was Python marshaling an
+// array this function then ignored. Resolving the corners to arc lengths on
+// the Python side (an O(num_corners) list index) makes the cost independent of
+// the input resolution. The Python wrapper's own signature is unchanged.
 //
 // Outputs (caller pre-allocates, we fill):
 //   out_lookups : new arc-length samples (caller must size the buffer
@@ -31,18 +34,16 @@ extern "C" {
 //                 for the sizing formula)
 //   out_count   : number of entries actually written to out_lookups
 DLL_EXPORT void redistribute_lookups(
-    const double* lookups,
-    int           n,
+    double        total_length,
     double        low,
     double        high,
     int           mode,
     double        flat_pct,
-    const int*    corner_indices,
+    const double* corner_lengths,
     int           num_corners,
     double*       out_lookups,
     int*          out_count)
 {
-    double total_length = lookups[n - 1];
     double fade_len = total_length * (100.0 - flat_pct) / 2.0 / 100.0;
 
     // dense_center: edges are sparse (high), the fade settles into a dense
@@ -60,11 +61,11 @@ DLL_EXPORT void redistribute_lookups(
     count++;
 
     // Skip any corner at or before the start -- already covered by the
-    // initial point above. Without this, a corner at lookups[0] == 0 would
+    // initial point above. Without this, a corner at arc length 0 would
     // permanently stall next_corner_idx at 0 (corner_length > position is
     // false when both are 0), and every real corner after it would never
     // get consumed.
-    while (next_corner_idx < num_corners && lookups[corner_indices[next_corner_idx]] <= position) {
+    while (next_corner_idx < num_corners && corner_lengths[next_corner_idx] <= position) {
         next_corner_idx++;
     }
 
@@ -110,7 +111,7 @@ DLL_EXPORT void redistribute_lookups(
         // exact landing on the corner instead of one abrupt final
         // truncation.
         if (next_corner_idx < num_corners) {
-            double corner_length = lookups[corner_indices[next_corner_idx]];
+            double corner_length = corner_lengths[next_corner_idx];
             if (corner_length > position) {
                 double remaining = corner_length - position;
                 if (remaining <= 2.0 * step) {

@@ -1,6 +1,12 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# Language bar should reflect the shipped product: the C++ core, its Python
+# bindings and the GH components. Supporting code is real and maintained, just
+# not what the repo *is* -- hence detectable=false, which only drops it from
+# the stats, rather than vendored/generated, which also affect diffs.
 src/geomseq_core/native/nanoflann.hpp linguist-vendored
-tests/*.py linguist-detectable=false
 src/gh/definitions/*.gh linguist-generated
+tests/** linguist-detectable=false
+benchmarks/** linguist-detectable=false
+src/geomseq_core/native/archive/** linguist-detectable=false

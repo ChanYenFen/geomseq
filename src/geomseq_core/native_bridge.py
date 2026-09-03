@@ -22,7 +22,7 @@ def load_dll():
     dll_path = os.path.join(here, "native", lib_name)
     lib = ctypes.CDLL(dll_path)
 
-    # void sort_curves(const double*, int, const double*, int, int, int, int, int*, int*, double*)
+    # void sort_curves(const double*, int, const double*, int, int, int, int, int, int*, int*, double*)
     lib.sort_curves.argtypes = [
         ctypes.POINTER(ctypes.c_double),  # endpoints (6*n)
         ctypes.c_int,                     # n
@@ -31,6 +31,7 @@ def load_dll():
         ctypes.c_int,                     # two_opt_max_passes
         ctypes.c_int,                     # knn_k
         ctypes.c_int,                     # if_flip
+        ctypes.c_int,                     # two_opt_mode (0=auto, 1=exhaustive, 2=windowed)
         ctypes.POINTER(ctypes.c_int),     # out_order (n)
         ctypes.POINTER(ctypes.c_int),     # out_reversal (n)
         ctypes.POINTER(ctypes.c_double),  # out_travel_points (n*6)
@@ -49,15 +50,18 @@ def load_dll():
     ]
     lib.sort_points.restype = None
 
-    # void redistribute_lookups(const double*, int, double, double, int, double, const int*, int, double*, int*)
+    # void redistribute_lookups(double, double, double, int, double, const double*, int, double*, int*)
+    # Takes total_length + resolved corner arc lengths, NOT the original lookup
+    # array: the native side never read more than those, so passing the whole
+    # array was pure marshaling cost. Corner *indices* -> arc lengths is done
+    # in geometry_utils, which keeps the Python-facing signature unchanged.
     lib.redistribute_lookups.argtypes = [
-        ctypes.POINTER(ctypes.c_double),  # lookups (n)
-        ctypes.c_int,                     # n
+        ctypes.c_double,                  # total_length
         ctypes.c_double,                  # low
         ctypes.c_double,                  # high
         ctypes.c_int,                     # mode
         ctypes.c_double,                  # flat_pct
-        ctypes.POINTER(ctypes.c_int),     # corner_indices (num_corners), nullable
+        ctypes.POINTER(ctypes.c_double),  # corner_lengths (num_corners), nullable
         ctypes.c_int,                     # num_corners
         ctypes.POINTER(ctypes.c_double),  # out_lookups (caller-allocated)
         ctypes.POINTER(ctypes.c_int),     # out_count

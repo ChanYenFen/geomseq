@@ -1,0 +1,439 @@
+{
+  "env": {
+    "timestamp": "2026-09-03T15:34:33",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+    "toolchain_expected": "MSVC",
+    "python": "3.10.6",
+    "binary": {
+      "name": "geomseq_core.dll",
+      "present": true,
+      "size_bytes": 259072,
+      "sha256_prefix": "fd6ad632ec57ae5e",
+      "mtime": "2026-09-03T14:18:23"
+    }
+  },
+  "heavy": false,
+  "records": [
+    {
+      "group": "redistribute_lookups",
+      "name": "input_n101",
+      "axis": {
+        "input_n": 101,
+        "band": "2-8",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 367
+      },
+      "best_seconds": 1.5799887478351593e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "input_n1001",
+      "axis": {
+        "input_n": 1001,
+        "band": "2-8",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 367
+      },
+      "best_seconds": 1.6899779438972473e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "input_n10001",
+      "axis": {
+        "input_n": 10001,
+        "band": "2-8",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 367
+      },
+      "best_seconds": 1.750001683831215e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "input_n100001",
+      "axis": {
+        "input_n": 100001,
+        "band": "2-8",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 367
+      },
+      "best_seconds": 4.0899962186813354e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "band_8_20",
+      "axis": {
+        "input_n": 10001,
+        "band": "8-20",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 102
+      },
+      "best_seconds": 1.949956640601158e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "band_2_8",
+      "axis": {
+        "input_n": 10001,
+        "band": "2-8",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 367
+      },
+      "best_seconds": 1.5600118786096573e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "band_0.5_2",
+      "axis": {
+        "input_n": 10001,
+        "band": "0.5-2",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 1464
+      },
+      "best_seconds": 4.4300220906734467e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "band_0.2_0.8",
+      "axis": {
+        "input_n": 10001,
+        "band": "0.2-0.8",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 3657
+      },
+      "best_seconds": 0.00010540010407567024,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "corners_0",
+      "axis": {
+        "input_n": 10001,
+        "band": "0.5-2",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 1464
+      },
+      "best_seconds": 4.54997643828392e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "corners_10",
+      "axis": {
+        "input_n": 10001,
+        "band": "0.5-2",
+        "corners": 10,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 1465
+      },
+      "best_seconds": 5.340017378330231e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "corners_100",
+      "axis": {
+        "input_n": 10001,
+        "band": "0.5-2",
+        "corners": 100,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 1462
+      },
+      "best_seconds": 8.649984374642372e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "corners_1000",
+      "axis": {
+        "input_n": 10001,
+        "band": "0.5-2",
+        "corners": 1000,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 1557
+      },
+      "best_seconds": 0.00031880009919404984,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "mode0",
+      "axis": {
+        "input_n": 10001,
+        "band": "0.5-2",
+        "corners": 0,
+        "mode": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 1464
+      },
+      "best_seconds": 4.660012200474739e-05,
+      "reps": 5
+    },
+    {
+      "group": "redistribute_lookups",
+      "name": "mode1",
+      "axis": {
+        "input_n": 10001,
+        "band": "0.5-2",
+        "corners": 0,
+        "mode": 1
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 714
+      },
+      "best_seconds": 2.769986167550087e-05,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "straight_theta30",
+      "axis": {
+        "geometry": "straight",
+        "theta_max_deg": 30.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 2
+      },
+      "best_seconds": 0.011823399923741817,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "straight_theta10",
+      "axis": {
+        "geometry": "straight",
+        "theta_max_deg": 10.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 2
+      },
+      "best_seconds": 0.012023699935525656,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "straight_theta5",
+      "axis": {
+        "geometry": "straight",
+        "theta_max_deg": 5.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 2
+      },
+      "best_seconds": 0.018408000003546476,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "straight_theta1",
+      "axis": {
+        "geometry": "straight",
+        "theta_max_deg": 1.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 2
+      },
+      "best_seconds": 0.013912900350987911,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "right_angle_theta30",
+      "axis": {
+        "geometry": "right_angle",
+        "theta_max_deg": 30.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 6
+      },
+      "best_seconds": 0.01314220018684864,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "right_angle_theta10",
+      "axis": {
+        "geometry": "right_angle",
+        "theta_max_deg": 10.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 12
+      },
+      "best_seconds": 0.014940900262445211,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "right_angle_theta5",
+      "axis": {
+        "geometry": "right_angle",
+        "theta_max_deg": 5.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 20
+      },
+      "best_seconds": 0.02297799987718463,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "right_angle_theta1",
+      "axis": {
+        "geometry": "right_angle",
+        "theta_max_deg": 1.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 92
+      },
+      "best_seconds": 0.040900500025600195,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "hairpin_theta30",
+      "axis": {
+        "geometry": "hairpin",
+        "theta_max_deg": 30.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 8
+      },
+      "best_seconds": 0.013953099958598614,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "hairpin_theta10",
+      "axis": {
+        "geometry": "hairpin",
+        "theta_max_deg": 10.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 20
+      },
+      "best_seconds": 0.01906870026141405,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "hairpin_theta5",
+      "axis": {
+        "geometry": "hairpin",
+        "theta_max_deg": 5.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 38
+      },
+      "best_seconds": 0.03075519995763898,
+      "reps": 5
+    },
+    {
+      "group": "build_turn_waypoints",
+      "name": "hairpin_theta1",
+      "axis": {
+        "geometry": "hairpin",
+        "theta_max_deg": 1.0
+      },
+      "batch": 2000,
+      "skipped": false,
+      "observed": {
+        "out_n": 182
+      },
+      "best_seconds": 0.08107879990711808,
+      "reps": 5
+    }
+  ]
+}

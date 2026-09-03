@@ -7,6 +7,13 @@ src/geomseq_core/native/*.obj
 src/geomseq_core/native/*.lib
 src/geomseq_core/native/*.exp
 
+# Native benchmark binary -- built on demand from bench_core.cpp, never shipped
+benchmarks/native/*.obj
+benchmarks/native/*.exe
+benchmarks/native/*.lib
+benchmarks/native/*.exp
+benchmarks/native/bench_core
+
 # Linux build is CI-only -- Rhino doesn't run there, so unlike the committed
 # .dll/.dylib there's nothing to distribute.
 src/geomseq_core/native/*.so

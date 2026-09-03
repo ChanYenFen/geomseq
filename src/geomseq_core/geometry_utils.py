@@ -27,9 +27,13 @@ except ImportError:
 
 def sort_curves_native(curves, start_pt=None,
                        use_two_opt=False, two_opt_max_passes=10, knn_k=12,
-                       if_flip=True, return_travel_points=False):
+                       if_flip=True, return_travel_points=False, two_opt_mode=0):
     """C++-backed drop-in replacement for sort_curves_by_rtree: `knn_k` sets neighbors queried per greedy hop, `if_flip=False` fixes curve direction (head->tail only, skipping reversal/2-opt), and `start_pt=None` defaults to the origin.
-    `return_travel_points=True` adds a 3rd return item: a list of n plain (start_xyz, end_xyz) tuples, one per travel segment -- not Rhino types, since this module doesn't depend on Rhino."""
+    `return_travel_points=True` adds a 3rd return item: a list of n plain (start_xyz, end_xyz) tuples, one per travel segment -- not Rhino types, since this module doesn't depend on Rhino.
+    `two_opt_mode` forces the 2-opt implementation: 0 = auto (pick by the native
+    size threshold -- what every normal caller wants), 1 = exhaustive, 2 = windowed.
+    Only benchmarks should pass anything but 0; under auto the two paths never run
+    at the same n, so their crossover cannot otherwise be measured."""
     if not curves:
         return ([], []) if not return_travel_points else ([], [], [])
 
@@ -55,6 +59,7 @@ def sort_curves_native(curves, start_pt=None,
         two_opt_max_passes,
         knn_k,
         1 if if_flip else 0,
+        two_opt_mode,
         out_order,
         out_reversal,
         out_travel_points,
@@ -134,13 +139,15 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
 
     lib = native_bridge.load_dll()
 
-    buf, n = misc.floats_to_buffer(lookups)
-    lookups_ptr = (ctypes.c_double * n).from_buffer(buf)
-
+    # The native side only ever needed total_length and the corner arc lengths,
+    # so resolve the corners here (O(num_corners) list indexing) instead of
+    # marshaling the whole lookup array across the boundary for it to ignore.
+    # An out-of-range corner index now raises IndexError here rather than
+    # reading out of bounds inside the DLL.
     if corner_indices:
-        corner_buf = (ctypes.c_int * len(corner_indices))(*corner_indices)
-        corner_ptr = corner_buf
-        num_corners = len(corner_indices)
+        corner_lengths = [lookups[i] for i in corner_indices]
+        corner_ptr = (ctypes.c_double * len(corner_lengths))(*corner_lengths)
+        num_corners = len(corner_lengths)
     else:
         corner_ptr = None
         num_corners = 0
@@ -154,8 +161,7 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
     out_count = ctypes.c_int(0)
 
     lib.redistribute_lookups(
-        lookups_ptr,
-        n,
+        total_length,
         low,
         high,
         mode,
@@ -166,7 +172,9 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
         ctypes.byref(out_count),
     )
 
-    return list(out_lookups[:out_count.value])
+    # Slicing a ctypes array already builds a list; wrapping it in list() again
+    # would just copy it a second time.
+    return out_lookups[:out_count.value]
 
 def _unit(vx, vy):
     """Unit vector, or the input unchanged at zero length (matches native unit_vec)."""
