@@ -105,12 +105,17 @@ def fixture_name(path):
 
 
 def sample(data, n, seed=1):
-    """`n` items drawn from `data`, seeded. Sampling rather than slicing keeps
-    the distribution (clustering included) comparable across n; a slice would be
-    one region of the design and would muddy the scaling exponent."""
+    """`n` items drawn from `data`, seeded, **in the source's own order**.
+    Sampling rather than slicing keeps the distribution (clustering included)
+    comparable across n; a slice would be one region of the design and would
+    muddy the scaling exponent. Indices are re-sorted because input order is
+    itself a property under test -- `random.sample` returns its picks in
+    random order, which would silently shuffle an already-sorted fixture and
+    turn points_zigzag into points_grid at every n below the file's length."""
     if n >= len(data):
         return list(data)
-    return random.Random(seed).sample(list(data), n)
+    idx = sorted(random.Random(seed).sample(range(len(data)), n))
+    return [data[i] for i in idx]
 
 
 def even_lookups(total_length, n):
@@ -160,17 +165,29 @@ TWO_OPT_CHEAP_LIMIT = 8000  # above this, exhaustive 2-opt runs into minutes
 KNN_K, MAX_PASSES = 12, 10
 
 
-def _point_sources():
-    """(label, builder, available_n) -- uniform synthetic first as the control,
-    then any recorded fixture. available_n caps the sweep so a case never claims
-    an n the fixture cannot supply."""
-    out = [("uniform", make_points, None)]
-    for path in fixture_paths("points"):
+def _sources(kind, synthetic, wrap):
+    """(label, builder, available_n) per data source: every fixture of `kind`,
+    plus the in-code synthetic generator as the `uniform` control. available_n
+    caps the sweep so a case never claims an n the fixture cannot supply (None
+    = unlimited, i.e. generated on demand).
+
+    A fixture named `uniform` *replaces* the generator rather than sitting
+    beside it: two sources sharing a label would emit duplicate case names.
+    The generator stays as the fallback, so an empty fixtures/ still runs."""
+    out = []
+    for path in fixture_paths(kind):
         data = load_fixture(path)
         out.append((fixture_name(path),
-                    lambda n, d=data: [_Pt(x, y) for x, y in sample(d, n)],
+                    lambda n, d=data: [wrap(row) for row in sample(d, n)],
                     len(data)))
+    if not any(label == "uniform" for label, _, _ in out):
+        out.append(("uniform", synthetic, None))
+    out.sort(key=lambda s: (s[0] != "uniform", s[0]))   # control first
     return out
+
+
+def _point_sources():
+    return _sources("points", make_points, lambda row: _Pt(row[0], row[1]))
 
 
 def _sort_points_cases():
@@ -204,13 +221,7 @@ SORT_CURVES_HEAVY_ABOVE = 12000
 def _curve_sources():
     """As _point_sources, for curves. Fixture rows are [x0, y0, x1, y1], the
     same shape tests/fixtures/sort_curves_cases.json already uses."""
-    out = [("uniform", make_segments, None)]
-    for path in fixture_paths("curves"):
-        data = load_fixture(path)
-        out.append((fixture_name(path),
-                    lambda n, d=data: [_Seg(*row) for row in sample(d, n)],
-                    len(data)))
-    return out
+    return _sources("curves", make_segments, lambda row: _Seg(*row))
 
 
 def _sort_curves_cases():

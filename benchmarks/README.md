@@ -9,6 +9,9 @@ python/cases.py   representative inputs per function -- what counts as a size
 python/run.py     timing harness + runner -- how a size gets measured
 native/           bench_core.cpp -- pure C++ timing, no Python involved
 compare.py        aligns the two JSON baselines into one table
+fixtures/         input datasets, one per file; picked up automatically
+synth/            one-shot generator for the synthetic fixtures; nothing imports it
+gh/               Grasshopper-side export of real geometry into fixtures/
 results/          recorded baselines + the comparison
 ```
 
@@ -54,7 +57,11 @@ tests — see the repo README's Build section. Results land in
 `results/baseline-<sys>-<machine>-<date>`; a partial run tags the filename with
 the groups it covered so it cannot overwrite a full baseline.
 
-Default runtime is roughly a minute. `--heavy` adds `sort_points` 2-opt at
+Default runtime is a few minutes — `sort_points` alone is ~80 s, because every
+fixture in `fixtures/` adds a parallel sweep (7 point datasets × 7 sizes × 2-opt
+on/off). Deleting fixtures shrinks the run; see
+[../docs/benchmark-fixtures.md](../docs/benchmark-fixtures.md).
+`--heavy` adds `sort_points` 2-opt at
 n = 16k/32k/64k and `sort_curves` at 16k, which together run into several
 minutes; the published figures in [../docs/benchmarks.md](../docs/benchmarks.md)
 put 64k with 2-opt alone at ~213 s.
@@ -132,11 +139,18 @@ Not one table copied four times — the parameter that drives cost differs:
 
 | Function | Axis swept | Why |
 |---|---|---|
-| `sort_points` | n × 2-opt on/off | Same sizes and `knn_k`/`max_passes` as `docs/benchmarks.md`, so the columns line up against what is already published |
+| `sort_points` | n × 2-opt on/off × dataset | Same sizes and `knn_k`/`max_passes` as `docs/benchmarks.md`, so the columns line up against what is already published |
 | `sort_curves` | n straddling 10,000, plus `if_flip` | 10,000 is `TWO_OPT_WINDOW_THRESHOLD`; `if_flip=False` makes the native side skip 2-opt entirely |
 | `sort_curves_crossover` | both 2-opt paths forced at the same n | The auto dispatch never runs both at one n; see the crossover section below |
 | `redistribute_lookups` | input n, output density, corner count | Pure 1D marching, no kd-tree — which axis dominates was an open question, and the answer was surprising (below) |
 | `build_turn_waypoints` | `theta_max_deg` × turn geometry | One call builds one turn in microseconds, below timer resolution, so it is timed in batches of 2,000 |
+
+The sort groups carry a further `data` column naming the input distribution —
+`uniform` plus whatever sits in `fixtures/`. That axis is orthogonal to n: it
+varies what the input *looks like* rather than how much of it there is, which is
+what makes the greedy phase's kd-tree behaviour visible at all. Uniform scatter
+is the friendliest case a kd-tree can get, so a sweep over n alone cannot tell
+you whether the algorithm degrades on real geometry.
 
 `out_n` columns are the **observed** output size, measured once outside the timed
 region. It is there because the declared knob and the actual work can diverge:
