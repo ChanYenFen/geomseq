@@ -1,7 +1,7 @@
 {
   "kind": "points",
   "name": "uniform",
-  "source": "synthetic, benchmarks/synth/make_fixtures.py; see docs/benchmark-fixtures.md",
+  "source": "synthetic, benchmarks/synth/make_fixtures.py; see benchmarks/README.md",
   "units": "mm (nominal -- synthetic, extent 1000)",
   "notes": "Uniform scatter over an 1000 x 1000 square -- the control. Friendliest possible case for a kd-tree; every other dataset here exists to break one assumption it makes.",
   "params": {

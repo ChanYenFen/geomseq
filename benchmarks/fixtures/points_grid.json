@@ -1,7 +1,7 @@
 {
   "kind": "points",
   "name": "grid",
-  "source": "synthetic, benchmarks/synth/make_fixtures.py; see docs/benchmark-fixtures.md",
+  "source": "synthetic, benchmarks/synth/make_fixtures.py; see benchmarks/README.md",
   "units": "mm (nominal -- synthetic, extent 1000)",
   "notes": "Regular 256 x 250 lattice at 4 spacing, order fully shuffled. Equal row and column spacing means exact ties in nearest-neighbour distance -- which never occur in float-random data. Same point set as points_zigzag; the difference between them is order alone.",
   "params": {

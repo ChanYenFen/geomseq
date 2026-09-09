@@ -122,7 +122,9 @@ you didn't just get lucky?" Let the numbers imply the conclusion.
 
 *Caption:* Measured scaling — greedy ≈ O(n^1.3), 2-opt ≈ O(n^2.2)
 
-Full data, method and a reproduction script: [benchmarks.md](benchmarks.md).
+These figures are from an ad-hoc run that was never committed; [benchmarks.md](benchmarks.md)
+now quotes only recorded baselines and does not include this table. Re-measure
+before presenting it — see CLAUDE.md, "Commit a full baseline".
 
 **Visual** — two 1k-point images, with and without 2-opt. They show *quality*
 (greedy leaves crossings, 2-opt removes them), not speed: at 1k both are

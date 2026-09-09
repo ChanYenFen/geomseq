@@ -1,94 +1,126 @@
 # Benchmarks
 
-Measurements of `sort_points_native`, chosen because it is the simplest of the
-four functions — greedy k-NN over a kd-tree, then 2-opt, with no direction or
-reversal bookkeeping to muddy the timings.
+Where each call's time actually goes, for the two functions whose cost the
+Python-side harness alone cannot resolve. Every number below comes from the
+recorded baseline in [`benchmarks/results/`](../benchmarks/results/) — nothing
+here is quoted from an ad-hoc run.
 
-## Greedy vs 2-opt
+| | |
+|---|---|
+| Machine | Windows 10 AMD64, Intel64 Family 6 Model 165 |
+| Toolchain | MSVC 1929, Python 3.10.6 |
+| DLL under test | `geomseq_core.dll`, sha256 `fd6ad632ec57ae5e…`, built 2026-09-03 |
 
-| n | greedy only | greedy + 2-opt | slowdown |
-|---|---|---|---|
-| 1,000 | 1.9 ms | 21 ms | 11× |
-| 2,000 | 4.0 ms | 92 ms | 23× |
-| 4,000 | 10.0 ms | 495 ms | 50× |
-| 8,000 | 27.2 ms | 1.71 s | 63× |
-| 16,000 | 49.0 ms | 12.0 s | 245× |
-| 32,000 | 183.9 ms | 55.7 s | 303× |
-| 64,000 | 500.9 ms | 213 s | 425× |
+`native` is the algorithm alone, `python` is the same call through the wrapper
+(ctypes + marshaling included), and `bridge` is the difference. See
+[`benchmarks/README.md`](../benchmarks/README.md) for why both are measured.
 
-`slowdown` is the same row's right column divided by its left: how much longer
-the whole call takes with `use_two_opt=True`.
+**Quote the ratios and the shares, not the microseconds**, unless the
+environment above is stated alongside them. Absolute timings move noticeably
+between runs on the same machine.
 
-## Scaling
+## `redistribute_lookups` — the work is in the bridge, not the algorithm
 
-Taking the endpoints rather than per-row ratios, which are noisy: n grows 64×
-from 1,000 to 64,000, greedy time grows 264×, 2-opt time grows 9,956×.
+### Output count is the real axis, and the C++ tracks it exactly
+
+| band | out_n | native | python | bridge | native % |
+|---|---|---|---|---|---|
+| 8-20 | 102 | 0.506 µs | 31.3 µs | 30.8 µs | 1.6% |
+| 2-8 | 367 | 1.711 µs | 16.8 µs | 15.1 µs | 10.2% |
+| 0.5-2 | 1,464 | 6.729 µs | 48.0 µs | 41.3 µs | 14.0% |
+| 0.2-0.8 | 3,657 | 16.701 µs | 124.3 µs | 107.6 µs | 13.4% |
+
+The native side is linear to three digits: 4.96 / 4.66 / 4.60 / 4.57 ns per
+output point across a 36× range. That linearity is only visible from the C++
+harness — through ctypes the per-call overhead swamps it at the small end.
+
+The `out_n = 102` row is the one thing here that does not fit: fewer outputs,
+yet the slowest Python time bar the largest case. The native row for it is
+perfectly in line, so whatever it is lives on the bridge. Unexplained; it needs
+a rerun before it is worth a theory.
+
+### Input size barely matters any more
+
+Holding the band fixed so `out_n` stays 367 while the input grows 990×:
+
+| input_n | python | native |
+|---|---|---|
+| 101 | 16.3 µs | 1.711 µs |
+| 1,001 | 16.9 µs | 1.711 µs |
+| 10,001 | 19.0 µs | 1.711 µs |
+| 100,001 | 60.0 µs | 1.711 µs |
+
+990× the input moves the call 3.7× (≈ n^0.19), and the native column does not
+move at all — since the ABI change the native side never receives the input
+array, only `total_length` and the resolved corner arc lengths. It had only ever
+read `lookups[n-1]` and the corner entries; marshaling the rest was pure waste.
+
+This was the design guess run backwards. Input size was expected to be
+incidental and output density to dominate; the first harness run showed the
+opposite, which is why both axes are swept separately — one holds the band fixed
+while input grows, the other holds input at 10,001 while the band moves `out_n`,
+and the observed `out_n` column is what confirms each control actually held.
+
+The residual 3.7× is not per-element work in the call. It is allocator and cache
+pressure from having just built a large list outside the timed region.
+
+*(The pre-fix figures that made this a 53× improvement came from a baseline
+overwritten before it was committed. The shape of the finding survives; the
+numbers are not reproducible and are not quoted.)*
+
+### Corner cost is entirely bridge-side — and it is not superlinear
+
+| corners | native | python | bridge | native % | µs per added corner |
+|---|---|---|---|---|---|
+| 0 | 6.729 µs | 47.0 µs | 40.3 µs | 14.3% | — |
+| 10 | 6.675 µs | 84.8 µs | 78.1 µs | 7.9% | 3.78 |
+| 100 | 6.438 µs | 131.2 µs | 124.8 µs | 4.9% | 0.84 |
+| 1,000 | 5.974 µs | 375.7 µs | 369.7 µs | 1.6% | 0.33 |
+
+The C++ column is flat — slightly *falling*, in fact. Every microsecond of the
+8× Python increase is index-to-arc-length resolution plus building the ctypes
+array. The marginal cost per corner falls as the count rises, so the earlier
+"superlinear in corner count" reading does not hold against this baseline; the
+fixed cost of setting up the array is a large share of the small-count rows.
+Realistic corner counts are polyline vertices — single digits — so this is
+noted, not urgent.
+
+## `build_turn_waypoints` — ~97% of the call is wrapper
+
+| geometry | θ | out_n | native | python | native % |
+|---|---|---|---|---|---|
+| straight | 30° | 2 | 0.141 µs | 6.05 µs | 2.3% |
+| straight | 1° | 2 | 0.168 µs | 6.28 µs | 2.7% |
+| right_angle | 5° | 20 | 0.297 µs | 12.24 µs | 2.4% |
+| right_angle | 1° | 92 | 0.619 µs | 22.69 µs | 2.7% |
+| hairpin | 5° | 38 | 0.330 µs | 14.94 µs | 2.2% |
+| hairpin | 1° | 182 | 0.944 µs | 41.45 µs | 2.3% |
+
+The native share sits between 1.8% and 3.3% across every case in the run — it
+does not improve with output size, because both sides have the same shape:
 
 ```
-greedy ≈ O(n^1.3)      log(264)  / log(64) = 1.34
-2-opt  ≈ O(n^2.2)      log(9956) / log(64) = 2.21
+native   ≈ 0.14 µs fixed  +   4.5 ns per waypoint
+python   ≈ 5.9  µs fixed  + 195   ns per waypoint
 ```
 
-Two things worth reading off these numbers:
+Both terms are ~40× apart, so this is not a fixed call overhead that
+amortizes away — the bridge costs 40× the algorithm *per waypoint* as well.
+Most of it is not even ctypes: `build_turn_waypoints_native` does two
+`math.hypot` guard checks, two `_unit` calls, a `math.ceil`, four buffer
+allocations and two list comprehensions per call, which is more work than the
+C++ does. If this function ever matters, the wrapper is the thing to attack. At
+embroidery-scale turn counts it does not.
 
-**The kd-tree does its job, but not perfectly.** A textbook O(n log n) would sit
-near n^1.1. The gap is the degradation noted in the README — the tree is static
-and visited points are filtered out afterwards, so at large n the search window
-repeatedly expands before it finds an unused neighbour.
+The `straight` rows are why the tables carry an **observed** `out_n` rather than
+the declared knob: `theta_max_deg` only *caps* the per-waypoint turn, so a
+straight run produces 2 waypoints whether the cap is 30° or 1°, and the timing
+is flat across all four values.
 
-**2-opt is the real cost, and it is superquadratic.** Each pass is O(n²), and the
-number of passes needed to converge also grows with n, which is where the extra
-0.2 in the exponent comes from. This is what motivates the windowed variant in
-`sort_curves.cpp` for n > 10,000 — note that `sort_points.cpp`, measured here,
-has only the exhaustive version, so every figure above is exhaustive 2-opt.
+## Not measured here
 
-## Method
-
-Single thread, MSVC build on Windows, `knn_k=12`, `two_opt_max_passes=10`.
-Points drawn uniformly at random in a 1000 × 1000 square, seeded for
-repeatability. Minimum of 3 runs per point (2 for greedy above 16,000; 1 for
-2-opt above 8,000, where a single run already takes minutes).
-
-Absolute timings vary noticeably between runs — an earlier session measured
-8,000 with 2-opt at 2,337 ms against the 1,708 ms above. **Quote the ratios and
-the exponents, not the milliseconds**, unless the environment is stated
-alongside them.
-
-## Reproducing
-
-The numbers above were measured with the inline script below. It has since been
-folded into a proper harness covering all four functions —
-[`benchmarks/`](../benchmarks/README.md), run with `python benchmarks/run.py` —
-which keeps these same sizes and `knn_k`/`two_opt_max_passes` so its
-`sort_points` rows stay comparable with this table. Recorded runs live in
-`benchmarks/results/`, each stamped with the environment and a hash of the
-binary it used. The script is kept here as the minimal standalone version.
-
-```python
-import sys, time, random
-sys.path.insert(0, "src")
-sys.path.insert(0, "tests")
-from test_sort_points import _Pt
-from geomseq_core.geometry_utils import sort_points_native as S
-
-rng = random.Random(1)
-def pts(n):
-    return [_Pt(rng.uniform(0, 1000), rng.uniform(0, 1000)) for _ in range(n)]
-
-S(pts(200), use_two_opt=True)          # warm up: DLL load + first-call overhead
-
-def bench(n, two_opt, reps):
-    best = 1e9
-    for _ in range(reps):
-        p = pts(n)
-        t = time.perf_counter()
-        S(p, use_two_opt=two_opt)
-        best = min(best, time.perf_counter() - t)
-    return best
-
-for n in [1000, 2000, 4000, 8000, 16000, 32000, 64000]:
-    print(n, round(bench(n, False, 3) * 1000, 1), round(bench(n, True, 1) * 1000, 1))
-```
-
-The warm-up call matters: without it the first measurement absorbs the DLL load
-and reads roughly 10× high.
+`sort_points`, `sort_curves` and the windowed/exhaustive 2-opt crossover have no
+committed baseline yet — earlier figures for them came from ad-hoc runs that
+were not recorded, so they are not quoted. The open questions they raised are
+tracked in [`../CLAUDE.md`](../CLAUDE.md); the harness covers them already, it
+just needs a full run to be committed.

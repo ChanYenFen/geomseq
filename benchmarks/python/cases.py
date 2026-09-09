@@ -74,7 +74,7 @@ def make_segments(n, seed=1, min_len=5.0, max_len=20.0):
 
 
 # --------------------------------------------------------------------------
-# Recorded fixtures -- optional, additive; see ../../docs/benchmark-fixtures.md
+# Recorded fixtures -- optional, additive; see ../README.md ("Adding a fixture")
 # --------------------------------------------------------------------------
 
 FIXTURE_DIR = os.path.join(

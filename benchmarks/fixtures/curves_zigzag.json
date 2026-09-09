@@ -1,7 +1,7 @@
 {
   "kind": "curves",
   "name": "zigzag",
-  "source": "synthetic, benchmarks/synth/make_fixtures.py; see docs/benchmark-fixtures.md",
+  "source": "synthetic, benchmarks/synth/make_fixtures.py; see benchmarks/README.md",
   "units": "mm (nominal -- synthetic, extent 1000)",
   "notes": "Serpentine rows of short segments, already in stitch order and with row direction alternating -- so consecutive segments run head to tail and reversing any of them costs travel. Exercises if_flip on input that is already correct.",
   "params": {

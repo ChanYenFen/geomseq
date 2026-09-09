@@ -1,7 +1,7 @@
 {
   "kind": "points",
   "name": "zigzag_s10",
-  "source": "synthetic, benchmarks/synth/make_fixtures.py; see docs/benchmark-fixtures.md",
+  "source": "synthetic, benchmarks/synth/make_fixtures.py; see benchmarks/README.md",
   "units": "mm (nominal -- synthetic, extent 1000)",
   "notes": "points_zigzag with 10%% of positions permuted -- mostly ordered with local disorder, which is what a real toolpath usually looks like. Interpolates between points_zigzag (0%%) and points_grid (100%%).",
   "params": {

@@ -1,7 +1,7 @@
 {
   "kind": "points",
   "name": "clustered_10x",
-  "source": "synthetic, benchmarks/synth/make_fixtures.py; see docs/benchmark-fixtures.md",
+  "source": "synthetic, benchmarks/synth/make_fixtures.py; see benchmarks/README.md",
   "units": "mm (nominal -- synthetic, extent 1000)",
   "notes": "8 dense square patches (1.0% of the area) holding 5872 of 64000 points -- 10x the background density. Probes the greedy phase's window expansion: locally dense, globally sparse.",
   "params": {

@@ -1,7 +1,7 @@
 {
   "kind": "points",
   "name": "zigzag",
-  "source": "synthetic, benchmarks/synth/make_fixtures.py; see docs/benchmark-fixtures.md",
+  "source": "synthetic, benchmarks/synth/make_fixtures.py; see benchmarks/README.md",
   "units": "mm (nominal -- synthetic, extent 1000)",
   "notes": "The points_grid lattice in serpentine (boustrophedon) order -- already optimally sorted. Best case: greedy has nothing to do and 2-opt should converge immediately. A lower bound, and a test of whether existing order is detected.",
   "params": {

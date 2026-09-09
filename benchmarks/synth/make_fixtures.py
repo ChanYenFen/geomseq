@@ -2,7 +2,7 @@
 
 Run once; the output is what the harness reads. Nothing imports this -- run.py
 and cases.py never see it, so it can be deleted without touching the benchmark.
-The recipe is also written up in docs/benchmark-fixtures.md, and every generated
+The rationale for the two axes is in CLAUDE.md, and every generated
 file repeats its own settings in a `params` block, so the datasets stay
 interpretable if this script goes away.
 
@@ -47,7 +47,7 @@ def write(kind, name, data, params, notes):
         "kind": kind,
         "name": name,
         "source": "synthetic, benchmarks/synth/make_fixtures.py; "
-                  "see docs/benchmark-fixtures.md",
+                  "see benchmarks/README.md",
         "units": "mm (nominal -- synthetic, extent %g)" % EXTENT,
         "notes": notes,
         "params": params,

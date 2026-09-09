@@ -1,7 +1,8 @@
 """GH entry point: dump selected geometry to a benchmark fixture JSON.
 
 Tooling, not part of the shipped library -- it touches no geomseq_core code,
-only Rhino and json. Format and wanted datasets: docs/benchmark-fixtures.md
+only Rhino and json. Fixture format: benchmarks/README.md ("Adding a fixture").
+Datasets still worth recording: CLAUDE.md ("Future directions").
 
 Inputs   save_json (bool)  write on True; leave False while wiring things up
          geo       (list)  Point3d when kind="points", Curve when kind="curves".
