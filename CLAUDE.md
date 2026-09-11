@@ -123,6 +123,50 @@ file carries an environment block and a SHA-256 prefix of the binary; CI does
 not validate that the committed binary is current, so the hash is the only thing
 tying a number to a build.
 
+## Grasshopper plugin (`src/gha/`)
+
+### Why C# and P/Invoke, not Python script components
+
+The install target is two files in `Grasshopper/Libraries`, with no Python
+environment to set up. The Python layer (`native_bridge.py`, `misc.py`,
+`geometry_utils.py`) stays anyway: it is what `pytest` runs, and pytest is the
+only verification that exists outside Rhino. Only `src/gh/*_component.py` is
+retired, once each C# component has been checked in Rhino.
+
+### Why the library is loaded through a resolver
+
+A plain `[DllImport]` probes Rhino's own directory and `PATH`, never the folder
+the `.gha` sits in, so a correctly installed library is not found.
+`NativeLibraryLoader` loads it from the plugin's folder and hands that handle to
+every `DllImport` in the assembly. The folder comes from `Assembly.Location`,
+which is empty when Grasshopper's "memory load" option reads the `.gha` as bytes.
+The fallback for that case, `GH_AssemblyInfo.Location`, can only be exercised
+inside Rhino and has not been yet.
+
+The loader also checks for the `sort_curves` and `sort_points` exports, so a
+stale binary gets one clear message instead of `EntryPointNotFoundException`
+halfway through a solve.
+
+### Why some component behaviour is not obvious
+
+- **`D` is summed in C#.** The native side returns the travel segments, not
+  their total, and the C++ is frozen for this work.
+- **Points are read as `GH_Point`, not `Point3d`.** A null item in a `Point3d`
+  list arrives as the origin, so a skipped point would silently become a real one.
+- **The list inputs are `Optional`.** Otherwise Grasshopper emits its own
+  missing-input warning and never calls `SolveInstance`, so the empty-input Remark
+  could not happen.
+- **The "tested limit" warnings are placeholders.** Sort Curves uses 50,000 (the
+  README's ad-hoc ~43 s) and Sort Points uses 10,000 (unmeasured: its 2-opt has
+  no windowed path). Neither is backed by `benchmarks/results/`, so replace both
+  once the full baseline lands.
+
+### Contracts
+
+Component GUIDs are permanent, and new ports are appended, never inserted. A saved
+`.gh` file finds a component by GUID and its wires by port index. The library GUID
+in `GeomSeqInfo` is permanent for the same reason.
+
 ## Future directions
 
 ### Commit a full baseline

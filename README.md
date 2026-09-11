@@ -64,9 +64,10 @@ src/
 ├── rhino_utils/                        # depends on RhinoCommon; logic complex/reusable enough not to be a thin GH shell
 │   ├── divide_curves.py                # curve -> division points + arc-length lookups
 │   └── sample_curve_points.py          # arc-length lookups -> points on a curve
-└── gh/                                 # thin Grasshopper component shells (GH I/O only, calls into the layers above)
-    ├── definitions/                    # .gh example files
-    └── *_component.py
+├── gh/                                 # thin Grasshopper component shells (GH I/O only, calls into the layers above)
+│   ├── definitions/                    # .gh example files
+│   └── *_component.py
+└── gha/                                # C# Grasshopper plugin (GeomSeq.gha), P/Invoke into the same native library -- see src/gha/README.md
 
 tests/                                  # property tests, plain CPython (no Rhino)
 ├── fixtures/                           # JSON inputs for the sort tests
@@ -150,7 +151,7 @@ It is also the cheapest guard available: ~10s per run, against ~28s for Windows.
 
 ### What CI does not cover
 
-- **`rhino_utils/` and `gh/`** — they need RhinoCommon, which no runner has. Verified by hand in Rhino.
+- **`rhino_utils/`, `gh/` and `gha/`** — they need RhinoCommon, which no runner has. Verified by hand in Rhino.
 - **Intel macOS** — GitHub no longer allocates those runners (jobs queue until the 24h limit, then cancel). Built and tested locally on an Intel Mac instead.
 - **The committed `.dll` / `.dylib`** — CI compiles its own, so a green badge says nothing about whether the binaries in this repo are current, or built for the right architecture. Rebuild and re-commit them whenever the C++ changes.
 - **Undefined behaviour all three toolchains happen to tolerate** — passing on three is evidence of portability, not proof of it.
