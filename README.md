@@ -1,7 +1,8 @@
 # geomseq
 
-A C++ library for 2D spatial sequencing and geometric primitives,
-with thin Python bindings.
+A C++ library for spatial sequencing and geometric primitives, with thin
+Python bindings and a Grasshopper plug-in built on the same core
+(see [src/gha/README.md](src/gha/README.md)).
 
 ## Background
 
@@ -16,24 +17,36 @@ The core algorithms — spatial sequencing and its supporting primitives
 
 ## Design
 
-Three clean layers, so the geometry core stays portable and independently
-testable:
+The C++ core is the engine; everything else is a caller. It takes and returns
+plain coordinate arrays and never returns rendering instructions — how to draw
+a result is always the caller's decision. That is what keeps it testable
+without Rhino, and reusable from any front end.
 
 ```
-Visualization (Grasshopper)   draw results, interactive debugging
-        │
-        │  2D coords + result data
-        │
-Bridge (Python)               array marshaling, CAD <-> coordinate mapping
-        │
-        │  flat (x, y) arrays
-        │
-Core (C++)                    pure numerical geometry — no CAD dependency
+  GeomSeq.gha (C#)              geomseq_core/ (Python)
+  the shipped plug-in           the development interface
+  Grasshopper users             tests · benchmarks · CAD scripting
+          │                              │
+          │  P/Invoke                    │  ctypes
+          └──────────────┬───────────────┘
+                         │  flat (x, y, z) arrays
+                         │
+                   Core (C++)
+                   pure numerical geometry — no CAD dependency
 ```
 
-The core never returns rendering instructions — how to draw a
-result is always the caller's decision. This keeps it usable from
-Grasshopper, a plain script, or any other front end.
+Two callers, developed and released on different schedules:
+
+- **`geomseq_core/` (Python)** is how the library is built and verified. It is
+  the only way to exercise the core *outside* Rhino — `tests/` and
+  `benchmarks/` both run on plain CPython — and it doubles as the scripting
+  interface inside a CAD session. `src/gh/` holds GHPython component shells
+  that hot-reload on edit, which is how results get checked *inside* Rhino.
+- **`GeomSeq.gha` (C#)** is the packaged product: two files dropped into
+  Grasshopper's `Libraries` folder, for users who never touch Python. It
+  P/Invokes the same binary rather than going through the Python bridge, and
+  carries its own version number and compatibility promises — see
+  [src/gha/README.md](src/gha/README.md).
 
 ## Modules
 
@@ -42,7 +55,7 @@ Grasshopper, a plain script, or any other front end.
 | `sort_curves` | greedy k-NN + 2-opt ordering of curves to minimize travel (direction-aware: reversal flags + optional per-segment travel points) | ✅ |
 | `sort_points` | single-point sibling of `sort_curves` (no direction/reversal concept) | ✅ |
 | `redistribute_lookups` | redistribute arc-length lookups to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
-| `build_turn_waypoints` | travel path between two segments: extends each end into the gap, then fillets both corners so no waypoint turns by more than `theta_max_deg` | ✅ |
+| `build_turn_waypoints` | travel path between two segments: extends each end into the gap, then fillets both corners so no waypoint turns by more than `theta_max_deg` (**2D only** — the ABI takes x/y, no Z) | ✅ |
 
 ## Layout
 
@@ -64,10 +77,10 @@ src/
 ├── rhino_utils/                        # depends on RhinoCommon; logic complex/reusable enough not to be a thin GH shell
 │   ├── divide_curves.py                # curve -> division points + arc-length lookups
 │   └── sample_curve_points.py          # arc-length lookups -> points on a curve
-├── gh/                                 # thin Grasshopper component shells (GH I/O only, calls into the layers above)
+├── gh/                                 # Rhino-side verification: GHPython shells, hot-reloaded on edit (GH I/O only)
 │   ├── definitions/                    # .gh example files
 │   └── *_component.py
-└── gha/                                # C# Grasshopper plugin (GeomSeq.gha), P/Invoke into the same native library -- see src/gha/README.md
+└── gha/                                # the shipped plug-in: C# GeomSeq.gha, P/Invoke into the same native library -- see src/gha/README.md
 
 tests/                                  # property tests, plain CPython (no Rhino)
 ├── fixtures/                           # JSON inputs for the sort tests

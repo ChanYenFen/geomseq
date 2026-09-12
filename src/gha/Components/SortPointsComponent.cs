@@ -13,9 +13,10 @@ public sealed class SortPointsComponent : GH_Component
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("d146d2e4-f0c0-4ea1-a172-57e49daef001");
 
-    // Unmeasured. sort_points has no windowed 2-opt, so every pass is O(n^2); 10,000 is where
-    // sort_curves gives up on exhaustive 2-opt for speed. Replace once sort_points has a
-    // committed result in benchmarks/results/.
+    // Unmeasured, and provisional twice over. sort_points has no windowed 2-opt *yet*, so every
+    // pass is O(n^2); 10,000 is borrowed from where sort_curves switches 2-opt strategies, which
+    // is a different thing from where it gets slow. Replace once sort_points has both a windowed
+    // path and a committed result in benchmarks/results/ -- either one moves this number.
     private const int TestedLimit = 10_000;
 
     public SortPointsComponent()
