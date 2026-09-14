@@ -312,37 +312,43 @@ def _crossover_cases():
 # cuts it off. Sweeping the cap separates them: the pass count where travel
 # stops falling is where that path has actually converged.
 #
-# One size only. This asks how each path converges, not how it scales, and
-# 25,000 sits where the two are already far apart (2.59x speed, 12.9% tour).
+# Two sizes, because convergence and scaling interact. At 25,000 exhaustive wins
+# on the time-vs-tour frontier even after the cap is equalised; 50,000 is where
+# that could flip, since exhaustive's per-pass cost grows as n^2 against
+# windowed's n*K. Comparing whole curves, not single points, is the whole reason
+# this group exists -- max_passes=10 means "converged" for one path and "cut off
+# less than half way" for the other.
 
-PASSES_N = 25000
+PASSES_SIZES = [25000, 50000]
 PASSES_SWEEP = [1, 2, 3, 5, 10, 20]
 
 
 def _passes_cases():
     cases = []
-    for mode, label in [(1, "exhaustive"), (2, "windowed")]:
-        for passes in PASSES_SWEEP:
-            def run(c, mode=mode, passes=passes):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_mode=mode,
-                    two_opt_max_passes=passes, knn_k=KNN_K)
-                return ordered
+    for n in PASSES_SIZES:
+        for mode, label in [(1, "exhaustive"), (2, "windowed")]:
+            for passes in PASSES_SWEEP:
+                def run(c, mode=mode, passes=passes):
+                    ordered, _ = sort_curves_native(
+                        c, use_two_opt=True, two_opt_mode=mode,
+                        two_opt_max_passes=passes, knn_k=KNN_K)
+                    return ordered
 
-            def observe(c, mode=mode, passes=passes):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_mode=mode,
-                    two_opt_max_passes=passes, knn_k=KNN_K)
-                return dict(travel=round(travel_distance(ordered), 1))
+                def observe(c, mode=mode, passes=passes):
+                    ordered, _ = sort_curves_native(
+                        c, use_two_opt=True, two_opt_mode=mode,
+                        two_opt_max_passes=passes, knn_k=KNN_K)
+                    return dict(travel=round(travel_distance(ordered), 1))
 
-            cases.append(Case(
-                "sort_curves_passes", "uniform_%s_p%d" % (label, passes),
-                setup=lambda: make_segments(PASSES_N),
-                run=run, observe=observe,
-                axis=dict(data="uniform", n=PASSES_N, path=label,
-                          max_passes=passes),
-                heavy=True,   # every row here runs into tens of seconds
-            ))
+                cases.append(Case(
+                    "sort_curves_passes",
+                    "uniform_%s_p%d_n%d" % (label, passes, n),
+                    setup=lambda n=n: make_segments(n),
+                    run=run, observe=observe,
+                    axis=dict(data="uniform", n=n, path=label,
+                              max_passes=passes),
+                    heavy=True,   # every row here runs into tens of seconds
+                ))
     return cases
 
 

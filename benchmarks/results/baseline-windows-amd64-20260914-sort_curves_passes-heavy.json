@@ -1,6 +1,6 @@
 {
   "env": {
-    "timestamp": "2026-09-14T09:54:46",
+    "timestamp": "2026-09-14T10:18:45",
     "system": "Windows",
     "release": "10",
     "machine": "AMD64",
@@ -19,7 +19,7 @@
   "records": [
     {
       "group": "sort_curves_passes",
-      "name": "uniform_exhaustive_p1",
+      "name": "uniform_exhaustive_p1_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -31,12 +31,12 @@
       "observed": {
         "travel": 91296.5
       },
-      "best_seconds": 4.963933099992573,
+      "best_seconds": 4.90948929998558,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_exhaustive_p2",
+      "name": "uniform_exhaustive_p2_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -48,12 +48,12 @@
       "observed": {
         "travel": 85724.4
       },
-      "best_seconds": 9.168492100026924,
+      "best_seconds": 9.179081799986307,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_exhaustive_p3",
+      "name": "uniform_exhaustive_p3_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -65,12 +65,12 @@
       "observed": {
         "travel": 83117.3
       },
-      "best_seconds": 13.617744399991352,
+      "best_seconds": 13.897623600030784,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_exhaustive_p5",
+      "name": "uniform_exhaustive_p5_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -82,12 +82,12 @@
       "observed": {
         "travel": 81226.0
       },
-      "best_seconds": 22.226046299969312,
+      "best_seconds": 22.624237000010908,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_exhaustive_p10",
+      "name": "uniform_exhaustive_p10_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -99,12 +99,12 @@
       "observed": {
         "travel": 80336.3
       },
-      "best_seconds": 44.304075699998066,
+      "best_seconds": 45.12714360002428,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_exhaustive_p20",
+      "name": "uniform_exhaustive_p20_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -116,12 +116,12 @@
       "observed": {
         "travel": 80316.6
       },
-      "best_seconds": 57.51655470003607,
+      "best_seconds": 59.445161600015126,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_windowed_p1",
+      "name": "uniform_windowed_p1_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -133,12 +133,12 @@
       "observed": {
         "travel": 100047.7
       },
-      "best_seconds": 2.0576960000325926,
+      "best_seconds": 2.1638205999624915,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_windowed_p2",
+      "name": "uniform_windowed_p2_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -150,12 +150,12 @@
       "observed": {
         "travel": 97992.7
       },
-      "best_seconds": 3.709032000042498,
+      "best_seconds": 3.7857932000188157,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_windowed_p3",
+      "name": "uniform_windowed_p3_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -167,12 +167,12 @@
       "observed": {
         "travel": 96875.8
       },
-      "best_seconds": 5.412187100038864,
+      "best_seconds": 5.419598900014535,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_windowed_p5",
+      "name": "uniform_windowed_p5_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -184,12 +184,12 @@
       "observed": {
         "travel": 94306.3
       },
-      "best_seconds": 8.78073110000696,
+      "best_seconds": 9.607562999997754,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_windowed_p10",
+      "name": "uniform_windowed_p10_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -201,12 +201,12 @@
       "observed": {
         "travel": 90680.5
       },
-      "best_seconds": 17.438396500016097,
+      "best_seconds": 17.831447599979583,
       "reps": 1
     },
     {
       "group": "sort_curves_passes",
-      "name": "uniform_windowed_p20",
+      "name": "uniform_windowed_p20_n25000",
       "axis": {
         "data": "uniform",
         "n": 25000,
@@ -218,7 +218,211 @@
       "observed": {
         "travel": 86484.7
       },
-      "best_seconds": 34.243833900021855,
+      "best_seconds": 33.962996100017335,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_exhaustive_p1_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "exhaustive",
+        "max_passes": 1
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 126673.6
+      },
+      "best_seconds": 19.26275799999712,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_exhaustive_p2_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "exhaustive",
+        "max_passes": 2
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 118945.2
+      },
+      "best_seconds": 37.38525369996205,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_exhaustive_p3_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "exhaustive",
+        "max_passes": 3
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 115303.8
+      },
+      "best_seconds": 55.57014099997468,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_exhaustive_p5_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "exhaustive",
+        "max_passes": 5
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 112601.4
+      },
+      "best_seconds": 90.63753100001486,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_exhaustive_p10_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "exhaustive",
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 111295.1
+      },
+      "best_seconds": 189.48288340005092,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_exhaustive_p20_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "exhaustive",
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 111173.3
+      },
+      "best_seconds": 321.04660909995437,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_windowed_p1_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "windowed",
+        "max_passes": 1
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 140894.0
+      },
+      "best_seconds": 5.299006499990355,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_windowed_p2_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "windowed",
+        "max_passes": 2
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 138971.0
+      },
+      "best_seconds": 9.109206399996765,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_windowed_p3_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "windowed",
+        "max_passes": 3
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 137590.5
+      },
+      "best_seconds": 12.358118899981491,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_windowed_p5_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "windowed",
+        "max_passes": 5
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 135583.2
+      },
+      "best_seconds": 19.58429430000251,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_windowed_p10_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "windowed",
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 131942.5
+      },
+      "best_seconds": 38.07214299996849,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_windowed_p20_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "windowed",
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 126162.4
+      },
+      "best_seconds": 77.05977599998005,
       "reps": 1
     }
   ]
