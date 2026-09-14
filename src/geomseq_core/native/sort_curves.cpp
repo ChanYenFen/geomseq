@@ -234,18 +234,94 @@ DLL_EXPORT void sort_curves(
     }
 
     // --- Step 4: 2-opt post-processing ---
-    // One implementation: the exhaustive O(n^2) pass. A windowed kd-tree
-    // variant used to sit beside it and was selected automatically above
-    // 10,000 curves; it was measured and removed, because it gave up 6-13% of
-    // tour quality across 12k-50k to buy speed, and did so without the caller
-    // being able to see or decline the trade. The reasoning is in CLAUDE.md,
-    // the evidence in benchmarks/results/, and the code itself in
-    // archive/sort_curves_v2_with_windowed_2opt.cpp -- read the first before
-    // reviving the last.
+    // Neighbour-pruned, not exhaustive. A 2-opt move removes the two travel
+    // gaps after positions i and j and reconnects them:
+    //
+    //     remove: exit_i -> entry_i+1   (length gap_i)
+    //             exit_j -> entry_j+1   (length gap_j)
+    //     add:    exit_i -> exit_j
+    //             entry_i+1 -> entry_j+1
+    //
+    // It pays only when the new pair is shorter than the old pair, and that
+    // cannot happen unless at least one *new* edge is shorter than the old
+    // edge it is measured against -- if both new edges were longer, so would
+    // be their sum. So every improving move satisfies
+    //
+    //     d(exit_i, exit_j) < gap_i     OR     d(entry_i+1, entry_j+1) < gap_j
+    //
+    // and each half is a ball query the existing endpoint kd-tree can answer:
+    // scan A anchors on exit_i with radius gap_i, scan B anchors on entry_j+1
+    // with radius gap_j. The two radii belong to different ends of the move,
+    // which is why both scans are needed -- neither alone is complete.
+    //
+    // This discards no improving move, so the result is still a true 2-opt
+    // local optimum. It is NOT the same tour the old exhaustive loop produced:
+    // both take the first improving move they meet, and the kd-tree meets them
+    // in a different order, so the two walk to different local optima of
+    // comparable quality. Do not expect a recorded travel figure to reproduce
+    // to the digit across this change.
+    //
+    // The radius is derived from the tour itself rather than configured, which
+    // is the difference from the windowed 2-opt this replaces: that one kept a
+    // fixed WINDOW_K = 500 candidates whose coverage fell from 25% to 1% as n
+    // grew, and lost 6-13% of tour quality for it. Here the search shrinks only
+    // because the gaps do -- and shorter gaps are the goal, not a compromise.
+    // See CLAUDE.md before reviving anything from
+    // archive/sort_curves_v2_with_windowed_2opt.cpp.
+    //
     // Skipped entirely when if_flip == 0: reversing a sub-sequence flips
     // curve directions, which the direction-fixed mode forbids.
     if (use_two_opt && if_flip && n > 3) {
-        // --- Exhaustive: test every (i, j) pair ---
+        // Where each curve currently sits in the tour, so an endpoint the
+        // kd-tree hands back can be turned into a tour position. Kept in step
+        // with every reversal below.
+        std::vector<int> pos(n);
+        for (int k = 0; k < n; ++k) {
+            pos[out_order[k]] = k;
+        }
+
+        std::vector<nanoflann::ResultItem<uint32_t, double>> hits;
+        nanoflann::SearchParameters search_params;  // sorted: nearest candidates first
+
+        // Applies the (i, j) move if it shortens the tour. Same arithmetic and
+        // same 1e-6 acceptance margin as the exhaustive version it replaces.
+        auto try_move = [&](int i, int j) -> bool {
+            int exit_i   = exit_point (out_order[i],     out_reversal[i]);
+            int entry_i1 = entry_point(out_order[i + 1], out_reversal[i + 1]);
+            int exit_j   = exit_point (out_order[j],     out_reversal[j]);
+
+            double cost_before = dist_pts(endpoints, exit_i, entry_i1);
+            double cost_after  = dist_pts(endpoints, exit_i, exit_j);
+
+            if (j + 1 < n) {
+                int entry_j1 = entry_point(out_order[j + 1], out_reversal[j + 1]);
+                cost_before += dist_pts(endpoints, exit_j,   entry_j1);
+                cost_after  += dist_pts(endpoints, entry_i1, entry_j1);
+            }
+
+            if (cost_after >= cost_before - 1e-6) {
+                return false;
+            }
+
+            int lo = i + 1;
+            int hi = j;
+            while (lo < hi) {
+                std::swap(out_order[lo], out_order[hi]);
+                int neg_lo = out_reversal[lo] ? 0 : 1;
+                int neg_hi = out_reversal[hi] ? 0 : 1;
+                out_reversal[lo] = neg_hi;
+                out_reversal[hi] = neg_lo;
+                pos[out_order[lo]] = lo;
+                pos[out_order[hi]] = hi;
+                ++lo;
+                --hi;
+            }
+            if (lo == hi) {
+                out_reversal[lo] = out_reversal[lo] ? 0 : 1;
+            }
+            return true;
+        };
+
         bool improved = true;
         int  passes   = 0;
 
@@ -253,37 +329,59 @@ DLL_EXPORT void sort_curves(
             improved = false;
             ++passes;
 
-            for (int i = 0; i < n - 1; ++i) {
-                for (int j = i + 2; j < n; ++j) {
-                    int exit_i   = exit_point (out_order[i],     out_reversal[i]);
-                    int entry_i1 = entry_point(out_order[i + 1], out_reversal[i + 1]);
-                    int exit_j   = exit_point (out_order[j],     out_reversal[j]);
+            for (int k = 0; k + 1 < n; ++k) {
+                // The gap after position k, which is both scans' radius --
+                // recomputed each time because a move may have just changed it.
+                int exit_k   = exit_point (out_order[k],     out_reversal[k]);
+                int entry_k1 = entry_point(out_order[k + 1], out_reversal[k + 1]);
+                double gap   = dist_pts(endpoints, exit_k, entry_k1);
 
-                    double cost_before = dist_pts(endpoints, exit_i, entry_i1);
-                    double cost_after  = dist_pts(endpoints, exit_i, exit_j);
+                // Scan A: k is the move's i, so look for a j whose exit lies
+                // within gap of exit_k. radiusSearch works in squared distance.
+                hits.clear();
+                (void)tree.radiusSearch(&endpoints[exit_k * 3], gap * gap, hits, search_params);
 
-                    if (j + 1 < n) {
-                        int entry_j1 = entry_point(out_order[j + 1], out_reversal[j + 1]);
-                        cost_before += dist_pts(endpoints, exit_j,   entry_j1);
-                        cost_after  += dist_pts(endpoints, entry_i1, entry_j1);
+                for (size_t h = 0; h < hits.size(); ++h) {
+                    int p = (int)hits[h].first;
+                    int j = pos[p / 2];
+                    // j must sit far enough along to leave a segment to reverse,
+                    // and p must be that curve's exit under its current reversal
+                    // (the other endpoint is its entry, a different move).
+                    if (j < k + 2) {
+                        continue;
                     }
-
-                    if (cost_after < cost_before - 1e-6) {
-                        int lo = i + 1;
-                        int hi = j;
-                        while (lo < hi) {
-                            std::swap(out_order[lo], out_order[hi]);
-                            int neg_lo = out_reversal[lo] ? 0 : 1;
-                            int neg_hi = out_reversal[hi] ? 0 : 1;
-                            out_reversal[lo] = neg_hi;
-                            out_reversal[hi] = neg_lo;
-                            ++lo;
-                            --hi;
-                        }
-                        if (lo == hi) {
-                            out_reversal[lo] = out_reversal[lo] ? 0 : 1;
-                        }
+                    if (exit_point(out_order[j], out_reversal[j]) != p) {
+                        continue;
+                    }
+                    if (try_move(k, j)) {
                         improved = true;
+                        break;  // tour changed under us; carry on at the next k
+                    }
+                }
+
+                // Scan B: k is the move's j, so look for an i+1 whose entry lies
+                // within gap of entry_k1. Needs k >= 2 to leave room for i >= 0.
+                if (k >= 2) {
+                    exit_k   = exit_point (out_order[k],     out_reversal[k]);
+                    entry_k1 = entry_point(out_order[k + 1], out_reversal[k + 1]);
+                    gap      = dist_pts(endpoints, exit_k, entry_k1);
+
+                    hits.clear();
+                    (void)tree.radiusSearch(&endpoints[entry_k1 * 3], gap * gap, hits, search_params);
+
+                    for (size_t h = 0; h < hits.size(); ++h) {
+                        int q = (int)hits[h].first;
+                        int m = pos[q / 2];  // the candidate is position i+1
+                        if (m < 1 || m > k - 1) {
+                            continue;
+                        }
+                        if (entry_point(out_order[m], out_reversal[m]) != q) {
+                            continue;
+                        }
+                        if (try_move(m - 1, k)) {
+                            improved = true;
+                            break;
+                        }
                     }
                 }
             }

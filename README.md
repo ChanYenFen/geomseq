@@ -68,7 +68,7 @@ src/
 │   │   ├── redistribute_lookups.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
 │   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
-│   │   ├── archive/                    # superseded reference implementations (e.g. pre-windowing 2-opt)
+│   │   ├── archive/                    # superseded reference implementations (the windowed 2-opt, measured and removed)
 │   │   └── geomseq_core.dll            # official .cpp files compiled into one binary (also .dylib / .so per platform)
 │   ├── native_bridge.py                # ctypes loading + signatures (platform-aware)
 │   ├── geometry_utils.py               # Python-facing wrappers (sort_curves_native, sort_points_native, ...)
@@ -186,12 +186,17 @@ Build is for distribution, and only its native half could be executed anywhere.
   `step_len` large relative to the E–S gap the junction can kink sharply (e.g.
   62° at `theta_max_deg=30`). Callers needing a hard cap should check the gap
   before calling, or keep `step_len` well under it.
-- `sort_curves` and `sort_points` both use one 2-opt implementation, the
-  exhaustive O(n²) pass, at every `n`. Nothing switches on input size. Cost
-  grows accordingly: sorting 50,000 curves with 2-opt is minutes, not seconds,
-  and `use_two_opt=False` is the fast path when that is too long. The greedy
-  k-NN phase also has its own theoretical O(n²) worst case (unaddressed), from
-  filtering already-used points out of a static kd-tree.
+- The two sort functions no longer share a 2-opt implementation. `sort_curves`
+  prunes its search to the candidates that could improve the tour, using the
+  kd-tree it already built; `sort_points` still runs the exhaustive O(n²) pass.
+  Neither switches on input size. For points the cost grows accordingly —
+  64,000 points is minutes (248.68 s measured) — and `use_two_opt=False` is the
+  fast path when that is too long. For curves, 16,000 at ten passes is under
+  half a second; larger curve counts have not been re-measured since pruning
+  landed, so the old "minutes at 50,000" figure should be treated as unknown
+  rather than either confirmed or superseded. The greedy k-NN phase also has its
+  own theoretical O(n²) worst case (unaddressed), from filtering already-used
+  points out of a static kd-tree.
 
 ## License
 

@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     KNN_K      = 12
     USE_2OPT   = True
-    MAX_PASSES = 10
+    MAX_PASSES = 20   # 2-opt converges by 20 on every shape measured
 
     for i, group in enumerate(nested_groups):
         # Sort this group; chain start_pt from the previous group's end point.

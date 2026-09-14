@@ -167,6 +167,54 @@ a constant in the source was choosing speed over quality on the caller's behalf,
 in a range where the caller could neither see the choice nor decline it. That
 would have been wrong even if windowed had been good.
 
+### Why the 2-opt search is pruned, and why that is not windowing again
+
+Having just removed one scheme that skipped candidate pairs, the obvious
+question about the one that replaced the exhaustive scan is what makes it
+different. The answer is that this one skips only pairs it can *prove* are not
+improving.
+
+A 2-opt move removes the gaps after positions i and j and reconnects them, so it
+pays only when the two new edges are together shorter than the two old ones. If
+both new edges were longer than the old edge each is measured against, their sum
+would be too. So every improving move satisfies
+
+    d(exit_i, exit_j) < gap_i    OR    d(entry_i+1, entry_j+1) < gap_j
+
+and each half is a ball query the endpoint kd-tree — already built for the
+greedy phase — can answer. Two scans are needed rather than one, because the two
+radii belong to opposite ends of the move and neither alone is complete.
+
+**The difference from windowing is where the number comes from.** `WINDOW_K =
+500` was a constant, so its coverage fell from 25% of candidates to 1% as n
+grew, and the moves it dropped were real ones. Here there is no constant: the
+radius is the tour's own gap length. Nothing is dropped that could have helped,
+and the search narrows only as the gaps shorten — which is the objective, not a
+sacrifice.
+
+**Verified, not argued.** A tour the pass has *converged* on must contain no
+improving move at all, which an exhaustive O(n²) scan can check directly. Across
+uniform, clustered and zigzag inputs at n = 500, 4,000 and 16,000, the scan
+finds zero remaining in all nine tours. The check must raise the pass cap high
+enough that the loop ends on convergence — a tour cut off at `max_passes`
+legitimately still has improving moves and would fail for the wrong reason.
+
+**What it costs and buys.** At n=16,000, 10 passes: 17.15 s to 380 ms on uniform
+(45×), 17.06 s to 400 ms on clustered (43×), and 26× on already-sorted zigzag.
+The ratio grows with passes — 8× at one pass, 45× at ten, 54× at twenty —
+because the radii tighten as the tour improves while exhaustive pays the same
+O(n²) every pass. Tour quality at the shipped cap came out slightly *better*
+(0.56% and 0.80% shorter), which is luck of a different search order, not a
+claim of the method.
+
+**Two things it does not preserve, both worth knowing before quoting old
+numbers.** The tour is not the same: both versions take the first improving move
+they meet and the kd-tree meets them in a different order, so the two walk to
+different local optima and no recorded travel figure reproduces to the digit.
+And low pass counts got worse, not better — 7.7% worse at one pass, 3.1% at
+three, 0.6% at five — because each position now applies at most one move per
+scan, so a pass pushes less far while costing far less.
+
 ### Why results are only quoted from committed runs
 
 `docs/benchmarks.md` quotes nothing that is not backed by a file in
@@ -177,6 +225,14 @@ one conclusion ("corner handling is superlinear") was simply wrong. Every result
 file carries an environment block and a SHA-256 prefix of the binary; CI does
 not validate that the committed binary is current, so the hash is the only thing
 tying a number to a build.
+
+Read that hash as a fingerprint of one file, not of one source revision. MSVC
+stamps a build timestamp into the binary, so recompiling identical sources gives
+a different hash — measured, not assumed: the pruning work built the same
+`sort_curves.cpp` twice and got `657faa5468b2434e` and `b69a189822a4c2ab`. The
+hash can therefore tell you two result files ran against different binaries, but
+never that a binary matches the source it came from. Only the committed DLL
+itself does that, and only if it is committed alongside the results.
 
 ## Grasshopper plugin (`src/gha/`)
 
@@ -253,17 +309,49 @@ groups. The numbers exist; the reading of them does not.
   run. The one exception is `sort_curves_convergence`, which covers clustered
   and zigzag at n=16,000; the `grid` fixtures and every other group are still
   uniform-only.
-- **`max_passes = 10` is generous, and no shape needs more.** The worry was that
-  some structure converged more slowly than uniform and was being cut off
-  unseen. `sort_curves_convergence` says not: against each shape's own 20-pass
-  tour, 10 passes gives up 0.04% on uniform and 0.01% on clustered_100x, while
-  zigzag arrives already 2-opt-optimal (flat at 8941.2 from pass 1, time never
-  leaving 1.29 s, so the early exit takes it). Clustered converges *faster* than
-  uniform in relative terms — the opposite of the concern. Cutting the cap
-  therefore costs what it costs on uniform: 5 passes gives up 1.11% (uniform)
-  and 0.64% (clustered) for half the runtime, 3 passes 3.48% and 2.36% for a
-  third. Still open only in the sense that the cap has not been changed; the
-  measurement no longer blocks it.
+- **`max_passes = 10` is enough for every shape, and is no longer a speed lever.**
+  The worry was that some structure converged more slowly than uniform and was
+  being cut off unseen. `sort_curves_convergence` says not: against each shape's
+  own 20-pass tour, 10 passes gives up 0.04% on uniform and 0.01% on
+  clustered_100x, while zigzag arrives already 2-opt-optimal. Clustered
+  converges *faster* than uniform in relative terms — the opposite of the
+  concern. **But the trade-off half of this bullet was invalidated within hours
+  of being written**, and that is the part worth remembering: it said cutting to
+  5 passes cost 1.11% for half the runtime, measured against the exhaustive
+  implementation that pruning then replaced. On the pruned search the same cut
+  costs 0.6%, three passes costs 3.1%, one pass costs 7.7%, and none of it buys
+  much, because a pass is now 45× cheaper and the whole sweep finishes in under
+  half a second. Tuning `max_passes` for speed is no longer a question worth
+  asking at n=16,000.
+- **The cap does not get shorter as n grows**, which was the live worry once
+  pruning landed: pruned 2-opt trails until it converges, so a cap that is
+  generous at 16,000 and short at 50,000 would hand large jobs an unconverged
+  tour with nobody able to see it. Measured instead of assumed, in
+  `...-convergence-pruned-extended-heavy`. Every shape at 16,000 and generated
+  uniform at 50,000 converge by **20** passes, with 30 and 50 not moving a
+  digit. The shortfall at the shipped cap of 10 is 0.14% at 16,000 and 0.147% at
+  50,000 — the same, not worse. Going to 20 costs 64 ms at 16,000 and 140 ms at
+  50,000.
+  Two limits on that: the curve fixtures hold 16,000 rows, so 50,000 could only
+  come from the generator and is therefore uniform — how a clustered 50,000-curve
+  job converges is still unmeasured. And most 50,000 rows ran once, so their
+  timings carry noise; the travel figures are deterministic and do not.
+  **The cap was raised to 20 on the strength of this**, not for speed but
+  because convergence is what makes pruning's one weakness structural rather
+  than empirical: it trails the exhaustive pass only while unconverged, so a cap
+  that always reaches convergence removes the failure mode instead of clearing
+  it by a margin that happened to hold on the shapes measured.
+- **Three different numbers now spell "max passes", and the differences are
+  deliberate.** `sort_curves_native` defaults to 20; `sort_points_native` stays
+  at 10; `benchmarks/python/cases.py` keeps `MAX_PASSES = 10`. `sort_points`
+  keeps 10 because none of this evidence is about it — its 2-opt is still the
+  exhaustive O(n²) pass, so doubling the cap would push 64,000 points from
+  248.68 s towards twice that, on no measurement at all. The benchmark constant
+  keeps 10 because it is what every recorded baseline was taken with, and
+  changing it would silently make the `sort_points` and `sort_curves` groups
+  incomparable with their own history. Only the shipped `sort_curves` path
+  moved. The plug-in mirrors this with two separate constants rather than the
+  one it used to share between both components.
 - **`sort_points` has no windowed path and now never will get this one.** Its
   2-opt is cleanly O(n²) — 2.20 s at n=8,000 rising to 248.68 s at 64,000 — so
   if large point sets ever matter, the lever is `max_passes`, or a different

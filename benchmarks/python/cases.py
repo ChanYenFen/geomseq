@@ -279,9 +279,27 @@ def _sort_curves_cases():
 # pinned at 16,000, the fixture length, so zigzag keeps its true serpentine
 # order: sample() preserves the file's order only when it returns the whole
 # file, and a sampled subset of zigzag is not a sorted input any more.
+#
+# The sweep runs past the point of interest on purpose. 10 is what ships and 20
+# was already flat, but reading "flat" off the last column of a table is how a
+# cap gets confirmed by its own boundary; 30 and 50 are there so convergence is
+# something the table shows rather than something it runs out of room to deny.
+#
+# The large-n rows answer a different question and cannot answer the first one.
+# Pruned 2-opt trails the exhaustive pass until it converges, so the risk it
+# carries is a cap that is generous at 16,000 and short at 50,000 -- more curves
+# means more crossings to work through. Only the generator reaches 50,000, and
+# the generator makes uniform scatter, so these rows say nothing whatsoever
+# about how a clustered or serpentine 50,000-curve job converges. They are
+# labelled `generated_uniform` rather than `uniform` because `uniform` is the
+# fixture's reserved label, and a table that cannot tell the two apart is worse
+# than one that admits the gap.
 
 CONVERGENCE_N = 16000
-CONVERGENCE_SWEEP = [1, 2, 3, 5, 10, 20]
+CONVERGENCE_SWEEP = [1, 2, 3, 5, 10, 20, 30, 50]
+
+CONVERGENCE_BIG_N = 50000
+CONVERGENCE_BIG_LABEL = "generated_uniform"
 
 
 def travel_distance(curves):
@@ -291,30 +309,91 @@ def travel_distance(curves):
                for p, c in zip(curves, curves[1:]))
 
 
+def _convergence_case(label, build, n, passes):
+    def run(c, passes=passes):
+        ordered, _ = sort_curves_native(
+            c, use_two_opt=True, two_opt_max_passes=passes, knn_k=KNN_K)
+        return ordered
+
+    def observe(c, passes=passes):
+        ordered, _ = sort_curves_native(
+            c, use_two_opt=True, two_opt_max_passes=passes, knn_k=KNN_K)
+        return dict(travel=round(travel_distance(ordered), 1))
+
+    return Case(
+        "sort_curves_convergence", "%s_n%d_p%d" % (label, n, passes),
+        setup=lambda build=build, n=n: build(n),
+        run=run, observe=observe,
+        axis=dict(data=label, n=n, max_passes=passes),
+        heavy=True,
+    )
+
+
 def _convergence_cases():
     cases = []
     for label, build, avail in _curve_sources():
         if avail is not None and CONVERGENCE_N > avail:
             continue
         for passes in CONVERGENCE_SWEEP:
-            def run(c, passes=passes):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_max_passes=passes, knn_k=KNN_K)
-                return ordered
+            cases.append(_convergence_case(label, build, CONVERGENCE_N, passes))
 
-            def observe(c, passes=passes):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_max_passes=passes, knn_k=KNN_K)
-                return dict(travel=round(travel_distance(ordered), 1))
-
-            cases.append(Case(
-                "sort_curves_convergence", "%s_p%d" % (label, passes),
-                setup=lambda build=build: build(CONVERGENCE_N),
-                run=run, observe=observe,
-                axis=dict(data=label, n=CONVERGENCE_N, max_passes=passes),
-                heavy=True,
-            ))
+    for passes in CONVERGENCE_SWEEP:
+        cases.append(_convergence_case(
+            CONVERGENCE_BIG_LABEL, make_segments, CONVERGENCE_BIG_N, passes))
     return cases
+
+
+# --- sort_curves: is the pruned search's quality parity luck? ---------------
+# Pruning discards no improving move, but that does not make it produce the same
+# tour: both implementations take the first improving move they meet, meet them
+# in different orders, and settle into *different* 2-opt local optima. No
+# theorem ranks those, so "pruned is never worse" can only ever be an empirical
+# claim -- and it was resting on three fixtures at one n and one seed.
+#
+# So: vary the seed at a fixed n, which is the direct test of whether parity was
+# luck, and add one 50,000-curve row, the size where the two have never been
+# compared at all. Both at 20 passes, where each has converged, so the
+# comparison is between finished tours rather than between two points on
+# different convergence curves -- pruning trails while unconverged, and
+# comparing mid-flight would measure that instead of the answer.
+#
+# This group is run twice, once per implementation, and the travel columns
+# compared. It cannot be run against both at once: which 2-opt the binary
+# carries is a build-time fact, not a parameter.
+
+PRUNE_CHECK_N = 16000
+PRUNE_CHECK_SEEDS = [1, 2, 3, 4, 5]
+PRUNE_CHECK_BIG_N = 50000
+PRUNE_CHECK_PASSES = 20
+
+
+def _prune_check_cases():
+    def run(c):
+        ordered, _ = sort_curves_native(
+            c, use_two_opt=True, two_opt_max_passes=PRUNE_CHECK_PASSES,
+            knn_k=KNN_K)
+        return ordered
+
+    def observe(c):
+        ordered, _ = sort_curves_native(
+            c, use_two_opt=True, two_opt_max_passes=PRUNE_CHECK_PASSES,
+            knn_k=KNN_K)
+        return dict(travel=round(travel_distance(ordered), 1))
+
+    sizes = [(PRUNE_CHECK_N, seed) for seed in PRUNE_CHECK_SEEDS]
+    sizes.append((PRUNE_CHECK_BIG_N, 1))
+
+    return [
+        Case(
+            "sort_curves_prune_check", "generated_n%d_s%d" % (n, seed),
+            setup=lambda n=n, seed=seed: make_segments(n, seed=seed),
+            run=run, observe=observe,
+            axis=dict(data="generated_uniform", n=n, seed=seed,
+                      max_passes=PRUNE_CHECK_PASSES),
+            heavy=True,
+        )
+        for n, seed in sizes
+    ]
 
 
 # --- redistribute_lookups --------------------------------------------------
@@ -429,9 +508,11 @@ def _turn_cases():
 # --------------------------------------------------------------------------
 
 GROUPS = ["sort_points", "sort_curves", "sort_curves_convergence",
-          "redistribute_lookups", "build_turn_waypoints"]
+          "sort_curves_prune_check", "redistribute_lookups",
+          "build_turn_waypoints"]
 
 
 def all_cases():
     return (_sort_points_cases() + _sort_curves_cases()
-            + _convergence_cases() + _redistribute_cases() + _turn_cases())
+            + _convergence_cases() + _prune_check_cases()
+            + _redistribute_cases() + _turn_cases())

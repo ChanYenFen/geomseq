@@ -1,0 +1,123 @@
+{
+  "env": {
+    "timestamp": "2026-09-14T15:44:43",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+    "toolchain_expected": "MSVC",
+    "python": "3.10.6",
+    "binary": {
+      "name": "geomseq_core.dll",
+      "present": true,
+      "size_bytes": 240640,
+      "sha256_prefix": "a7002098686e053f",
+      "mtime": "2026-09-14T15:44:43"
+    }
+  },
+  "heavy": true,
+  "records": [
+    {
+      "group": "sort_curves_prune_check",
+      "name": "generated_n16000_s1",
+      "axis": {
+        "data": "generated_uniform",
+        "n": 16000,
+        "seed": 1,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 65825.8
+      },
+      "best_seconds": 20.75016549997963,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_prune_check",
+      "name": "generated_n16000_s2",
+      "axis": {
+        "data": "generated_uniform",
+        "n": 16000,
+        "seed": 2,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 66140.0
+      },
+      "best_seconds": 23.848257399979047,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_prune_check",
+      "name": "generated_n16000_s3",
+      "axis": {
+        "data": "generated_uniform",
+        "n": 16000,
+        "seed": 3,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 65231.8
+      },
+      "best_seconds": 24.183954300009646,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_prune_check",
+      "name": "generated_n16000_s4",
+      "axis": {
+        "data": "generated_uniform",
+        "n": 16000,
+        "seed": 4,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 65839.2
+      },
+      "best_seconds": 22.435669200029224,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_prune_check",
+      "name": "generated_n16000_s5",
+      "axis": {
+        "data": "generated_uniform",
+        "n": 16000,
+        "seed": 5,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 66171.9
+      },
+      "best_seconds": 20.471584500046447,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_prune_check",
+      "name": "generated_n50000_s1",
+      "axis": {
+        "data": "generated_uniform",
+        "n": 50000,
+        "seed": 1,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 111173.3
+      },
+      "best_seconds": 295.60854749998543,
+      "reps": 1
+    }
+  ]
+}
