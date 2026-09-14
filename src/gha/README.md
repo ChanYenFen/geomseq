@@ -44,9 +44,9 @@ alike. Both components report through GH's message levels rather than throwing.
 Only the load failures stop the component. The size warning is a disclosure,
 not a cap.
 
-Thresholds are 50,000 curves (from a ~43 s ad-hoc run) and 10,000 points —
-**the point figure has never been measured**. It moves once `sort_points` gets
-a windowed 2-opt and a committed baseline.
+Both thresholds are 16,000, the largest input the committed baseline measures.
+Past it the 2-opt pass is O(n²) with nothing cheaper to fall back to: about 12 s
+at 16,000 points, 4 minutes at 64,000, and 3 minutes for 50,000 curves.
 
 ## Development
 

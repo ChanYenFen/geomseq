@@ -13,11 +13,11 @@ public sealed class SortPointsComponent : GH_Component
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("d146d2e4-f0c0-4ea1-a172-57e49daef001");
 
-    // Unmeasured, and provisional twice over. sort_points has no windowed 2-opt *yet*, so every
-    // pass is O(n^2); 10,000 is borrowed from where sort_curves switches 2-opt strategies, which
-    // is a different thing from where it gets slow. Replace once sort_points has both a windowed
-    // path and a committed result in benchmarks/results/ -- either one moves this number.
-    private const int TestedLimit = 10_000;
+    // Measured, from baseline-windows-amd64-20260914-heavy: 2-opt on uniform
+    // points is 2.20 s at 8,000, 11.94 s at 16,000 and 248.68 s at 64,000 --
+    // cleanly O(n^2), and there is no cheaper 2-opt to fall back to. 16,000 is
+    // where it stops feeling instant, so that is where the warning starts.
+    private const int TestedLimit = 16_000;
 
     public SortPointsComponent()
         : base("Sort Points", "SortPt",

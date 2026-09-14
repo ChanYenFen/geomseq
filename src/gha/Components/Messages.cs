@@ -17,7 +17,8 @@ internal static class Messages
     }
 
     public static string AboveTestedLimit(int n, string items, int limit)
-        => $"{n:N0} {items} is more than the largest tested input ({limit:N0}). Sorting may take tens of seconds.";
+        => $"{n:N0} {items} is above the largest measured input ({limit:N0}). The 2-opt pass is "
+         + "O(n²) from here and has no cheaper fallback, so this can take tens of seconds to minutes.";
 
     public const string LoadFailedPrefix = "geomseq_core native call failed: ";
 }

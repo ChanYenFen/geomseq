@@ -13,9 +13,12 @@ public sealed class SortCurvesComponent : GH_Component
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("30183340-903f-45f8-a5e5-d6509ffbb897");
 
-    // Largest input with a known running time: ~43 s for 50k curves (README, ad-hoc run).
-    // Not yet backed by a committed file in benchmarks/results/; revisit once the full baseline is.
-    private const int TestedLimit = 50_000;
+    // The largest n the committed baseline actually measures
+    // (baseline-windows-amd64-20260914-heavy), and about where sorting stops
+    // feeling instant: 2-opt on uniform curves is ~12 s at 16,000. The
+    // crossover sweep puts 50,000 near 3 minutes, so the curve is steep past
+    // here -- which is what the warning is for.
+    private const int TestedLimit = 16_000;
 
     public SortCurvesComponent()
         : base("Sort Curves", "SortCrv",

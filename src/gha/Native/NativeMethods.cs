@@ -24,7 +24,6 @@ internal static unsafe class NativeMethods
         int     twoOptMaxPasses,
         int     knnK,
         int     ifFlip,           // 0/1
-        int     twoOptMode,       // 0 = auto; 1 and 2 exist for benchmarks only
         int*    outOrder,         // n: original curve index per position
         int*    outReversal,      // n: 0/1
         double* outTravelPoints); // 6n: segment k runs from curve k-1's exit (or startPt) to curve k's entry

@@ -88,7 +88,7 @@ internal static class GeomSeqCore
         fixed (double* tp = travel)
         {
             NativeMethods.SortCurves(ep, n, sp, UseTwoOpt, TwoOptMaxPasses, KnnK,
-                                     ifFlip: allowFlip ? 1 : 0, twoOptMode: 0, op, rp, tp);
+                                     ifFlip: allowFlip ? 1 : 0, op, rp, tp);
         }
 
         return new CurveSortResult(order, reversal, travel);

@@ -211,10 +211,12 @@ halfway through a solve.
 - **The list inputs are `Optional`.** Otherwise Grasshopper emits its own
   missing-input warning and never calls `SolveInstance`, so the empty-input Remark
   could not happen.
-- **The "tested limit" warnings are placeholders.** Sort Curves uses 50,000 (the
-  README's ad-hoc ~43 s) and Sort Points uses 10,000 (unmeasured: its 2-opt has
-  no windowed path). Neither is backed by `benchmarks/results/`, so replace both
-  once the full baseline lands.
+- **The "tested limit" warnings are now measured.** Both components warn above
+  16,000, which is the largest n in `baseline-windows-amd64-20260914-heavy` and
+  roughly where 2-opt stops feeling instant (~12 s). They started as
+  placeholders — 50,000 from an ad-hoc run, 10,000 borrowed from a threshold
+  that measured something else entirely — which is worth remembering before
+  quoting any other number that has not been re-checked against a committed run.
 
 ### Contracts
 
