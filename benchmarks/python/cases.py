@@ -304,6 +304,48 @@ def _crossover_cases():
     return cases
 
 
+# --- sort_curves: how many 2-opt passes actually get used --------------------
+# max_passes is a cap, not a count: the loop stops early as soon as a pass
+# improves nothing. Which of the two happens is recorded nowhere, so the
+# crossover table cannot say *why* windowed gives up tour quality -- whether
+# K=500 is too few candidates, or whether it is still improving when the cap
+# cuts it off. Sweeping the cap separates them: the pass count where travel
+# stops falling is where that path has actually converged.
+#
+# One size only. This asks how each path converges, not how it scales, and
+# 25,000 sits where the two are already far apart (2.59x speed, 12.9% tour).
+
+PASSES_N = 25000
+PASSES_SWEEP = [1, 2, 3, 5, 10, 20]
+
+
+def _passes_cases():
+    cases = []
+    for mode, label in [(1, "exhaustive"), (2, "windowed")]:
+        for passes in PASSES_SWEEP:
+            def run(c, mode=mode, passes=passes):
+                ordered, _ = sort_curves_native(
+                    c, use_two_opt=True, two_opt_mode=mode,
+                    two_opt_max_passes=passes, knn_k=KNN_K)
+                return ordered
+
+            def observe(c, mode=mode, passes=passes):
+                ordered, _ = sort_curves_native(
+                    c, use_two_opt=True, two_opt_mode=mode,
+                    two_opt_max_passes=passes, knn_k=KNN_K)
+                return dict(travel=round(travel_distance(ordered), 1))
+
+            cases.append(Case(
+                "sort_curves_passes", "uniform_%s_p%d" % (label, passes),
+                setup=lambda: make_segments(PASSES_N),
+                run=run, observe=observe,
+                axis=dict(data="uniform", n=PASSES_N, path=label,
+                          max_passes=passes),
+                heavy=True,   # every row here runs into tens of seconds
+            ))
+    return cases
+
+
 # --- redistribute_lookups --------------------------------------------------
 # Both input n and output count are swept: which dominates was an open question
 # and the answer moved once the ABI stopped passing the input array.
@@ -416,9 +458,9 @@ def _turn_cases():
 # --------------------------------------------------------------------------
 
 GROUPS = ["sort_points", "sort_curves", "sort_curves_crossover",
-          "redistribute_lookups", "build_turn_waypoints"]
+          "sort_curves_passes", "redistribute_lookups", "build_turn_waypoints"]
 
 
 def all_cases():
     return (_sort_points_cases() + _sort_curves_cases() + _crossover_cases()
-            + _redistribute_cases() + _turn_cases())
+            + _passes_cases() + _redistribute_cases() + _turn_cases())
