@@ -62,12 +62,19 @@ def make_points(n, seed=1):
     return [_Pt(rng.uniform(0, EXTENT), rng.uniform(0, EXTENT)) for _ in range(n)]
 
 
-def make_segments(n, seed=1, min_len=5.0, max_len=20.0):
-    """Short randomly-oriented segments -- stitches/toolpath strokes, not a mesh."""
+def make_segments(n, seed=1, min_len=5.0, max_len=20.0, extent=None):
+    """Short randomly-oriented segments -- stitches/toolpath strokes, not a mesh.
+
+    `extent` overrides the module-level square. It exists so a sweep can hold
+    density fixed instead of packing more segments into the same area; segment
+    lengths deliberately do not scale with it, because a stitch stays the same
+    size when the design gets bigger. The default is unchanged, so every
+    committed baseline stays comparable."""
     rng = random.Random(seed)
+    span = EXTENT if extent is None else extent
     out = []
     for _ in range(n):
-        x0, y0 = rng.uniform(0, EXTENT), rng.uniform(0, EXTENT)
+        x0, y0 = rng.uniform(0, span), rng.uniform(0, span)
         ang, ln = rng.uniform(0, 2 * math.pi), rng.uniform(min_len, max_len)
         out.append(_Seg(x0, y0, x0 + math.cos(ang) * ln, y0 + math.sin(ang) * ln))
     return out
@@ -304,6 +311,60 @@ def _crossover_cases():
     return cases
 
 
+# --- sort_curves: n and density, separated -----------------------------------
+# Every other sweep packs more segments into the same 1000x1000 square, so n and
+# density rise together. That matters here specifically, because windowed's
+# window is the K *nearest* edges: at fixed K, denser input shrinks the physical
+# reach of that window. The crossover table's quality column may therefore be
+# measuring density rather than scale -- 500 edges span a quarter of the design
+# at n=2,000 and a small neighbourhood at n=50,000.
+#
+# Holding segments per unit area fixed (extent grows as sqrt(n)) varies n alone.
+# Real work is the constant-density case: more stitches usually means a bigger
+# design, not the same design packed tighter.
+#
+# The n=12,000 row is the reference density, so it is the same input the
+# crossover group already measured at 12,000 -- same n, seed and extent. It must
+# reproduce that row's travel exactly; if it does not, the two sweeps are not
+# comparable and nothing else here means anything.
+
+DENSITY_REF_N = 12000
+DENSITY_SIZES = [12000, 25000, 50000]
+
+
+def density_extent(n):
+    """Square side that holds `n` segments at DENSITY_REF_N's density."""
+    return EXTENT * math.sqrt(float(n) / DENSITY_REF_N)
+
+
+def _density_cases():
+    cases = []
+    for n in DENSITY_SIZES:
+        for mode, label in [(1, "exhaustive"), (2, "windowed")]:
+            def run(c, mode=mode):
+                ordered, _ = sort_curves_native(
+                    c, use_two_opt=True, two_opt_mode=mode,
+                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
+                return ordered
+
+            def observe(c, mode=mode):
+                ordered, _ = sort_curves_native(
+                    c, use_two_opt=True, two_opt_mode=mode,
+                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
+                return dict(travel=round(travel_distance(ordered), 1))
+
+            cases.append(Case(
+                "sort_curves_density", "constdens_%s_n%d" % (label, n),
+                setup=lambda n=n: make_segments(n, extent=density_extent(n)),
+                run=run, observe=observe,
+                axis=dict(data="uniform_constdens", n=n, path=label,
+                          extent=int(round(density_extent(n))),
+                          max_passes=MAX_PASSES),
+                heavy=True,
+            ))
+    return cases
+
+
 # --- sort_curves: how many 2-opt passes actually get used --------------------
 # max_passes is a cap, not a count: the loop stops early as soon as a pass
 # improves nothing. Which of the two happens is recorded nowhere, so the
@@ -485,9 +546,11 @@ def _turn_cases():
 # --------------------------------------------------------------------------
 
 GROUPS = ["sort_points", "sort_curves", "sort_curves_crossover",
-          "sort_curves_passes", "redistribute_lookups", "build_turn_waypoints"]
+          "sort_curves_density", "sort_curves_passes",
+          "redistribute_lookups", "build_turn_waypoints"]
 
 
 def all_cases():
     return (_sort_points_cases() + _sort_curves_cases() + _crossover_cases()
-            + _passes_cases() + _redistribute_cases() + _turn_cases())
+            + _density_cases() + _passes_cases() + _redistribute_cases()
+            + _turn_cases())

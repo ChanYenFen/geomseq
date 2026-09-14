@@ -1,0 +1,129 @@
+{
+  "env": {
+    "timestamp": "2026-09-14T13:11:50",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+    "toolchain_expected": "MSVC",
+    "python": "3.10.6",
+    "binary": {
+      "name": "geomseq_core.dll",
+      "present": true,
+      "size_bytes": 259072,
+      "sha256_prefix": "fd6ad632ec57ae5e",
+      "mtime": "2026-09-03T14:18:23"
+    }
+  },
+  "heavy": true,
+  "records": [
+    {
+      "group": "sort_curves_density",
+      "name": "constdens_exhaustive_n12000",
+      "axis": {
+        "data": "uniform_constdens",
+        "n": 12000,
+        "path": "exhaustive",
+        "extent": 1000,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 58444.6
+      },
+      "best_seconds": 10.34208440000657,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_density",
+      "name": "constdens_windowed_n12000",
+      "axis": {
+        "data": "uniform_constdens",
+        "n": 12000,
+        "path": "windowed",
+        "extent": 1000,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 62168.6
+      },
+      "best_seconds": 8.266860200033989,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_density",
+      "name": "constdens_exhaustive_n25000",
+      "axis": {
+        "data": "uniform_constdens",
+        "n": 25000,
+        "path": "exhaustive",
+        "extent": 1443,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 120041.7
+      },
+      "best_seconds": 46.29487029998563,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_density",
+      "name": "constdens_windowed_n25000",
+      "axis": {
+        "data": "uniform_constdens",
+        "n": 25000,
+        "path": "windowed",
+        "extent": 1443,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 133275.6
+      },
+      "best_seconds": 18.102109600033145,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_density",
+      "name": "constdens_exhaustive_n50000",
+      "axis": {
+        "data": "uniform_constdens",
+        "n": 50000,
+        "path": "exhaustive",
+        "extent": 2041,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 239387.2
+      },
+      "best_seconds": 218.79609399999026,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_density",
+      "name": "constdens_windowed_n50000",
+      "axis": {
+        "data": "uniform_constdens",
+        "n": 50000,
+        "path": "windowed",
+        "extent": 2041,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 271272.7
+      },
+      "best_seconds": 37.98691430001054,
+      "reps": 1
+    }
+  ]
+}
