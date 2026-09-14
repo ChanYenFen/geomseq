@@ -38,15 +38,22 @@ alike. Both components report through GH's message levels rather than throwing.
 | 🔴 Error | Native library failed to load — wrong platform or architecture; the message names what it detected |
 | 🔴 Error | The native call threw (`DllNotFound`, `EntryPointNotFound`, `BadImageFormat`) — same cause, caught later |
 | 🟡 Warning | Null or degenerate items skipped; the message names their input indices |
-| 🟡 Warning | `n` above the largest profiled input — still runs, but Rhino will look frozen |
+| 🟡 Warning | `n` above the largest profiled input — still runs; for points, Rhino will look frozen |
 | ⚪ Remark | Empty input list |
 
 Only the load failures stop the component. The size warning is a disclosure,
 not a cap.
 
-Both thresholds are 16,000, the largest input the committed baseline measures.
-Past it the 2-opt pass is O(n²) with nothing cheaper to fall back to: about 12 s
-at 16,000 points, 4 minutes at 64,000, and 3 minutes for 50,000 curves.
+The two thresholds differ, because the two components no longer share a 2-opt
+implementation.
+
+**Sort Points warns above 16,000.** Its pass is O(n²) with nothing cheaper to
+fall back to: about 12 s at 16,000 points and 4 minutes at 64,000.
+
+**Sort Curves warns above 50,000**, the largest curve input measured, where a
+solve takes 2.62 s. Its 2-opt tests only the pairs that could shorten the tour,
+so 16,000 curves — the old threshold — now finish in about 0.4 s. Above 50,000
+the behaviour is untested rather than known to be slow, and the warning says so.
 
 ## Development
 

@@ -15,8 +15,14 @@ public sealed class SortPointsComponent : GH_Component
 
     // Measured, from baseline-windows-amd64-20260914-heavy: 2-opt on uniform
     // points is 2.20 s at 8,000, 11.94 s at 16,000 and 248.68 s at 64,000 --
-    // cleanly O(n^2), and there is no cheaper 2-opt to fall back to. 16,000 is
-    // where it stops feeling instant, so that is where the warning starts.
+    // cleanly O(n^2). 16,000 is where it stops feeling instant, so that is where
+    // the warning starts.
+    //
+    // A cheaper 2-opt does now exist in this repository -- the neighbourhood-
+    // pruned search that made Sort Curves 45x faster -- but it lives in
+    // sort_curves.cpp alone and was never written into sort_points.cpp. So this
+    // component really does have nothing cheaper to fall back to, and this limit
+    // stays where it is until that changes. Do not copy Sort Curves' 50,000.
     private const int TestedLimit = 16_000;
 
     public SortPointsComponent()
@@ -90,7 +96,7 @@ public sealed class SortPointsComponent : GH_Component
         if (points.Count == 0)
             return;
         if (points.Count > TestedLimit)
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, Messages.AboveTestedLimit(points.Count, "points", TestedLimit));
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, Messages.AboveTestedLimit(points.Count, "points", TestedLimit, Messages.ExhaustiveCost));
 
         if (!hasStart)
             start = points[0];

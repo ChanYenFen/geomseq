@@ -9,10 +9,18 @@ namespace GeomSeq.Native;
 /// </summary>
 internal static class GeomSeqCore
 {
-    // The settings the Python components shipped with.
-    private const int UseTwoOpt       = 1;
-    private const int TwoOptMaxPasses = 10;
-    private const int KnnK            = 12;
+    // The settings the Python components shipped with, except that the 2-opt
+    // pass cap is no longer one number for both. sort_curves prunes its search
+    // and converges by 20 passes on every shape measured, and it is only ever
+    // the worse of the two implementations while still unconverged, so it is
+    // worth the last 140 ms at n=50,000 to get there. sort_points still runs the
+    // exhaustive O(n^2) pass, where raising the cap would roughly double a
+    // 64,000-point solve that already takes 248 s, on no measurement at all.
+    // See CLAUDE.md, "Three different numbers now spell max passes".
+    private const int UseTwoOpt            = 1;
+    private const int CurveTwoOptMaxPasses = 20;
+    private const int PointTwoOptMaxPasses = 10;
+    private const int KnnK                 = 12;
 
     internal sealed class CurveSortResult
     {
@@ -87,7 +95,7 @@ internal static class GeomSeqCore
         fixed (int* rp = reversal)
         fixed (double* tp = travel)
         {
-            NativeMethods.SortCurves(ep, n, sp, UseTwoOpt, TwoOptMaxPasses, KnnK,
+            NativeMethods.SortCurves(ep, n, sp, UseTwoOpt, CurveTwoOptMaxPasses, KnnK,
                                      ifFlip: allowFlip ? 1 : 0, op, rp, tp);
         }
 
@@ -117,7 +125,7 @@ internal static class GeomSeqCore
         fixed (double* sp = startPt)
         fixed (int* op = order)
         {
-            NativeMethods.SortPoints(pp, n, sp, UseTwoOpt, TwoOptMaxPasses, KnnK, op);
+            NativeMethods.SortPoints(pp, n, sp, UseTwoOpt, PointTwoOptMaxPasses, KnnK, op);
         }
 
         return order;
