@@ -126,14 +126,11 @@ extern "C" {
 //               mode reversal is always 0, and 2-opt is skipped because
 //               reversing a sub-sequence would flip curve directions.
 //   two_opt_mode : which 2-opt implementation to use.
-//               0 = auto: pick by TWO_OPT_WINDOW_THRESHOLD (the shipping
-//                   behaviour -- callers that do not care pass 0)
-//               1 = force exhaustive, 2 = force windowed.
-//               Exists so the two paths can be measured against each other at
-//               the same n. Under `auto` they never overlap, which makes the
-//               crossover impossible to observe from outside and the
-//               threshold impossible to re-calibrate after a WINDOW_K or
-//               hardware change. Not intended for production callers.
+//               0 = auto, which is exhaustive. 1 = exhaustive explicitly.
+//               2 = windowed: faster above ~10,000 curves, but it gives up
+//                   6-13% of tour quality over that range to get there, so it
+//                   is never chosen for a caller -- only by one.
+//               Any other value is treated as exhaustive.
 //
 // Outputs (caller pre-allocates, we fill):
 //   out_order         : n ints -> original curve indices in sorted order
@@ -281,27 +278,23 @@ DLL_EXPORT void sort_curves(
     }
 
     // --- Step 4: 2-opt post-processing ---
-    // Two paths sharing one function, not two files: real-DLL timing showed
-    // the windowed kd-tree approach (below) is only worth its overhead once
-    // n is large enough -- below TWO_OPT_WINDOW_THRESHOLD the plain O(n^2)
-    // exhaustive loop (same logic as archive/sort_curves_v1_windowed2opt_
-    // backup.cpp, copied in-line rather than called out to that file, which
-    // isn't part of the build) is both simpler and faster in practice.
-    // Threshold picked from measured crossover: at n=8000 windowed was still
-    // slightly slower than exhaustive, at n=10000 about even -- 10000 favors
-    // exhaustive slightly at the boundary rather than risking the windowed
-    // path's quality trade-off where it isn't needed for speed anyway.
+    // Two paths sharing one function, and `auto` always takes the exhaustive
+    // one. It used to switch to the windowed path above a hardcoded
+    // TWO_OPT_WINDOW_THRESHOLD = 10000, which meant a caller crossing 10,000
+    // curves silently received a materially longer tour: measured at constant
+    // density, windowed costs 6.4% of tour quality at n=12,000, 11.0% at
+    // 25,000 and 13.3% at 50,000, with nothing in the output to say so. A
+    // hardcoded constant making that trade on the caller's behalf is the wrong
+    // default whatever the numbers are; callers who want speed for quality now
+    // have to ask for it by name. See CLAUDE.md, and the sort_curves_crossover
+    // / _density / _passes results under benchmarks/results/.
     // Skipped entirely when if_flip == 0: reversing a sub-sequence flips
     // curve directions, which the direction-fixed mode forbids.
     if (use_two_opt && if_flip && n > 3) {
-        const int TWO_OPT_WINDOW_THRESHOLD = 10000;
-
-        // two_opt_mode overrides the threshold: 0 = auto (ship behaviour),
-        // 1 = exhaustive, 2 = windowed. Anything else falls back to auto
-        // rather than picking a path by accident.
-        bool use_windowed = (two_opt_mode == 1) ? false
-                          : (two_opt_mode == 2) ? true
-                          : (n > TWO_OPT_WINDOW_THRESHOLD);
+        // Only an explicit 2 selects windowed. 0 (auto) and 1 both mean
+        // exhaustive, as does any other value -- an unrecognised mode must not
+        // pick the lossy path by accident.
+        bool use_windowed = (two_opt_mode == 2);
 
         if (!use_windowed) {
             // --- Exhaustive: test every (i, j) pair ---

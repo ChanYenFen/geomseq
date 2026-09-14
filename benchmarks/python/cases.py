@@ -218,8 +218,11 @@ def _sort_points_cases():
 
 
 # --- sort_curves -----------------------------------------------------------
-# Sizes straddle TWO_OPT_WINDOW_THRESHOLD (10,000); same-n comparison lives in
-# the crossover group. if_flip=False makes the native side skip 2-opt outright.
+# Sizes still straddle 10,000, which used to be where the native side switched
+# 2-opt implementations; it no longer switches, so these rows now measure one
+# implementation across the range rather than two either side of a boundary.
+# The windowed path is reachable only by asking for it -- see the crossover
+# group. if_flip=False makes the native side skip 2-opt outright.
 
 SORT_CURVES_SIZES = [1000, 4000, 8000, 12000, 16000]
 SORT_CURVES_HEAVY_ABOVE = 12000
@@ -241,7 +244,7 @@ def _sort_curves_cases():
                     continue
                 axis = dict(data=label, n=n, two_opt=two_opt, if_flip=True)
                 if two_opt:
-                    axis["two_opt_path"] = "exhaustive" if n <= 10000 else "windowed"
+                    axis["two_opt_path"] = "exhaustive"  # what auto takes at every n
                 cases.append(Case(
                     "sort_curves",
                     "%s_%s_n%d" % (label, "2opt" if two_opt else "greedy", n),
@@ -305,7 +308,7 @@ def _crossover_cases():
                 setup=lambda n=n: make_segments(n),
                 run=run, observe=observe,
                 axis=dict(data="uniform", n=n, path=label,
-                          auto_would_pick=("exhaustive" if n <= 10000 else "windowed")),
+                          auto_would_pick="exhaustive"),
                 heavy=(n > CROSSOVER_HEAVY_ABOVE),
             ))
     return cases
