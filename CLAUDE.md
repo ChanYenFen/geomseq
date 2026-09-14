@@ -202,14 +202,22 @@ groups. The numbers exist; the reading of them does not.
 - **`redistribute` at `out_n = 102`** is slower on the Python side than the
   `out_n = 367` row, while the native row is perfectly in line. Bridge-side,
   unexplained, worth one rerun before theorising.
-- **Everything measured so far is `uniform`, one seed.** The conclusions above
+- **Almost everything measured is `uniform`, one seed.** The conclusions above
   are directional and the effect sizes are large, but no seed sweep has been
-  run, and the clustered/grid/zigzag fixtures have not been put through the
-  convergence sweeps at all.
-- **`max_passes = 10` looks too generous.** At n=25,000 and 50,000 alike,
-  capping at 5 gives up ~1.2% of tour quality for half the runtime, and 3 gives
-  up ~3.5% for a third. Worth changing, but not on one dataset: convergence rate
-  plausibly depends on input structure, so check clustered and zigzag first.
+  run. The one exception is `sort_curves_convergence`, which covers clustered
+  and zigzag at n=16,000; the `grid` fixtures and every other group are still
+  uniform-only.
+- **`max_passes = 10` is generous, and no shape needs more.** The worry was that
+  some structure converged more slowly than uniform and was being cut off
+  unseen. `sort_curves_convergence` says not: against each shape's own 20-pass
+  tour, 10 passes gives up 0.04% on uniform and 0.01% on clustered_100x, while
+  zigzag arrives already 2-opt-optimal (flat at 8941.2 from pass 1, time never
+  leaving 1.29 s, so the early exit takes it). Clustered converges *faster* than
+  uniform in relative terms — the opposite of the concern. Cutting the cap
+  therefore costs what it costs on uniform: 5 passes gives up 1.11% (uniform)
+  and 0.64% (clustered) for half the runtime, 3 passes 3.48% and 2.36% for a
+  third. Still open only in the sense that the cap has not been changed; the
+  measurement no longer blocks it.
 - **`sort_points` has no windowed path and now never will get this one.** Its
   2-opt is cleanly O(n²) — 2.20 s at n=8,000 rising to 248.68 s at 64,000 — so
   if large point sets ever matter, the lever is `max_passes`, or a different

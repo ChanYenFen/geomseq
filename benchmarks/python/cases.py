@@ -268,6 +268,55 @@ def _sort_curves_cases():
     return cases
 
 
+# --- sort_curves: does 2-opt converge by the shipped cap, on every shape? ----
+# max_passes = 10 is what ships, and on uniform data it lands within 0.1% of
+# converged at both 25,000 and 50,000. That is one distribution. If some input
+# shape is still improving at 10, callers with that shape quietly get a less
+# converged tour than everyone else -- a quality question, not a speed one, and
+# the answer it would imply is to raise the cap, not lower it.
+#
+# Fixtures rather than the generator, because shape is the axis here. n is
+# pinned at 16,000, the fixture length, so zigzag keeps its true serpentine
+# order: sample() preserves the file's order only when it returns the whole
+# file, and a sampled subset of zigzag is not a sorted input any more.
+
+CONVERGENCE_N = 16000
+CONVERGENCE_SWEEP = [1, 2, 3, 5, 10, 20]
+
+
+def travel_distance(curves):
+    """Sum of gaps: end of one curve to start of the next (same as tests/)."""
+    return sum(math.hypot(c.PointAtStart.X - p.PointAtEnd.X,
+                          c.PointAtStart.Y - p.PointAtEnd.Y)
+               for p, c in zip(curves, curves[1:]))
+
+
+def _convergence_cases():
+    cases = []
+    for label, build, avail in _curve_sources():
+        if avail is not None and CONVERGENCE_N > avail:
+            continue
+        for passes in CONVERGENCE_SWEEP:
+            def run(c, passes=passes):
+                ordered, _ = sort_curves_native(
+                    c, use_two_opt=True, two_opt_max_passes=passes, knn_k=KNN_K)
+                return ordered
+
+            def observe(c, passes=passes):
+                ordered, _ = sort_curves_native(
+                    c, use_two_opt=True, two_opt_max_passes=passes, knn_k=KNN_K)
+                return dict(travel=round(travel_distance(ordered), 1))
+
+            cases.append(Case(
+                "sort_curves_convergence", "%s_p%d" % (label, passes),
+                setup=lambda build=build: build(CONVERGENCE_N),
+                run=run, observe=observe,
+                axis=dict(data=label, n=CONVERGENCE_N, max_passes=passes),
+                heavy=True,
+            ))
+    return cases
+
+
 # --- redistribute_lookups --------------------------------------------------
 # Both input n and output count are swept: which dominates was an open question
 # and the answer moved once the ABI stopped passing the input array.
@@ -379,10 +428,10 @@ def _turn_cases():
 
 # --------------------------------------------------------------------------
 
-GROUPS = ["sort_points", "sort_curves", "redistribute_lookups",
-          "build_turn_waypoints"]
+GROUPS = ["sort_points", "sort_curves", "sort_curves_convergence",
+          "redistribute_lookups", "build_turn_waypoints"]
 
 
 def all_cases():
     return (_sort_points_cases() + _sort_curves_cases()
-            + _redistribute_cases() + _turn_cases())
+            + _convergence_cases() + _redistribute_cases() + _turn_cases())
