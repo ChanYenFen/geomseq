@@ -172,14 +172,12 @@ Build is for distribution, and only its native half could be executed anywhere.
   `step_len` large relative to the E–S gap the junction can kink sharply (e.g.
   62° at `theta_max_deg=30`). Callers needing a hard cap should check the gap
   before calling, or keep `step_len` well under it.
-- `sort_curves`'s 2-opt pass dispatches on `n`: exhaustive O(n²) at or below
-  ~10,000 curves, a windowed kd-tree version (K=500 nearest candidate edges,
-  ~O(n log n)) above that. Cut a 50k-curve case from ~3 min to ~43s; below
-  the threshold the exhaustive path is still faster in practice (kd-tree
-  overhead isn't worth it at small n). See `archive/sort_curves_v1_
-  windowed2opt_backup.cpp` for the pre-windowing reference version. The
-  greedy k-NN phase still has its own theoretical O(n²) worst case
-  (unaddressed) from filtering already-used points out of a static kd-tree.
+- `sort_curves` and `sort_points` both use one 2-opt implementation, the
+  exhaustive O(n²) pass, at every `n`. Nothing switches on input size. Cost
+  grows accordingly: sorting 50,000 curves with 2-opt is minutes, not seconds,
+  and `use_two_opt=False` is the fast path when that is too long. The greedy
+  k-NN phase also has its own theoretical O(n²) worst case (unaddressed), from
+  filtering already-used points out of a static kd-tree.
 
 ## License
 

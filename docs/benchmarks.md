@@ -117,10 +117,16 @@ the declared knob: `theta_max_deg` only *caps* the per-waypoint turn, so a
 straight run produces 2 waypoints whether the cap is 30° or 1°, and the timing
 is flat across all four values.
 
-## Not measured here
+## The sort functions
 
-`sort_points`, `sort_curves` and the windowed/exhaustive 2-opt crossover have no
-committed baseline yet — earlier figures for them came from ad-hoc runs that
-were not recorded, so they are not quoted. The open questions they raised are
-tracked in [`../CLAUDE.md`](../CLAUDE.md); the harness covers them already, it
-just needs a full run to be committed.
+`sort_points` and `sort_curves` now have a committed baseline —
+`baseline-windows-amd64-20260914-heavy` — along with three sweeps that exist to
+answer one question each: `sort_curves_crossover`, `sort_curves_density` and
+`sort_curves_passes`. Those three groups have since been retired from the
+harness, because the question they were built to settle is settled: the windowed
+2-opt they compared against was removed. Their result files stay as the evidence
+for that decision, and [`../CLAUDE.md`](../CLAUDE.md) carries the reasoning.
+
+The headline numbers are not written up here yet. Anything quoted from them
+should cite the result file by name, as the rule at the top of this document
+requires.

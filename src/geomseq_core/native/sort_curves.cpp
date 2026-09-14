@@ -46,43 +46,6 @@ typedef nanoflann::KDTreeSingleIndexAdaptor<
 > KDTree;
 
 // ---------------------------------------------------------------------------
-// Second kd-tree, built only for 2-opt (after greedy finishes -- the
-// EndpointCloud/KDTree above are done being used by then). Stores one point
-// per *current tour edge* rather than per curve endpoint, so 2-opt can query
-// "which edges are spatially near edge i" instead of scanning all O(n) pairs.
-//
-// n-1 real edges (out_order[k] -> out_order[k+1]) plus one "phantom" point
-// for the open path's terminal (out_order[n-1]'s own exit point, not a
-// midpoint of two things) -- without it, the j == n-1 "reconnect to the
-// tour's end" case the exhaustive loop tests would never be reachable by a
-// spatial query, which isn't the same kind of miss as skipping a distant
-// real edge. n points total.
-// ---------------------------------------------------------------------------
-struct EdgeMidpointCloud {
-    const double* pts;  // borrowed pointer to a flat buffer, 3 doubles per edge point
-    int           num;  // number of edge points = n (n-1 real edges + 1 terminal)
-
-    inline size_t kdtree_get_point_count() const {
-        return num;
-    }
-
-    inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
-        return pts[idx * 3 + dim];
-    }
-
-    template <class BBOX>
-    bool kdtree_get_bbox(BBOX&) const {
-        return false;
-    }
-};
-
-typedef nanoflann::KDTreeSingleIndexAdaptor<
-    nanoflann::L2_Simple_Adaptor<double, EdgeMidpointCloud>,
-    EdgeMidpointCloud,
-    3
-> MidpointKDTree;
-
-// ---------------------------------------------------------------------------
 // Small internal helpers (used by greedy + 2-opt). Not exported.
 // ---------------------------------------------------------------------------
 
@@ -125,12 +88,6 @@ extern "C" {
 //               0 = direction is fixed, connect head->tail only. In this
 //               mode reversal is always 0, and 2-opt is skipped because
 //               reversing a sub-sequence would flip curve directions.
-//   two_opt_mode : which 2-opt implementation to use.
-//               0 = auto, which is exhaustive. 1 = exhaustive explicitly.
-//               2 = windowed: faster above ~10,000 curves, but it gives up
-//                   6-13% of tour quality over that range to get there, so it
-//                   is never chosen for a caller -- only by one.
-//               Any other value is treated as exhaustive.
 //
 // Outputs (caller pre-allocates, we fill):
 //   out_order         : n ints -> original curve indices in sorted order
@@ -149,7 +106,6 @@ DLL_EXPORT void sort_curves(
     int           two_opt_max_passes,
     int           knn_k,
     int           if_flip,
-    int           two_opt_mode,
     int*          out_order,
     int*          out_reversal,
     double*       out_travel_points)
@@ -278,182 +234,60 @@ DLL_EXPORT void sort_curves(
     }
 
     // --- Step 4: 2-opt post-processing ---
-    // Two paths sharing one function, and `auto` always takes the exhaustive
-    // one. It used to switch to the windowed path above a hardcoded
-    // TWO_OPT_WINDOW_THRESHOLD = 10000, which meant a caller crossing 10,000
-    // curves silently received a materially longer tour: measured at constant
-    // density, windowed costs 6.4% of tour quality at n=12,000, 11.0% at
-    // 25,000 and 13.3% at 50,000, with nothing in the output to say so. A
-    // hardcoded constant making that trade on the caller's behalf is the wrong
-    // default whatever the numbers are; callers who want speed for quality now
-    // have to ask for it by name. See CLAUDE.md, and the sort_curves_crossover
-    // / _density / _passes results under benchmarks/results/.
+    // One implementation: the exhaustive O(n^2) pass. A windowed kd-tree
+    // variant used to sit beside it and was selected automatically above
+    // 10,000 curves; it was measured and removed, because it gave up 6-13% of
+    // tour quality across 12k-50k to buy speed, and did so without the caller
+    // being able to see or decline the trade. The reasoning is in CLAUDE.md,
+    // the evidence in benchmarks/results/, and the code itself in
+    // archive/sort_curves_v2_with_windowed_2opt.cpp -- read the first before
+    // reviving the last.
     // Skipped entirely when if_flip == 0: reversing a sub-sequence flips
     // curve directions, which the direction-fixed mode forbids.
     if (use_two_opt && if_flip && n > 3) {
-        // Only an explicit 2 selects windowed. 0 (auto) and 1 both mean
-        // exhaustive, as does any other value -- an unrecognised mode must not
-        // pick the lossy path by accident.
-        bool use_windowed = (two_opt_mode == 2);
-
-        if (!use_windowed) {
-            // --- Exhaustive: test every (i, j) pair ---
-            bool improved = true;
-            int  passes   = 0;
-
-            while (improved && passes < two_opt_max_passes) {
-                improved = false;
-                ++passes;
-
-                for (int i = 0; i < n - 1; ++i) {
-                    for (int j = i + 2; j < n; ++j) {
-                        int exit_i   = exit_point (out_order[i],     out_reversal[i]);
-                        int entry_i1 = entry_point(out_order[i + 1], out_reversal[i + 1]);
-                        int exit_j   = exit_point (out_order[j],     out_reversal[j]);
-
-                        double cost_before = dist_pts(endpoints, exit_i, entry_i1);
-                        double cost_after  = dist_pts(endpoints, exit_i, exit_j);
-
-                        if (j + 1 < n) {
-                            int entry_j1 = entry_point(out_order[j + 1], out_reversal[j + 1]);
-                            cost_before += dist_pts(endpoints, exit_j,   entry_j1);
-                            cost_after  += dist_pts(endpoints, entry_i1, entry_j1);
-                        }
-
-                        if (cost_after < cost_before - 1e-6) {
-                            int lo = i + 1;
-                            int hi = j;
-                            while (lo < hi) {
-                                std::swap(out_order[lo], out_order[hi]);
-                                int neg_lo = out_reversal[lo] ? 0 : 1;
-                                int neg_hi = out_reversal[hi] ? 0 : 1;
-                                out_reversal[lo] = neg_hi;
-                                out_reversal[hi] = neg_lo;
-                                ++lo;
-                                --hi;
-                            }
-                            if (lo == hi) {
-                                out_reversal[lo] = out_reversal[lo] ? 0 : 1;
-                            }
-                            improved = true;
-                        }
-                    }
-                }
-            }
-        } else {
-        // --- Windowed: only test the WINDOW_K spatially-nearest candidate
-        // edges per i, found via a second kd-tree built over current edge
-        // midpoints, instead of every (i, j) pair. Can miss a few distant
-        // pairs that would've improved the tour; an accepted trade-off, not
-        // a bug -- see the discussion this shipped with (K=24 gave ~11-15%
-        // worse total travel than exhaustive; K=500 got that to ~2%, still
-        // an order of magnitude fewer comparisons than O(n^2)).
-        const int WINDOW_K = 500;
-
+        // --- Exhaustive: test every (i, j) pair ---
         bool improved = true;
         int  passes   = 0;
-
-        // n-1 real edges + 1 phantom point for the open path's terminal
-        // (out_order[n-1]'s own exit, not a midpoint of two things) so the
-        // "reconnect to the tour's end" case the exhaustive version tests
-        // via j == n-1 stays reachable by the spatial query too.
-        std::vector<double> midpoints(3 * n);
 
         while (improved && passes < two_opt_max_passes) {
             improved = false;
             ++passes;
 
-            // Rebuild fresh at the start of every pass: a reversal changes
-            // which physical edge lives at which index (only the two
-            // boundary edges of a reversed range actually change length;
-            // the internal ones keep their geometry but shift index), so a
-            // tree left over from a previous pass would hand back stale
-            // candidates. Rebuild is O(n log n) -- negligible next to the
-            // O(n*WINDOW_K) scan below, and far cheaper than the O(n^2) loop
-            // it replaces. Swaps applied *within* this pass still use the
-            // as-of-pass-start tree/query points for the remaining i's, which
-            // can be mildly stale too -- not a correctness issue (the cost
-            // comparison below always reads the live out_order/out_reversal
-            // state, so whatever pair gets tested is evaluated correctly; a
-            // stale candidate just means we occasionally query a spatially
-            // suboptimal point), and any opportunity missed this way gets a
-            // fresh look at the start of the next pass.
-            for (int k = 0; k < n - 1; ++k) {
-                int ep_exit  = exit_point (out_order[k],     out_reversal[k]);
-                int ep_entry = entry_point(out_order[k + 1], out_reversal[k + 1]);
-                midpoints[k * 3 + 0] = (endpoints[ep_exit * 3 + 0] + endpoints[ep_entry * 3 + 0]) / 2.0;
-                midpoints[k * 3 + 1] = (endpoints[ep_exit * 3 + 1] + endpoints[ep_entry * 3 + 1]) / 2.0;
-                midpoints[k * 3 + 2] = (endpoints[ep_exit * 3 + 2] + endpoints[ep_entry * 3 + 2]) / 2.0;
-            }
-            {
-                int ep_last = exit_point(out_order[n - 1], out_reversal[n - 1]);
-                midpoints[(n - 1) * 3 + 0] = endpoints[ep_last * 3 + 0];
-                midpoints[(n - 1) * 3 + 1] = endpoints[ep_last * 3 + 1];
-                midpoints[(n - 1) * 3 + 2] = endpoints[ep_last * 3 + 2];
-            }
-
-            EdgeMidpointCloud mid_cloud;
-            mid_cloud.pts = midpoints.data();
-            mid_cloud.num = n;
-
-            MidpointKDTree mid_tree(3, mid_cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10));
-            mid_tree.buildIndex();
-
-            int k_query = WINDOW_K < n ? WINDOW_K : n;
-
             for (int i = 0; i < n - 1; ++i) {
-                double q[3] = { midpoints[i * 3 + 0], midpoints[i * 3 + 1], midpoints[i * 3 + 2] };
-
-                std::vector<uint32_t> idxs(k_query);
-                std::vector<double>   dists(k_query);
-                size_t got = mid_tree.knnSearch(&q[0], k_query, idxs.data(), dists.data());
-
-                for (size_t r = 0; r < got; ++r) {
-                    int cand = (int)idxs[r];
-                    int lo = i < cand ? i : cand;
-                    int hi = i < cand ? cand : i;
-                    if (hi < lo + 2) {
-                        continue;  // adjacent/self -- not a valid 2-opt pair
-                    }
-
-                    int exit_i   = exit_point (out_order[lo],     out_reversal[lo]);
-                    int entry_i1 = entry_point(out_order[lo + 1], out_reversal[lo + 1]);
-                    int exit_j   = exit_point (out_order[hi],     out_reversal[hi]);
+                for (int j = i + 2; j < n; ++j) {
+                    int exit_i   = exit_point (out_order[i],     out_reversal[i]);
+                    int entry_i1 = entry_point(out_order[i + 1], out_reversal[i + 1]);
+                    int exit_j   = exit_point (out_order[j],     out_reversal[j]);
 
                     double cost_before = dist_pts(endpoints, exit_i, entry_i1);
                     double cost_after  = dist_pts(endpoints, exit_i, exit_j);
 
-                    if (hi + 1 < n) {
-                        int entry_j1 = entry_point(out_order[hi + 1], out_reversal[hi + 1]);
+                    if (j + 1 < n) {
+                        int entry_j1 = entry_point(out_order[j + 1], out_reversal[j + 1]);
                         cost_before += dist_pts(endpoints, exit_j,   entry_j1);
                         cost_after  += dist_pts(endpoints, entry_i1, entry_j1);
                     }
 
                     if (cost_after < cost_before - 1e-6) {
-                        // Reverse sub-sequence [lo+1 .. hi]: flip order AND
-                        // negate each reversal flag (a flipped curve is
-                        // traversed the other way) -- same mechanics as the
-                        // exhaustive version.
-                        int p     = lo + 1;
-                        int q_idx = hi;
-                        while (p < q_idx) {
-                            std::swap(out_order[p], out_order[q_idx]);
-                            int neg_p = out_reversal[p]     ? 0 : 1;
-                            int neg_q = out_reversal[q_idx] ? 0 : 1;
-                            out_reversal[p]     = neg_q;
-                            out_reversal[q_idx] = neg_p;
-                            ++p;
-                            --q_idx;
+                        int lo = i + 1;
+                        int hi = j;
+                        while (lo < hi) {
+                            std::swap(out_order[lo], out_order[hi]);
+                            int neg_lo = out_reversal[lo] ? 0 : 1;
+                            int neg_hi = out_reversal[hi] ? 0 : 1;
+                            out_reversal[lo] = neg_hi;
+                            out_reversal[hi] = neg_lo;
+                            ++lo;
+                            --hi;
                         }
-                        if (p == q_idx) {
-                            out_reversal[p] = out_reversal[p] ? 0 : 1;
+                        if (lo == hi) {
+                            out_reversal[lo] = out_reversal[lo] ? 0 : 1;
                         }
                         improved = true;
                     }
                 }
             }
         }
-        } // else (windowed)
     }
 
     // --- Step 5: travel-segment start/end points (post-pass, doesn't touch

@@ -219,10 +219,11 @@ def _sort_points_cases():
 
 # --- sort_curves -----------------------------------------------------------
 # Sizes still straddle 10,000, which used to be where the native side switched
-# 2-opt implementations; it no longer switches, so these rows now measure one
-# implementation across the range rather than two either side of a boundary.
-# The windowed path is reachable only by asking for it -- see the crossover
-# group. if_flip=False makes the native side skip 2-opt outright.
+# 2-opt implementations. It no longer switches -- there is only one -- so these
+# rows measure a single implementation across the range rather than two either
+# side of a boundary. The sizes are kept so they stay comparable with the
+# baselines recorded while the boundary existed.
+# if_flip=False makes the native side skip 2-opt outright.
 
 SORT_CURVES_SIZES = [1000, 4000, 8000, 12000, 16000]
 SORT_CURVES_HEAVY_ABOVE = 12000
@@ -264,176 +265,6 @@ def _sort_curves_cases():
             axis=dict(data="uniform", n=n,
                       two_opt="skipped (if_flip=False)", if_flip=False),
         ))
-    return cases
-
-
-# --- sort_curves: windowed vs exhaustive at the SAME n -----------------------
-# Only possible since two_opt_mode was added; under `auto` the paths never
-# overlap. Travel is observed too -- windowed buys speed with tour quality.
-
-# 25k/50k are where windowed was supposed to earn its keep (the README's 50k
-# case). Without them the sweep only covers sizes where the trade is visibly
-# bad -- at 12,000 windowed buys 1.21x speed for a 6.4% longer tour -- which
-# says nothing about whether it turns around at the size it was written for.
-# These use the generator, not a fixture, so no dataset caps the sweep.
-CROSSOVER_SIZES = [2000, 5000, 8000, 12000, 25000, 50000]
-CROSSOVER_HEAVY_ABOVE = 5000
-
-
-def travel_distance(curves):
-    """Sum of gaps: end of one curve to start of the next (same as tests/)."""
-    return sum(math.hypot(c.PointAtStart.X - p.PointAtEnd.X,
-                          c.PointAtStart.Y - p.PointAtEnd.Y)
-               for p, c in zip(curves, curves[1:]))
-
-
-def _crossover_cases():
-    cases = []
-    for n in CROSSOVER_SIZES:
-        for mode, label in [(1, "exhaustive"), (2, "windowed")]:
-            def run(c, mode=mode):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_mode=mode,
-                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
-                return ordered
-
-            def observe(c, mode=mode):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_mode=mode,
-                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
-                return dict(travel=round(travel_distance(ordered), 1))
-
-            cases.append(Case(
-                "sort_curves_crossover", "uniform_%s_n%d" % (label, n),
-                setup=lambda n=n: make_segments(n),
-                run=run, observe=observe,
-                axis=dict(data="uniform", n=n, path=label,
-                          auto_would_pick="exhaustive"),
-                heavy=(n > CROSSOVER_HEAVY_ABOVE),
-            ))
-    return cases
-
-
-# --- sort_curves: n and density, separated -----------------------------------
-# Every other sweep packs more segments into the same 1000x1000 square, so n and
-# density rise together. That matters here specifically, because windowed's
-# window is the K *nearest* edges: at fixed K, denser input shrinks the physical
-# reach of that window. The crossover table's quality column may therefore be
-# measuring density rather than scale -- 500 edges span a quarter of the design
-# at n=2,000 and a small neighbourhood at n=50,000.
-#
-# Holding segments per unit area fixed (extent grows as sqrt(n)) varies n alone.
-# Real work is the constant-density case: more stitches usually means a bigger
-# design, not the same design packed tighter.
-#
-# The n=12,000 row is the reference density, so it is the same input the
-# crossover group already measured at 12,000 -- same n, seed and extent. It must
-# reproduce that row's travel exactly; if it does not, the two sweeps are not
-# comparable and nothing else here means anything.
-
-DENSITY_REF_N = 12000
-DENSITY_SIZES = [12000, 25000, 50000]
-
-
-def density_extent(n):
-    """Square side that holds `n` segments at DENSITY_REF_N's density."""
-    return EXTENT * math.sqrt(float(n) / DENSITY_REF_N)
-
-
-def _density_cases():
-    cases = []
-    for n in DENSITY_SIZES:
-        for mode, label in [(1, "exhaustive"), (2, "windowed")]:
-            def run(c, mode=mode):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_mode=mode,
-                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
-                return ordered
-
-            def observe(c, mode=mode):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_mode=mode,
-                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
-                return dict(travel=round(travel_distance(ordered), 1))
-
-            cases.append(Case(
-                "sort_curves_density", "constdens_%s_n%d" % (label, n),
-                setup=lambda n=n: make_segments(n, extent=density_extent(n)),
-                run=run, observe=observe,
-                axis=dict(data="uniform_constdens", n=n, path=label,
-                          extent=int(round(density_extent(n))),
-                          max_passes=MAX_PASSES),
-                heavy=True,
-            ))
-    return cases
-
-
-# --- sort_curves: how many 2-opt passes actually get used --------------------
-# max_passes is a cap, not a count: the loop stops early as soon as a pass
-# improves nothing. Which of the two happens is recorded nowhere, so the
-# crossover table cannot say *why* windowed gives up tour quality -- whether
-# K=500 is too few candidates, or whether it is still improving when the cap
-# cuts it off. Sweeping the cap separates them: the pass count where travel
-# stops falling is where that path has actually converged.
-#
-# Two sizes, because convergence and scaling interact. At 25,000 exhaustive wins
-# on the time-vs-tour frontier even after the cap is equalised; 50,000 is where
-# that could flip, since exhaustive's per-pass cost grows as n^2 against
-# windowed's n*K. Comparing whole curves, not single points, is the whole reason
-# this group exists -- max_passes=10 means "converged" for one path and "cut off
-# less than half way" for the other.
-
-PASSES_SIZES = [25000, 50000]
-PASSES_SWEEP = [1, 2, 3, 5, 10, 20]
-
-
-def _passes_cases():
-    cases = []
-    for n in PASSES_SIZES:
-        # The floor: no 2-opt at all. Windowed's one surviving claim is the
-        # sub-20 s regime, where exhaustive has not yet finished a single pass
-        # -- but greedy alone answers in about a second, so that claim only
-        # stands if windowed's early passes beat this row. Travel is what
-        # settles it, and the sort_curves group records only time.
-        def greedy_run(c):
-            ordered, _ = sort_curves_native(c, use_two_opt=False, knn_k=KNN_K)
-            return ordered
-
-        def greedy_observe(c):
-            ordered, _ = sort_curves_native(c, use_two_opt=False, knn_k=KNN_K)
-            return dict(travel=round(travel_distance(ordered), 1))
-
-        cases.append(Case(
-            "sort_curves_passes", "uniform_greedy_n%d" % n,
-            setup=lambda n=n: make_segments(n),
-            run=greedy_run, observe=greedy_observe,
-            axis=dict(data="uniform", n=n, path="greedy", max_passes=0),
-            heavy=True,
-        ))
-
-        for mode, label in [(1, "exhaustive"), (2, "windowed")]:
-            for passes in PASSES_SWEEP:
-                def run(c, mode=mode, passes=passes):
-                    ordered, _ = sort_curves_native(
-                        c, use_two_opt=True, two_opt_mode=mode,
-                        two_opt_max_passes=passes, knn_k=KNN_K)
-                    return ordered
-
-                def observe(c, mode=mode, passes=passes):
-                    ordered, _ = sort_curves_native(
-                        c, use_two_opt=True, two_opt_mode=mode,
-                        two_opt_max_passes=passes, knn_k=KNN_K)
-                    return dict(travel=round(travel_distance(ordered), 1))
-
-                cases.append(Case(
-                    "sort_curves_passes",
-                    "uniform_%s_p%d_n%d" % (label, passes, n),
-                    setup=lambda n=n: make_segments(n),
-                    run=run, observe=observe,
-                    axis=dict(data="uniform", n=n, path=label,
-                              max_passes=passes),
-                    heavy=True,   # every row here runs into tens of seconds
-                ))
     return cases
 
 
@@ -548,12 +379,10 @@ def _turn_cases():
 
 # --------------------------------------------------------------------------
 
-GROUPS = ["sort_points", "sort_curves", "sort_curves_crossover",
-          "sort_curves_density", "sort_curves_passes",
-          "redistribute_lookups", "build_turn_waypoints"]
+GROUPS = ["sort_points", "sort_curves", "redistribute_lookups",
+          "build_turn_waypoints"]
 
 
 def all_cases():
-    return (_sort_points_cases() + _sort_curves_cases() + _crossover_cases()
-            + _density_cases() + _passes_cases() + _redistribute_cases()
-            + _turn_cases())
+    return (_sort_points_cases() + _sort_curves_cases()
+            + _redistribute_cases() + _turn_cases())
