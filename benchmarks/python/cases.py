@@ -261,7 +261,12 @@ def _sort_curves_cases():
 # Only possible since two_opt_mode was added; under `auto` the paths never
 # overlap. Travel is observed too -- windowed buys speed with tour quality.
 
-CROSSOVER_SIZES = [2000, 5000, 8000, 12000]
+# 25k/50k are where windowed was supposed to earn its keep (the README's 50k
+# case). Without them the sweep only covers sizes where the trade is visibly
+# bad -- at 12,000 windowed buys 1.21x speed for a 6.4% longer tour -- which
+# says nothing about whether it turns around at the size it was written for.
+# These use the generator, not a fixture, so no dataset caps the sweep.
+CROSSOVER_SIZES = [2000, 5000, 8000, 12000, 25000, 50000]
 CROSSOVER_HEAVY_ABOVE = 5000
 
 

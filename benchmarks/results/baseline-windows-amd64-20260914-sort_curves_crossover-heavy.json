@@ -1,0 +1,225 @@
+{
+  "env": {
+    "timestamp": "2026-09-14T09:33:27",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+    "toolchain_expected": "MSVC",
+    "python": "3.10.6",
+    "binary": {
+      "name": "geomseq_core.dll",
+      "present": true,
+      "size_bytes": 259072,
+      "sha256_prefix": "fd6ad632ec57ae5e",
+      "mtime": "2026-09-03T14:18:23"
+    }
+  },
+  "heavy": true,
+  "records": [
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_exhaustive_n2000",
+      "axis": {
+        "data": "uniform",
+        "n": 2000,
+        "path": "exhaustive",
+        "auto_would_pick": "exhaustive"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 28319.5
+      },
+      "best_seconds": 0.13313049997668713,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_windowed_n2000",
+      "axis": {
+        "data": "uniform",
+        "n": 2000,
+        "path": "windowed",
+        "auto_would_pick": "exhaustive"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 28189.1
+      },
+      "best_seconds": 1.0425767000415362,
+      "reps": 2
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_exhaustive_n5000",
+      "axis": {
+        "data": "uniform",
+        "n": 5000,
+        "path": "exhaustive",
+        "auto_would_pick": "exhaustive"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 40997.0
+      },
+      "best_seconds": 1.482142599998042,
+      "reps": 2
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_windowed_n5000",
+      "axis": {
+        "data": "uniform",
+        "n": 5000,
+        "path": "windowed",
+        "auto_would_pick": "exhaustive"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 41427.4
+      },
+      "best_seconds": 3.0589983999961987,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_exhaustive_n8000",
+      "axis": {
+        "data": "uniform",
+        "n": 8000,
+        "path": "exhaustive",
+        "auto_would_pick": "exhaustive"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 49119.0
+      },
+      "best_seconds": 4.028577699966263,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_windowed_n8000",
+      "axis": {
+        "data": "uniform",
+        "n": 8000,
+        "path": "windowed",
+        "auto_would_pick": "exhaustive"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 50716.2
+      },
+      "best_seconds": 4.915192299988121,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_exhaustive_n12000",
+      "axis": {
+        "data": "uniform",
+        "n": 12000,
+        "path": "exhaustive",
+        "auto_would_pick": "windowed"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 58444.6
+      },
+      "best_seconds": 10.023410699970555,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_windowed_n12000",
+      "axis": {
+        "data": "uniform",
+        "n": 12000,
+        "path": "windowed",
+        "auto_would_pick": "windowed"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 62168.6
+      },
+      "best_seconds": 8.655871099967044,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_exhaustive_n25000",
+      "axis": {
+        "data": "uniform",
+        "n": 25000,
+        "path": "exhaustive",
+        "auto_would_pick": "windowed"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 80336.3
+      },
+      "best_seconds": 44.17215009999927,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_windowed_n25000",
+      "axis": {
+        "data": "uniform",
+        "n": 25000,
+        "path": "windowed",
+        "auto_would_pick": "windowed"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 90680.5
+      },
+      "best_seconds": 17.027780000003986,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_exhaustive_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "exhaustive",
+        "auto_would_pick": "windowed"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 111295.1
+      },
+      "best_seconds": 184.07999129995005,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_crossover",
+      "name": "uniform_windowed_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "windowed",
+        "auto_would_pick": "windowed"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 131942.5
+      },
+      "best_seconds": 38.80549229995813,
+      "reps": 1
+    }
+  ]
+}
