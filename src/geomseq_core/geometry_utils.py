@@ -27,13 +27,11 @@ except ImportError:
 
 def sort_curves_native(curves, start_pt=None,
                        use_two_opt=False, two_opt_max_passes=10, knn_k=12,
-                       if_flip=True, return_travel_points=False, two_opt_mode=0):
+                       if_flip=True, return_travel_points=False):
     """C++-backed drop-in replacement for sort_curves_by_rtree: `knn_k` sets neighbors queried per greedy hop, `if_flip=False` fixes curve direction (head->tail only, skipping reversal/2-opt), and `start_pt=None` defaults to the origin.
     `return_travel_points=True` adds a 3rd return item: a list of n plain (start_xyz, end_xyz) tuples, one per travel segment -- not Rhino types, since this module doesn't depend on Rhino.
-    `two_opt_mode` forces the 2-opt implementation: 0 = auto (pick by the native
-    size threshold -- what every normal caller wants), 1 = exhaustive, 2 = windowed.
-    Only benchmarks should pass anything but 0; under auto the two paths never run
-    at the same n, so their crossover cannot otherwise be measured."""
+    2-opt is the exhaustive O(n^2) pass; there is no longer a second
+    implementation to choose between (see CLAUDE.md)."""
     if not curves:
         return ([], []) if not return_travel_points else ([], [], [])
 
@@ -59,7 +57,6 @@ def sort_curves_native(curves, start_pt=None,
         two_opt_max_passes,
         knn_k,
         1 if if_flip else 0,
-        two_opt_mode,
         out_order,
         out_reversal,
         out_travel_points,

@@ -110,7 +110,7 @@ you didn't just get lucky?" Let the numbers imply the conclusion.
 
 - Two phases: greedy nearest-neighbour builds an initial path, then 2-opt uncrosses it by reversing sub-paths.
 - nanoflann's kd-tree replaces the O(n²) neighbour scan — the greedy phase measures ≈ O(n^1.3).
-- 2-opt is where the cost sits: ≈ O(n^2.2). For curve sorting above 10k, a windowed variant caps candidates at the 500 nearest edges.
+- 2-opt is where the cost sits: ≈ O(n^2.2), for curves and points alike, at every size — there is no cheaper variant to fall back to.
 
 **Table — "Cost of 2-opt"**
 
@@ -131,10 +131,10 @@ before presenting it — see CLAUDE.md, "Commit a full baseline".
 milliseconds. The table then answers the obvious follow-up, "so why not always
 run it."
 
-**Accuracy trap:** the windowed 2-opt exists only in `sort_curves.cpp`, gated at
-n > 10,000. `sort_points.cpp` — the example used here — has only the exhaustive
-version, and a 1k demo would not reach the threshold anyway. Keep "windowed" as
-a scaling footnote, not part of the main description.
+**Accuracy trap:** there is one 2-opt implementation, the exhaustive O(n²) one,
+and both `sort_curves.cpp` and `sort_points.cpp` use it at every size. Do not
+describe a size-based fast path — nothing switches on `n`. The only speed knob
+is turning 2-opt off.
 
 **Verbal closer:** a converged 2-opt path is provably non-self-intersecting, so
 the difference between the two images is a property of the algorithm, not luck.

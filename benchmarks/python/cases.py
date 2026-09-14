@@ -62,12 +62,19 @@ def make_points(n, seed=1):
     return [_Pt(rng.uniform(0, EXTENT), rng.uniform(0, EXTENT)) for _ in range(n)]
 
 
-def make_segments(n, seed=1, min_len=5.0, max_len=20.0):
-    """Short randomly-oriented segments -- stitches/toolpath strokes, not a mesh."""
+def make_segments(n, seed=1, min_len=5.0, max_len=20.0, extent=None):
+    """Short randomly-oriented segments -- stitches/toolpath strokes, not a mesh.
+
+    `extent` overrides the module-level square. It exists so a sweep can hold
+    density fixed instead of packing more segments into the same area; segment
+    lengths deliberately do not scale with it, because a stitch stays the same
+    size when the design gets bigger. The default is unchanged, so every
+    committed baseline stays comparable."""
     rng = random.Random(seed)
+    span = EXTENT if extent is None else extent
     out = []
     for _ in range(n):
-        x0, y0 = rng.uniform(0, EXTENT), rng.uniform(0, EXTENT)
+        x0, y0 = rng.uniform(0, span), rng.uniform(0, span)
         ang, ln = rng.uniform(0, 2 * math.pi), rng.uniform(min_len, max_len)
         out.append(_Seg(x0, y0, x0 + math.cos(ang) * ln, y0 + math.sin(ang) * ln))
     return out
@@ -211,8 +218,12 @@ def _sort_points_cases():
 
 
 # --- sort_curves -----------------------------------------------------------
-# Sizes straddle TWO_OPT_WINDOW_THRESHOLD (10,000); same-n comparison lives in
-# the crossover group. if_flip=False makes the native side skip 2-opt outright.
+# Sizes still straddle 10,000, which used to be where the native side switched
+# 2-opt implementations. It no longer switches -- there is only one -- so these
+# rows measure a single implementation across the range rather than two either
+# side of a boundary. The sizes are kept so they stay comparable with the
+# baselines recorded while the boundary existed.
+# if_flip=False makes the native side skip 2-opt outright.
 
 SORT_CURVES_SIZES = [1000, 4000, 8000, 12000, 16000]
 SORT_CURVES_HEAVY_ABOVE = 12000
@@ -234,7 +245,7 @@ def _sort_curves_cases():
                     continue
                 axis = dict(data=label, n=n, two_opt=two_opt, if_flip=True)
                 if two_opt:
-                    axis["two_opt_path"] = "exhaustive" if n <= 10000 else "windowed"
+                    axis["two_opt_path"] = "exhaustive"  # what auto takes at every n
                 cases.append(Case(
                     "sort_curves",
                     "%s_%s_n%d" % (label, "2opt" if two_opt else "greedy", n),
@@ -254,48 +265,6 @@ def _sort_curves_cases():
             axis=dict(data="uniform", n=n,
                       two_opt="skipped (if_flip=False)", if_flip=False),
         ))
-    return cases
-
-
-# --- sort_curves: windowed vs exhaustive at the SAME n -----------------------
-# Only possible since two_opt_mode was added; under `auto` the paths never
-# overlap. Travel is observed too -- windowed buys speed with tour quality.
-
-CROSSOVER_SIZES = [2000, 5000, 8000, 12000]
-CROSSOVER_HEAVY_ABOVE = 5000
-
-
-def travel_distance(curves):
-    """Sum of gaps: end of one curve to start of the next (same as tests/)."""
-    return sum(math.hypot(c.PointAtStart.X - p.PointAtEnd.X,
-                          c.PointAtStart.Y - p.PointAtEnd.Y)
-               for p, c in zip(curves, curves[1:]))
-
-
-def _crossover_cases():
-    cases = []
-    for n in CROSSOVER_SIZES:
-        for mode, label in [(1, "exhaustive"), (2, "windowed")]:
-            def run(c, mode=mode):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_mode=mode,
-                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
-                return ordered
-
-            def observe(c, mode=mode):
-                ordered, _ = sort_curves_native(
-                    c, use_two_opt=True, two_opt_mode=mode,
-                    two_opt_max_passes=MAX_PASSES, knn_k=KNN_K)
-                return dict(travel=round(travel_distance(ordered), 1))
-
-            cases.append(Case(
-                "sort_curves_crossover", "uniform_%s_n%d" % (label, n),
-                setup=lambda n=n: make_segments(n),
-                run=run, observe=observe,
-                axis=dict(data="uniform", n=n, path=label,
-                          auto_would_pick=("exhaustive" if n <= 10000 else "windowed")),
-                heavy=(n > CROSSOVER_HEAVY_ABOVE),
-            ))
     return cases
 
 
@@ -410,10 +379,10 @@ def _turn_cases():
 
 # --------------------------------------------------------------------------
 
-GROUPS = ["sort_points", "sort_curves", "sort_curves_crossover",
-          "redistribute_lookups", "build_turn_waypoints"]
+GROUPS = ["sort_points", "sort_curves", "redistribute_lookups",
+          "build_turn_waypoints"]
 
 
 def all_cases():
-    return (_sort_points_cases() + _sort_curves_cases() + _crossover_cases()
+    return (_sort_points_cases() + _sort_curves_cases()
             + _redistribute_cases() + _turn_cases())
