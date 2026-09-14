@@ -290,11 +290,22 @@ groups. The numbers exist; the reading of them does not.
   come from the generator and is therefore uniform — how a clustered 50,000-curve
   job converges is still unmeasured. And most 50,000 rows ran once, so their
   timings carry noise; the travel figures are deterministic and do not.
-  **Raising the cap to 20 is the recommendation this supports**, not for speed
-  but because convergence is what makes pruning's one weakness structural rather
+  **The cap was raised to 20 on the strength of this**, not for speed but
+  because convergence is what makes pruning's one weakness structural rather
   than empirical: it trails the exhaustive pass only while unconverged, so a cap
   that always reaches convergence removes the failure mode instead of clearing
   it by a margin that happened to hold on the shapes measured.
+- **Three different numbers now spell "max passes", and the differences are
+  deliberate.** `sort_curves_native` defaults to 20; `sort_points_native` stays
+  at 10; `benchmarks/python/cases.py` keeps `MAX_PASSES = 10`. `sort_points`
+  keeps 10 because none of this evidence is about it — its 2-opt is still the
+  exhaustive O(n²) pass, so doubling the cap would push 64,000 points from
+  248.68 s towards twice that, on no measurement at all. The benchmark constant
+  keeps 10 because it is what every recorded baseline was taken with, and
+  changing it would silently make the `sort_points` and `sort_curves` groups
+  incomparable with their own history. Only the shipped `sort_curves` path
+  moved. The plug-in mirrors this with two separate constants rather than the
+  one it used to share between both components.
 - **`sort_points` has no windowed path and now never will get this one.** Its
   2-opt is cleanly O(n²) — 2.20 s at n=8,000 rising to 248.68 s at 64,000 — so
   if large point sets ever matter, the lever is `max_passes`, or a different
