@@ -276,8 +276,25 @@ groups. The numbers exist; the reading of them does not.
   costs 0.6%, three passes costs 3.1%, one pass costs 7.7%, and none of it buys
   much, because a pass is now 45× cheaper and the whole sweep finishes in under
   half a second. Tuning `max_passes` for speed is no longer a question worth
-  asking at n=16,000; if it becomes one at some larger n, re-measure rather than
-  reusing either set of figures.
+  asking at n=16,000.
+- **The cap does not get shorter as n grows**, which was the live worry once
+  pruning landed: pruned 2-opt trails until it converges, so a cap that is
+  generous at 16,000 and short at 50,000 would hand large jobs an unconverged
+  tour with nobody able to see it. Measured instead of assumed, in
+  `...-convergence-pruned-extended-heavy`. Every shape at 16,000 and generated
+  uniform at 50,000 converge by **20** passes, with 30 and 50 not moving a
+  digit. The shortfall at the shipped cap of 10 is 0.14% at 16,000 and 0.147% at
+  50,000 — the same, not worse. Going to 20 costs 64 ms at 16,000 and 140 ms at
+  50,000.
+  Two limits on that: the curve fixtures hold 16,000 rows, so 50,000 could only
+  come from the generator and is therefore uniform — how a clustered 50,000-curve
+  job converges is still unmeasured. And most 50,000 rows ran once, so their
+  timings carry noise; the travel figures are deterministic and do not.
+  **Raising the cap to 20 is the recommendation this supports**, not for speed
+  but because convergence is what makes pruning's one weakness structural rather
+  than empirical: it trails the exhaustive pass only while unconverged, so a cap
+  that always reaches convergence removes the failure mode instead of clearing
+  it by a margin that happened to hold on the shapes measured.
 - **`sort_points` has no windowed path and now never will get this one.** Its
   2-opt is cleanly O(n²) — 2.20 s at n=8,000 rising to 248.68 s at 64,000 — so
   if large point sets ever matter, the lever is `max_passes`, or a different

@@ -137,6 +137,7 @@ it is the before-and-after pair for pruning `sort_curves`' 2-opt search.
 | before | `baseline-windows-amd64-20260914-sort_curves_convergence-heavy` |
 | after | `baseline-windows-amd64-20260914-sort_curves_convergence-pruned-heavy` |
 | before, re-measured on an idle machine | `baseline-windows-amd64-20260914-sort_curves_convergence-exhaustive-control-heavy` |
+| after, extended to 30 and 50 passes plus a 50,000-curve probe | `baseline-windows-amd64-20260914-sort_curves_convergence-pruned-extended-heavy` |
 
 The third file exists because the first was recorded with Rhino running and the
 second was not, which biased the comparison in favour of the new code. The
