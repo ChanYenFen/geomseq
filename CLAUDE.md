@@ -37,8 +37,7 @@ Not one table copied four times — the parameter that drives cost differs:
 | Function | Axis swept | Why |
 |---|---|---|
 | `sort_points` | n × 2-opt on/off × dataset | Sizes and `knn_k`/`max_passes` kept fixed across runs so tables stay comparable |
-| `sort_curves` | n straddling 10,000, plus `if_flip` | 10,000 is `TWO_OPT_WINDOW_THRESHOLD`; `if_flip=False` makes the native side skip 2-opt entirely |
-| `sort_curves_crossover` | both 2-opt paths forced at the same n | The auto dispatch never runs both at one n |
+| `sort_curves` | n straddling 10,000, plus `if_flip` | 10,000 was where the 2-opt implementation used to switch; the sizes are kept so the rows stay comparable with baselines recorded while it did. `if_flip=False` makes the native side skip 2-opt entirely |
 | `redistribute_lookups` | input n, output density, corner count | Pure 1D marching, no kd-tree — which axis dominates was an open question |
 | `build_turn_waypoints` | `theta_max_deg` × turn geometry | One call is microseconds, below timer resolution, so it is timed in batches of 2,000 |
 
@@ -100,17 +99,73 @@ The generator parameters and the density-contrast formula live in
 settings in a `params` block, so the datasets stay interpretable if the script
 goes away.
 
-### Why `two_opt_mode` exists
+### Why the windowed 2-opt was removed
 
-`sort_curves.cpp` used to pick its 2-opt path solely from a hardcoded
-`TWO_OPT_WINDOW_THRESHOLD = 10000` with no override, so the two paths could
-never be measured at the same n — the threshold was unfalsifiable. A
-`two_opt_mode` parameter (0 = auto, 1 = exhaustive, 2 = windowed) makes the
-comparison possible; it defaults to 0 in the Python wrapper, so ordinary callers
-are unaffected. The crossover group must report **travel distance alongside
-time**, because the windowed path buys speed with tour quality — a speed-only
-table would make it look strictly better than it is, and the threshold is a
-choice between the two.
+`sort_curves.cpp` used to carry two 2-opt implementations: the exhaustive O(n²)
+pass, and a windowed one that tested only the `WINDOW_K = 500` spatially nearest
+candidate edges per edge, via a second kd-tree over tour-edge midpoints. It
+switched between them on a hardcoded `TWO_OPT_WINDOW_THRESHOLD = 10000`, with no
+override, which also meant the two could never be measured at the same n — the
+threshold was unfalsifiable. A `two_opt_mode` parameter (0 = auto, 1 = forced
+exhaustive, 2 = forced windowed) was added to make the comparison possible, and
+that comparison is what retired the whole thing.
+
+**What was measured.** All from `benchmarks/results/`, all uniform data, one
+seed. Windowed's tour against exhaustive's at the same n, both at 10 passes:
++6.4% at n=12,000, +12.9% at 25,000, +18.6% at 50,000, for speedups of 1.21×,
+2.59× and 4.74×. The shipped comment claimed K=500 held the loss to ~2%; it was
+wrong at every size measured, and wrong by an order of magnitude at 50,000, the
+size it was written for.
+
+**Two candidate explanations, both tested.**
+
+The first was that the comparison was unfair: `max_passes` is a cap, not a
+count, so "10 passes each" might mean different things. It did.
+`sort_curves_passes` showed exhaustive converging on its own near pass 13-16
+while windowed was still gaining 4.4% between passes 10 and 20 — it was being
+cut off less than half way. But equalising does not rescue it. Compared by wall
+time instead of by passes, exhaustive still dominates: at n=50,000 windowed
+needs 20 passes and 77 s to reach a tour exhaustive reaches in **one** pass and
+19 s. Twenty times the passes to match one, at five times cheaper per pass, is a
+4× net loss.
+
+The second was density, and it is the more interesting one. Every sweep packed
+more segments into the same 1000×1000 square, so n and density rose together —
+and windowed's window is the K *nearest* edges, whose physical reach shrinks as
+density rises. `sort_curves_density` grew the extent as √n instead, holding
+segments per unit area fixed (also the realistic case: more stitches usually
+means a bigger design, not a tighter one). Density explained about a third of
+the degradation at 50,000 — 18.6% became 13.3% — and no more. The gap still
+roughly doubles from 12,000 to 50,000 with density held constant.
+
+**The structural reason, which is why no tuning was attempted.** K is fixed
+while n is not, so K's *coverage* falls as the problem grows: 500 candidates out
+of 2,000 edges is 25%, out of 50,000 it is 1%. Tour quality tracks that fraction
+almost monotonically across all six sizes measured. Degrading with scale is
+therefore the design, not a mis-set constant.
+
+**And an inference, not a measurement:** widening K would buy quality back only
+by giving up the speed that was the entire point. Each pass does one k-NN query
+per edge, so cost grows with K — at n=50,000 windowed already tests 50× fewer
+pairs than exhaustive while running only 5× faster, meaning query overhead
+already dominates. A K large enough to matter would plausibly make it slower
+than exhaustive *and* worse. That was not measured, because the outcome it
+predicts is a path that is dominated either way.
+
+**What was kept.** The removal cost nothing in capability: the fast end belongs
+to `use_two_opt=False`, which answers in 1.37 s at n=50,000 where windowed's
+first pass takes 4.95 s, and the quality end belongs to exhaustive. Windowed
+owned only a narrow band between them, reachable only by a caller who already
+knows both their tour size and their time budget — which a shipped plug-in
+cannot ask of anyone. The code is in
+`native/archive/sort_curves_v2_with_windowed_2opt.cpp`; the groups that judged
+it (`sort_curves_crossover`, `_density`, `_passes`) have been retired from
+`cases.py`, and their results remain in `benchmarks/results/`.
+
+**The defect underneath all of this**, worth naming separately from the numbers:
+a constant in the source was choosing speed over quality on the caller's behalf,
+in a range where the caller could neither see the choice nor decline it. That
+would have been wrong even if windowed had been good.
 
 ### Why results are only quoted from committed runs
 
@@ -125,29 +180,40 @@ tying a number to a build.
 
 ## Future directions
 
-### Commit a full baseline
+### Write up the sort baseline
 
-The highest-value next run. `sort_points`, `sort_curves` and the crossover group
-currently have **no committed results**, so `docs/benchmarks.md` covers only two
-of the four functions. The harness already covers them; it needs one
-`--heavy` run recorded into `benchmarks/results/`.
+`baseline-windows-amd64-20260914-heavy` is committed and covers all four
+functions, but `docs/benchmarks.md` still has no write-up of the two sort
+groups. The numbers exist; the reading of them does not.
 
-### Open questions waiting on that run
+### What the first full baseline settled
 
-- **`sort_curves` greedy jump between n=8,000 and n=12,000.** An earlier ad-hoc
-  run showed ~3.7× the time for 1.5× the input, then only 1.24× from 12,000 to
-  16,000. That may be the known O(n²) worst case from filtering used points out
-  of a static kd-tree, or an artifact of the generated point set at that size.
-  Needs a seed sweep before it means anything.
-- **Direction-fixed mode appeared slower than the flip-enabled greedy path**,
-  despite skipping 2-opt. Unexplained.
-- **The windowed 2-opt quality claim.** `sort_curves.cpp` says K=500 holds the
-  loss to ~2%; an ad-hoc run at n=12,000 gave 6.4% for only a 1.2× speedup.
-  Either the input distribution or the comment is optimistic. Needs a seed sweep
-  and a run at 50k.
+- **The `sort_curves` greedy jump between n=8,000 and 12,000 did not
+  reproduce.** The ad-hoc run that showed ~3.7× the time for 1.5× the input gave
+  1.9×, then 1.18× on to 16,000. Treat the original as an artifact.
+- **Direction-fixed mode is not slower.** `if_flip=False` beat the flip-enabled
+  greedy path at every n measured (153.4 ms against 218.8 ms at 16,000), which
+  is what intuition predicted all along.
+- **The windowed 2-opt quality claim was refuted**, and the implementation
+  removed — see "Why the windowed 2-opt was removed" above.
+
+### Still open
+
 - **`redistribute` at `out_n = 102`** is slower on the Python side than the
   `out_n = 367` row, while the native row is perfectly in line. Bridge-side,
   unexplained, worth one rerun before theorising.
+- **Everything measured so far is `uniform`, one seed.** The conclusions above
+  are directional and the effect sizes are large, but no seed sweep has been
+  run, and the clustered/grid/zigzag fixtures have not been put through the
+  convergence sweeps at all.
+- **`max_passes = 10` looks too generous.** At n=25,000 and 50,000 alike,
+  capping at 5 gives up ~1.2% of tour quality for half the runtime, and 3 gives
+  up ~3.5% for a third. Worth changing, but not on one dataset: convergence rate
+  plausibly depends on input structure, so check clustered and zigzag first.
+- **`sort_points` has no windowed path and now never will get this one.** Its
+  2-opt is cleanly O(n²) — 2.20 s at n=8,000 rising to 248.68 s at 64,000 — so
+  if large point sets ever matter, the lever is `max_passes`, or a different
+  algorithm, not the one just removed.
 
 ### Real geometry worth recording
 
