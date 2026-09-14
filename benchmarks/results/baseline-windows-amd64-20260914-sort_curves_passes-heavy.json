@@ -1,6 +1,6 @@
 {
   "env": {
-    "timestamp": "2026-09-14T10:18:45",
+    "timestamp": "2026-09-14T11:07:30",
     "system": "Windows",
     "release": "10",
     "machine": "AMD64",
@@ -19,6 +19,23 @@
   "records": [
     {
       "group": "sort_curves_passes",
+      "name": "uniform_greedy_n25000",
+      "axis": {
+        "data": "uniform",
+        "n": 25000,
+        "path": "greedy",
+        "max_passes": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 104647.8
+      },
+      "best_seconds": 0.4020419000298716,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves_passes",
       "name": "uniform_exhaustive_p1_n25000",
       "axis": {
         "data": "uniform",
@@ -31,7 +48,7 @@
       "observed": {
         "travel": 91296.5
       },
-      "best_seconds": 4.90948929998558,
+      "best_seconds": 5.373475399974268,
       "reps": 1
     },
     {
@@ -48,7 +65,7 @@
       "observed": {
         "travel": 85724.4
       },
-      "best_seconds": 9.179081799986307,
+      "best_seconds": 12.423203499987721,
       "reps": 1
     },
     {
@@ -65,7 +82,7 @@
       "observed": {
         "travel": 83117.3
       },
-      "best_seconds": 13.897623600030784,
+      "best_seconds": 16.87375540001085,
       "reps": 1
     },
     {
@@ -82,7 +99,7 @@
       "observed": {
         "travel": 81226.0
       },
-      "best_seconds": 22.624237000010908,
+      "best_seconds": 27.480898599955253,
       "reps": 1
     },
     {
@@ -99,7 +116,7 @@
       "observed": {
         "travel": 80336.3
       },
-      "best_seconds": 45.12714360002428,
+      "best_seconds": 50.178078400029335,
       "reps": 1
     },
     {
@@ -116,7 +133,7 @@
       "observed": {
         "travel": 80316.6
       },
-      "best_seconds": 59.445161600015126,
+      "best_seconds": 61.92758009996032,
       "reps": 1
     },
     {
@@ -133,7 +150,7 @@
       "observed": {
         "travel": 100047.7
       },
-      "best_seconds": 2.1638205999624915,
+      "best_seconds": 2.4968765000230633,
       "reps": 1
     },
     {
@@ -150,7 +167,7 @@
       "observed": {
         "travel": 97992.7
       },
-      "best_seconds": 3.7857932000188157,
+      "best_seconds": 3.8795402999967337,
       "reps": 1
     },
     {
@@ -167,7 +184,7 @@
       "observed": {
         "travel": 96875.8
       },
-      "best_seconds": 5.419598900014535,
+      "best_seconds": 5.606820599990897,
       "reps": 1
     },
     {
@@ -184,7 +201,7 @@
       "observed": {
         "travel": 94306.3
       },
-      "best_seconds": 9.607562999997754,
+      "best_seconds": 9.427350899961311,
       "reps": 1
     },
     {
@@ -201,7 +218,7 @@
       "observed": {
         "travel": 90680.5
       },
-      "best_seconds": 17.831447599979583,
+      "best_seconds": 18.58899299998302,
       "reps": 1
     },
     {
@@ -218,8 +235,25 @@
       "observed": {
         "travel": 86484.7
       },
-      "best_seconds": 33.962996100017335,
+      "best_seconds": 36.78143710002769,
       "reps": 1
+    },
+    {
+      "group": "sort_curves_passes",
+      "name": "uniform_greedy_n50000",
+      "axis": {
+        "data": "uniform",
+        "n": 50000,
+        "path": "greedy",
+        "max_passes": 0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 146079.0
+      },
+      "best_seconds": 1.3651889999746345,
+      "reps": 2
     },
     {
       "group": "sort_curves_passes",
@@ -235,7 +269,7 @@
       "observed": {
         "travel": 126673.6
       },
-      "best_seconds": 19.26275799999712,
+      "best_seconds": 25.211359999957494,
       "reps": 1
     },
     {
@@ -252,7 +286,7 @@
       "observed": {
         "travel": 118945.2
       },
-      "best_seconds": 37.38525369996205,
+      "best_seconds": 49.07174009998562,
       "reps": 1
     },
     {
@@ -269,7 +303,7 @@
       "observed": {
         "travel": 115303.8
       },
-      "best_seconds": 55.57014099997468,
+      "best_seconds": 69.60000540001784,
       "reps": 1
     },
     {
@@ -286,7 +320,7 @@
       "observed": {
         "travel": 112601.4
       },
-      "best_seconds": 90.63753100001486,
+      "best_seconds": 144.88234429998556,
       "reps": 1
     },
     {
@@ -303,7 +337,7 @@
       "observed": {
         "travel": 111295.1
       },
-      "best_seconds": 189.48288340005092,
+      "best_seconds": 197.035323899996,
       "reps": 1
     },
     {
@@ -320,7 +354,7 @@
       "observed": {
         "travel": 111173.3
       },
-      "best_seconds": 321.04660909995437,
+      "best_seconds": 307.01403209997807,
       "reps": 1
     },
     {
@@ -337,7 +371,7 @@
       "observed": {
         "travel": 140894.0
       },
-      "best_seconds": 5.299006499990355,
+      "best_seconds": 4.954445600043982,
       "reps": 1
     },
     {
@@ -354,7 +388,7 @@
       "observed": {
         "travel": 138971.0
       },
-      "best_seconds": 9.109206399996765,
+      "best_seconds": 8.879361899977084,
       "reps": 1
     },
     {
@@ -371,7 +405,7 @@
       "observed": {
         "travel": 137590.5
       },
-      "best_seconds": 12.358118899981491,
+      "best_seconds": 12.581931399996392,
       "reps": 1
     },
     {
@@ -388,7 +422,7 @@
       "observed": {
         "travel": 135583.2
       },
-      "best_seconds": 19.58429430000251,
+      "best_seconds": 20.10058410000056,
       "reps": 1
     },
     {
@@ -405,7 +439,7 @@
       "observed": {
         "travel": 131942.5
       },
-      "best_seconds": 38.07214299996849,
+      "best_seconds": 38.1749214999727,
       "reps": 1
     },
     {
@@ -422,7 +456,7 @@
       "observed": {
         "travel": 126162.4
       },
-      "best_seconds": 77.05977599998005,
+      "best_seconds": 75.63065820001066,
       "reps": 1
     }
   ]

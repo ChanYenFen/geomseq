@@ -326,6 +326,27 @@ PASSES_SWEEP = [1, 2, 3, 5, 10, 20]
 def _passes_cases():
     cases = []
     for n in PASSES_SIZES:
+        # The floor: no 2-opt at all. Windowed's one surviving claim is the
+        # sub-20 s regime, where exhaustive has not yet finished a single pass
+        # -- but greedy alone answers in about a second, so that claim only
+        # stands if windowed's early passes beat this row. Travel is what
+        # settles it, and the sort_curves group records only time.
+        def greedy_run(c):
+            ordered, _ = sort_curves_native(c, use_two_opt=False, knn_k=KNN_K)
+            return ordered
+
+        def greedy_observe(c):
+            ordered, _ = sort_curves_native(c, use_two_opt=False, knn_k=KNN_K)
+            return dict(travel=round(travel_distance(ordered), 1))
+
+        cases.append(Case(
+            "sort_curves_passes", "uniform_greedy_n%d" % n,
+            setup=lambda n=n: make_segments(n),
+            run=greedy_run, observe=greedy_observe,
+            axis=dict(data="uniform", n=n, path="greedy", max_passes=0),
+            heavy=True,
+        ))
+
         for mode, label in [(1, "exhaustive"), (2, "windowed")]:
             for passes in PASSES_SWEEP:
                 def run(c, mode=mode, passes=passes):
