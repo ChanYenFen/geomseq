@@ -127,6 +127,24 @@ harness, because the question they were built to settle is settled: the windowed
 2-opt they compared against was removed. Their result files stay as the evidence
 for that decision, and [`../CLAUDE.md`](../CLAUDE.md) carries the reasoning.
 
+A fourth group, `sort_curves_convergence`, sweeps the 2-opt pass cap across the
+three curve fixtures. It was built to ask whether any input shape was being cut
+off at `max_passes = 10`, found that none was, and then served a second purpose:
+it is the before-and-after pair for pruning `sort_curves`' 2-opt search.
+
+| | file |
+|---|---|
+| before | `baseline-windows-amd64-20260914-sort_curves_convergence-heavy` |
+| after | `baseline-windows-amd64-20260914-sort_curves_convergence-pruned-heavy` |
+| before, re-measured on an idle machine | `baseline-windows-amd64-20260914-sort_curves_convergence-exhaustive-control-heavy` |
+
+The third file exists because the first was recorded with Rhino running and the
+second was not, which biased the comparison in favour of the new code. The
+control puts both implementations on the same idle machine; it cost 4–9% of the
+original timings and did not change the conclusion. Travel figures in the
+control reproduce the first file exactly, which is what confirms it measured the
+same implementation.
+
 The headline numbers are not written up here yet. Anything quoted from them
 should cite the result file by name, as the rule at the top of this document
 requires.

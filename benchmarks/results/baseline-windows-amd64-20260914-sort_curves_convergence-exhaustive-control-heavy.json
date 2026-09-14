@@ -1,0 +1,309 @@
+{
+  "env": {
+    "timestamp": "2026-09-14T15:05:31",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+    "toolchain_expected": "MSVC",
+    "python": "3.10.6",
+    "binary": {
+      "name": "geomseq_core.dll",
+      "present": true,
+      "size_bytes": 240640,
+      "sha256_prefix": "42b788b649c6222c",
+      "mtime": "2026-09-14T15:05:30"
+    }
+  },
+  "heavy": true,
+  "records": [
+    {
+      "group": "sort_curves_convergence",
+      "name": "uniform_p1",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "max_passes": 1
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 74733.4
+      },
+      "best_seconds": 1.9813037000130862,
+      "reps": 2
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "uniform_p2",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "max_passes": 2
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 70273.0
+      },
+      "best_seconds": 3.8542406000196934,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "uniform_p3",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "max_passes": 3
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 68157.9
+      },
+      "best_seconds": 5.320929100038484,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "uniform_p5",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "max_passes": 5
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 66593.5
+      },
+      "best_seconds": 8.677166100009345,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "uniform_p10",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 65889.2
+      },
+      "best_seconds": 17.15034320007544,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "uniform_p20",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 65864.4
+      },
+      "best_seconds": 23.646036299993284,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "clustered_100x_p1",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "max_passes": 1
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 61391.6
+      },
+      "best_seconds": 2.039745399961248,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "clustered_100x_p2",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "max_passes": 2
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 57564.9
+      },
+      "best_seconds": 3.5947401999728754,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "clustered_100x_p3",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "max_passes": 3
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 56114.4
+      },
+      "best_seconds": 5.464158299961127,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "clustered_100x_p5",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "max_passes": 5
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 55174.5
+      },
+      "best_seconds": 8.603963800007477,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "clustered_100x_p10",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 54828.9
+      },
+      "best_seconds": 17.058492599986494,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "clustered_100x_p20",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 54822.5
+      },
+      "best_seconds": 23.763090399908833,
+      "reps": 1
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "zigzag_p1",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "max_passes": 1
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 8941.2
+      },
+      "best_seconds": 1.2341526000527665,
+      "reps": 2
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "zigzag_p2",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "max_passes": 2
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 8941.2
+      },
+      "best_seconds": 1.226035200059414,
+      "reps": 2
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "zigzag_p3",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "max_passes": 3
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 8941.2
+      },
+      "best_seconds": 1.2712119000498205,
+      "reps": 2
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "zigzag_p5",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "max_passes": 5
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 8941.2
+      },
+      "best_seconds": 1.2695698000025004,
+      "reps": 2
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "zigzag_p10",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "max_passes": 10
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 8941.2
+      },
+      "best_seconds": 1.233302199980244,
+      "reps": 2
+    },
+    {
+      "group": "sort_curves_convergence",
+      "name": "zigzag_p20",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "max_passes": 20
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "travel": 8941.2
+      },
+      "best_seconds": 1.2316300000529736,
+      "reps": 2
+    }
+  ]
+}

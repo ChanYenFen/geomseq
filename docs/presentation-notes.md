@@ -110,7 +110,7 @@ you didn't just get lucky?" Let the numbers imply the conclusion.
 
 - Two phases: greedy nearest-neighbour builds an initial path, then 2-opt uncrosses it by reversing sub-paths.
 - nanoflann's kd-tree replaces the O(n²) neighbour scan — the greedy phase measures ≈ O(n^1.3).
-- 2-opt is where the cost sits: ≈ O(n^2.2), for curves and points alike, at every size — there is no cheaper variant to fall back to.
+- 2-opt is where the cost sits: ≈ O(n^2.2). Still true of `sort_points`. `sort_curves` no longer pays it in full — it now tests only the pairs that could improve the tour, which is 43–45× faster at n=16,000 without giving up quality.
 
 **Table — "Cost of 2-opt"**
 
@@ -124,7 +124,9 @@ you didn't just get lucky?" Let the numbers imply the conclusion.
 
 These figures are from an ad-hoc run that was never committed; [benchmarks.md](benchmarks.md)
 now quotes only recorded baselines and does not include this table. Re-measure
-before presenting it — see CLAUDE.md, "Commit a full baseline".
+before presenting it — see CLAUDE.md, "Commit a full baseline". They also
+predate the pruned 2-opt, so the curve half of the table is doubly stale: it
+describes a cost `sort_curves` no longer pays.
 
 **Visual** — two 1k-point images, with and without 2-opt. They show *quality*
 (greedy leaves crossings, 2-opt removes them), not speed: at 1k both are
