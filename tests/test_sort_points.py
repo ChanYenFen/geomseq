@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "src"))
 from geomseq_core.geometry_utils import sort_points_native
 
 FIXTURES = os.path.join(_HERE, "fixtures", "sort_points_cases.json")
-KNN_K, USE_2OPT, MAX_PASSES = 12, True, 10
+KNN_K, USE_2OPT, MAX_PASSES = 12, True, 20  # 20 is what sort_points ships
 TOL = 1e-9
 
 with open(FIXTURES, encoding="utf-8") as fh:

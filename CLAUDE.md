@@ -341,19 +341,19 @@ groups. The numbers exist; the reading of them does not.
   than empirical: it trails the exhaustive pass only while unconverged, so a cap
   that always reaches convergence removes the failure mode instead of clearing
   it by a margin that happened to hold on the shapes measured.
-- **Three different numbers now spell "max passes", and the differences are
-  deliberate.** `sort_curves_native` defaults to 20; `sort_points_native` stays
-  at 10; `benchmarks/python/cases.py` keeps `MAX_PASSES = 10`. The reason
-  `sort_points` kept 10 was that its 2-opt was still the exhaustive pass, where
-  doubling the cap would have doubled a 248.68 s solve on no measurement at all.
-  **That reason expired on 2026-09-15**, when the pruned search landed there too
-  and `sort_points_convergence` measured the cap properly: every shape converges
-  by 20, and reaching it costs milliseconds. Moving the point default to 20 is
-  now the supported change and simply has not been made — along with the
-  plug-in's `PointTwoOptMaxPasses`, which is still 10 for the same expired
-  reason. The benchmark constant is different and stays: it is what every
-  recorded baseline was taken with, and changing it would silently make the
-  sort groups incomparable with their own history.
+- **Two numbers spell "max passes", and the split is deliberate.** Every shipped
+  caller is 20 — `sort_curves_native`, `sort_points_native`, both Grasshopper
+  components, both GHPython shells — because 20 is where every shape measured
+  converges, and a pruned search is only ever the worse of the two
+  implementations while it is still unconverged. The cap is there to guarantee
+  the search finishes, not to ration time; it costs milliseconds.
+  `benchmarks/python/cases.py` stays at 10 and is the one place that must not
+  follow: it is the constant every recorded baseline was taken with, so moving
+  it would silently make the sort groups incomparable with their own history.
+  Points arrived at 20 later than curves, and the reason is worth keeping. While
+  `sort_points` still ran the exhaustive pass, doubling its cap would have
+  doubled a 248.68 s solve on no measurement at all — a real objection, and it
+  expired with the implementation on 2026-09-15 rather than losing an argument.
 - **`sort_points` never got a windowed path, and no longer needs one.** It was
   the function that could not take a large input — cleanly O(n²), 2.20 s at
   n=8,000 rising to 248.68 s at 64,000 — and the lever looked like `max_passes`
