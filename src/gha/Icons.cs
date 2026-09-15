@@ -10,9 +10,11 @@ internal static class Icons
     public static readonly Bitmap SortCurves  = Load("sort_curves.png");
     public static readonly Bitmap SortPoints  = Load("sort_points.png");
 
-    // No Resources/redistribute_lookups.png yet: Load returns null and Grasshopper
-    // draws its default icon, so the wiring can land before the artwork does.
+    // No artwork for these yet: Load returns null and Grasshopper draws its default
+    // icon, so the wiring can land before the drawing does. Dropping the PNG into
+    // Resources/ later is enough -- the csproj embeds that folder by wildcard.
     public static readonly Bitmap RedistributeLookups = Load("redistribute_lookups.png");
+    public static readonly Bitmap SampleCurvePoints   = Load("sample_curve_points.png");
 
     private static Bitmap Load(string file)
     {
