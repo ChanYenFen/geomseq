@@ -172,17 +172,15 @@ Build is for distribution, and only its native half could be executed anywhere.
   `step_len` large relative to the E–S gap the junction can kink sharply (e.g.
   62° at `theta_max_deg=30`). Callers needing a hard cap should check the gap
   before calling, or keep `step_len` well under it.
-- The two sort functions no longer share a 2-opt implementation. `sort_curves`
-  prunes its search to the candidates that could improve the tour, using the
-  kd-tree it already built; `sort_points` still runs the exhaustive O(n²) pass.
-  Neither switches on input size. For points the cost grows accordingly —
-  64,000 points is minutes (248.68 s measured) — and `use_two_opt=False` is the
-  fast path when that is too long. For curves, 16,000 at ten passes is under
-  half a second; larger curve counts have not been re-measured since pruning
-  landed, so the old "minutes at 50,000" figure should be treated as unknown
-  rather than either confirmed or superseded. The greedy k-NN phase also has its
-  own theoretical O(n²) worst case (unaddressed), from filtering already-used
-  points out of a static kd-tree.
+- Neither sort function tests every 2-opt pair any more. Both prune the search
+  to the candidates that could shorten the tour, found through the kd-tree the
+  greedy phase already built, and neither switches on input size. From the
+  committed baseline: 64,000 points is 1.50 s where it used to be 248.68 s,
+  16,000 curves is 356 ms, and 50,000 curves is 2.62 s. `use_two_opt=False` is
+  still there and still the fastest answer, but it is no longer the escape hatch
+  it was. The greedy k-NN phase is now the larger half of both functions —
+  1.19 s of that 1.50 s — and it keeps its own theoretical O(n²) worst case
+  (unaddressed), from filtering already-used points out of a static kd-tree.
 
 ## License
 

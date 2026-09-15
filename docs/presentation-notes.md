@@ -110,7 +110,8 @@ you didn't just get lucky?" Let the numbers imply the conclusion.
 
 - Two phases: greedy nearest-neighbour builds an initial path, then 2-opt uncrosses it by reversing sub-paths.
 - nanoflann's kd-tree replaces the O(n²) neighbour scan — the greedy phase measures ≈ O(n^1.3).
-- 2-opt is where the cost sits: ≈ O(n^2.2). Still true of `sort_points`. `sort_curves` no longer pays it in full — it now tests only the pairs that could improve the tour, which is 43–45× faster at n=16,000 without giving up quality.
+- 2-opt used to be where the cost sat: ≈ O(n^2.2). Neither function pays that any more — both now test only the pairs that could shorten the tour, 43–45× faster on curves at n=16,000 and 129× on points at 64,000, with tours no longer in every paired measurement.
+- The greedy phase is now the expensive half: 1.19 s of the 1.50 s it takes to sort 64,000 points. If this slide gets a sequel, that is the subject.
 
 **Table — "Cost of 2-opt"**
 
@@ -122,11 +123,13 @@ you didn't just get lucky?" Let the numbers imply the conclusion.
 
 *Caption:* Measured scaling — greedy ≈ O(n^1.3), 2-opt ≈ O(n^2.2)
 
-These figures are from an ad-hoc run that was never committed; [benchmarks.md](benchmarks.md)
-now quotes only recorded baselines and does not include this table. Re-measure
-before presenting it — see CLAUDE.md, "Commit a full baseline". They also
-predate the pruned 2-opt, so the curve half of the table is doubly stale: it
-describes a cost `sort_curves` no longer pays.
+Do not present this table. Its figures come from an ad-hoc run that was never
+committed, and they predate the pruned 2-opt in *both* functions, so every row
+describes a cost neither one pays any more — the 425× at 64,000 is the case that
+now takes 1.50 s. A committed baseline exists as of 2026-09-15
+(`baseline-windows-amd64-20260915-heavy`); rebuild the table from it, and expect
+the slide's whole argument to invert, because the greedy phase is now the
+expensive half rather than 2-opt.
 
 **Visual** — two 1k-point images, with and without 2-opt. They show *quality*
 (greedy leaves crossings, 2-opt removes them), not speed: at 1k both are

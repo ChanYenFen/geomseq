@@ -297,19 +297,28 @@ groups. The numbers exist; the reading of them does not.
   it by a margin that happened to hold on the shapes measured.
 - **Three different numbers now spell "max passes", and the differences are
   deliberate.** `sort_curves_native` defaults to 20; `sort_points_native` stays
-  at 10; `benchmarks/python/cases.py` keeps `MAX_PASSES = 10`. `sort_points`
-  keeps 10 because none of this evidence is about it — its 2-opt is still the
-  exhaustive O(n²) pass, so doubling the cap would push 64,000 points from
-  248.68 s towards twice that, on no measurement at all. The benchmark constant
-  keeps 10 because it is what every recorded baseline was taken with, and
-  changing it would silently make the `sort_points` and `sort_curves` groups
-  incomparable with their own history. Only the shipped `sort_curves` path
-  moved. The plug-in mirrors this with two separate constants rather than the
-  one it used to share between both components.
-- **`sort_points` has no windowed path and now never will get this one.** Its
-  2-opt is cleanly O(n²) — 2.20 s at n=8,000 rising to 248.68 s at 64,000 — so
-  if large point sets ever matter, the lever is `max_passes`, or a different
-  algorithm, not the one just removed.
+  at 10; `benchmarks/python/cases.py` keeps `MAX_PASSES = 10`. The reason
+  `sort_points` kept 10 was that its 2-opt was still the exhaustive pass, where
+  doubling the cap would have doubled a 248.68 s solve on no measurement at all.
+  **That reason expired on 2026-09-15**, when the pruned search landed there too
+  and `sort_points_convergence` measured the cap properly: every shape converges
+  by 20, and reaching it costs milliseconds. Moving the point default to 20 is
+  now the supported change and simply has not been made — along with the
+  plug-in's `PointTwoOptMaxPasses`, which is still 10 for the same expired
+  reason. The benchmark constant is different and stays: it is what every
+  recorded baseline was taken with, and changing it would silently make the
+  sort groups incomparable with their own history.
+- **`sort_points` never got a windowed path, and no longer needs one.** It was
+  the function that could not take a large input — cleanly O(n²), 2.20 s at
+  n=8,000 rising to 248.68 s at 64,000 — and the lever looked like `max_passes`
+  or a different algorithm. It turned out to be neither: the pruning rule ported
+  from `sort_curves` unchanged, because the move is the same shape, and 64,000
+  points went from 248.68 s to 1.50 s with the tour 0.94–1.31% *shorter* across
+  six seed-paired rows. What is left is the observation that replaces this one:
+  **the greedy phase is now the expensive half of both functions.** 1.19 s of
+  that 1.50 s is the kd-tree walk, and it still carries the theoretical O(n²)
+  worst case nobody has addressed. Any further work on sort cost belongs there,
+  not in 2-opt.
 
 ### Real geometry worth recording
 
