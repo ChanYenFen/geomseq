@@ -106,7 +106,7 @@ public sealed class SortCurvesComponent : GH_Component
         if (curves.Count == 0)
             return;
         if (curves.Count > TestedLimit)
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, Messages.AboveTestedLimit(curves.Count, "curves", TestedLimit, Messages.PrunedCost));
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, Messages.AboveTestedLimit(curves.Count, "curves", TestedLimit));
 
         if (!hasStart)
             start = curves[0].PointAtStart;

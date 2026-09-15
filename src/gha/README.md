@@ -38,22 +38,24 @@ alike. Both components report through GH's message levels rather than throwing.
 | 🔴 Error | Native library failed to load — wrong platform or architecture; the message names what it detected |
 | 🔴 Error | The native call threw (`DllNotFound`, `EntryPointNotFound`, `BadImageFormat`) — same cause, caught later |
 | 🟡 Warning | Null or degenerate items skipped; the message names their input indices |
-| 🟡 Warning | `n` above the largest profiled input — still runs; for points, Rhino will look frozen |
+| ⚪ Remark | `n` above the largest measured input — still runs, timing up there is simply untested |
 | ⚪ Remark | Empty input list |
 
-Only the load failures stop the component. The size warning is a disclosure,
-not a cap.
+Only the load failures stop the component. The size note is a disclosure, not a
+cap, which is why it is a Remark: nothing is wrong, the input has just left the
+range anyone has numbers for.
 
-The two thresholds differ, because the two components no longer share a 2-opt
-implementation.
+Each threshold is that component's largest measured input, nothing more:
+**50,000 for Sort Curves** (2.62 s) and **64,000 for Sort Points** (1.50 s).
+Both prune their 2-opt to the candidates that could shorten the tour, so both
+are quick at every size anyone has measured, and above these numbers the honest
+statement is "untested", not "slow".
 
-**Sort Points warns above 16,000.** Its pass is O(n²) with nothing cheaper to
-fall back to: about 12 s at 16,000 points and 4 minutes at 64,000.
-
-**Sort Curves warns above 50,000**, the largest curve input measured, where a
-solve takes 2.62 s. Its 2-opt tests only the pairs that could shorten the tour,
-so 16,000 curves — the old threshold — now finish in about 0.4 s. Above 50,000
-the behaviour is untested rather than known to be slow, and the warning says so.
+The thresholds used to mean something else. They marked where an exhaustive
+O(n²) pass stopped feeling instant — 16,000 for points, where that pass took
+11.94 s and 64,000 took 248.68 s. Pruning moved 64,000 points to 1.50 s, which
+left those numbers marking nothing, and left an orange bubble firing on work
+that finishes before the mouse button comes up.
 
 ## Development
 

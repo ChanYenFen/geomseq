@@ -13,17 +13,15 @@ public sealed class SortPointsComponent : GH_Component
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("d146d2e4-f0c0-4ea1-a172-57e49daef001");
 
-    // Measured, from baseline-windows-amd64-20260914-heavy: 2-opt on uniform
-    // points is 2.20 s at 8,000, 11.94 s at 16,000 and 248.68 s at 64,000 --
-    // cleanly O(n^2). 16,000 is where it stops feeling instant, so that is where
-    // the warning starts.
+    // The largest n actually measured, from baseline-windows-amd64-20260915-heavy:
+    // 64,000 points in 1.50 s.
     //
-    // A cheaper 2-opt does now exist in this repository -- the neighbourhood-
-    // pruned search that made Sort Curves 45x faster -- but it lives in
-    // sort_curves.cpp alone and was never written into sort_points.cpp. So this
-    // component really does have nothing cheaper to fall back to, and this limit
-    // stays where it is until that changes. Do not copy Sort Curves' 50,000.
-    private const int TestedLimit = 16_000;
+    // It was 16,000, set when this component's 2-opt tested every pair and took
+    // 11.94 s there. sort_points.cpp got the pruned search on 2026-09-15 and
+    // 64,000 fell from 248.68 s to 1.50 s, which left the old threshold marking
+    // nothing at all -- and left the note beside it, warning that no cheaper
+    // 2-opt existed here, describing the week before last.
+    private const int TestedLimit = 64_000;
 
     public SortPointsComponent()
         : base("Sort Points", "SortPt",
@@ -96,7 +94,7 @@ public sealed class SortPointsComponent : GH_Component
         if (points.Count == 0)
             return;
         if (points.Count > TestedLimit)
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Warning, Messages.AboveTestedLimit(points.Count, "points", TestedLimit, Messages.ExhaustiveCost));
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, Messages.AboveTestedLimit(points.Count, "points", TestedLimit));
 
         if (!hasStart)
             start = points[0];
