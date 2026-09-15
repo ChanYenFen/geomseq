@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Rhino.Geometry;
 
@@ -137,6 +138,72 @@ internal static class GeomSeqCore
         }
 
         return order;
+    }
+
+    /// <summary>
+    /// Redistributes arc-length lookups to a new density profile. Returns the new lookups.
+    /// </summary>
+    /// <remarks>
+    /// Two things here are the caller's job rather than the native side's, and both bite.
+    ///
+    /// The output length is not derivable from the input, so the buffer is sized from a
+    /// bound and the native side reports how much it filled. The bound is
+    /// geometry_utils.redistribute_lookups_native's, copied deliberately: it divides by
+    /// <c>min(low, high)</c>, because the native marching step bottoms out at the smaller
+    /// of the two and using <paramref name="low"/> alone would undercount — and undercounting
+    /// here is a buffer overrun, not a short answer.
+    ///
+    /// <paramref name="low"/> must be positive. At zero or below the native loop never
+    /// advances and Rhino hangs with no message, so it throws here rather than trusting
+    /// every caller to have checked. <paramref name="high"/> below <paramref name="low"/>
+    /// is merely meaningless, so it is clamped — the component reports that separately,
+    /// since silently repairing a caller's input without saying so is its own defect.
+    /// </remarks>
+    public static unsafe double[] RedistributeLookups(
+        IReadOnlyList<double> lookups, double low, double high, int mode, double flatPct,
+        IReadOnlyList<int>? cornerIndices)
+    {
+        if (lookups.Count == 0)
+            return new double[0];
+
+        if (low <= 0.0)
+            throw new ArgumentOutOfRangeException(nameof(low), low, "low must be greater than 0.");
+
+        if (high < low)
+            high = low;
+
+        double totalLength = lookups[lookups.Count - 1];
+
+        // Resolved here, not passed as indices: the native side never sees the lookup
+        // array. It used to, and ignored all but these entries -- at 100k samples that
+        // was ~97% of the call spent marshaling an array it did not read.
+        int numCorners = cornerIndices?.Count ?? 0;
+        var cornerLengths = new double[numCorners];
+        for (int k = 0; k < numCorners; k++)
+        {
+            int idx = cornerIndices![k];
+            if (idx < 0 || idx >= lookups.Count)
+                throw new ArgumentOutOfRangeException(nameof(cornerIndices), idx,
+                    "Corner index is outside the lookup list; the native side would read out of bounds.");
+            cornerLengths[k] = lookups[idx];
+        }
+
+        double minStep = low < high ? low : high;
+        var outLookups = new double[(int)(totalLength / minStep) + numCorners + 10];
+        int outCount = 0;
+
+        // A zero-length array pins to null, which is what the ABI expects for no corners.
+        fixed (double* cl = cornerLengths)
+        fixed (double* ol = outLookups)
+        {
+            NativeMethods.RedistributeLookups(totalLength, low, high, mode, flatPct,
+                                              cl, numCorners, ol, &outCount);
+        }
+
+        var result = new double[outCount];
+        for (int k = 0; k < outCount; k++)
+            result[k] = outLookups[k];
+        return result;
     }
 
     /// <summary>Length of start → ordered[0] → ordered[1] → … .</summary>

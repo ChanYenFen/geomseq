@@ -38,4 +38,20 @@ internal static unsafe class NativeMethods
         int     twoOptMaxPasses,
         int     knnK,
         int*    outOrder);        // n: original point index per position
+
+    // Unlike the sort entry points, the output length is not known from the input:
+    // outLookups is sized by the caller from a bound (see GeomSeqCore) and outCount
+    // says how much of it was actually written.
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "redistribute_lookups",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void RedistributeLookups(
+        double  totalLength,      // arc length of the whole curve
+        double  low,              // smallest step, at the density peak; must be > 0 or the march never advances
+        double  high,             // largest step, at the sparsest point
+        int     mode,             // 0 = dense_center, 1 = dense_sides
+        double  flatPct,          // percent of totalLength held at constant density, centred
+        double* cornerLengths,    // numCorners, ascending; may be null when numCorners == 0
+        int     numCorners,
+        double* outLookups,       // caller-sized; see GeomSeqCore.RedistributeLookups
+        int*    outCount);        // entries actually written
 }

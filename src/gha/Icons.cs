@@ -10,6 +10,10 @@ internal static class Icons
     public static readonly Bitmap SortCurves  = Load("sort_curves.png");
     public static readonly Bitmap SortPoints  = Load("sort_points.png");
 
+    // No Resources/redistribute_lookups.png yet: Load returns null and Grasshopper
+    // draws its default icon, so the wiring can land before the artwork does.
+    public static readonly Bitmap RedistributeLookups = Load("redistribute_lookups.png");
+
     private static Bitmap Load(string file)
     {
         using Stream? stream = typeof(Icons).Assembly.GetManifestResourceStream("GeomSeq.Resources." + file);
