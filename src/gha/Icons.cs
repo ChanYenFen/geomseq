@@ -16,6 +16,7 @@ internal static class Icons
     public static readonly Bitmap RedistributeLookups = Load("redistribute_lookups.png");
     public static readonly Bitmap SampleCurvePoints   = Load("sample_curve_points.png");
     public static readonly Bitmap DivideCurves        = Load("divide_curves.png");
+    public static readonly Bitmap BuildTurnWaypoints  = Load("build_turn_waypoints.png");
 
     private static Bitmap Load(string file)
     {

@@ -54,4 +54,19 @@ internal static unsafe class NativeMethods
         int     numCorners,
         double* outLookups,       // caller-sized; see GeomSeqCore.RedistributeLookups
         int*    outCount);        // entries actually written
+
+    // 2D only: every coordinate here is x/y, with no z anywhere in the signature.
+    // Both output buffers are caller-sized the same way -- see GeomSeqCore.
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "build_turn_waypoints",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void BuildTurnWaypoints(
+        double  ex, double ey,        // end of the current path
+        double  avx, double avy,      // heading leaving E, any length
+        double  sx, double sy,        // start of the next path
+        double  bvx, double bvy,      // desired heading into S, any length
+        double  thetaMaxDeg,          // max turn per waypoint
+        double  stepLen,              // fillet step; must be > 0
+        double  extendLen,            // how far past E / before S the corners sit
+        double* outExitPts,  int* outExitCount,    // 2 doubles per waypoint, leaving E
+        double* outEntryPts, int* outEntryCount);  // 2 doubles per waypoint, arriving at S
 }

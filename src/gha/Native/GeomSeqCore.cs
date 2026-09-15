@@ -206,6 +206,74 @@ internal static class GeomSeqCore
         return result;
     }
 
+    /// <summary>Waypoints for one turn: leaving E, then arriving at S. Flat x,y pairs.</summary>
+    internal sealed class TurnWaypoints
+    {
+        public TurnWaypoints(double[] exit, double[] entry)
+        {
+            Exit = exit;
+            Entry = entry;
+        }
+
+        /// <summary>2 doubles per waypoint.</summary>
+        public double[] Exit { get; }
+
+        /// <summary>2 doubles per waypoint.</summary>
+        public double[] Entry { get; }
+    }
+
+    /// <summary>
+    /// Builds the smooth turn from the end of one path to the start of the next.
+    /// </summary>
+    /// <remarks>
+    /// Output length is not known from the input, so both buffers are sized from the
+    /// bound the .cpp header states -- one extend point plus ceil(180/thetaMaxDeg)
+    /// fillet points per side -- and the native side reports what it wrote. A
+    /// thetaMaxDeg at or below 1e-6 would divide by ~zero, so it falls back to one
+    /// degree here exactly as the native side does internally; sizing for anything
+    /// else would under-allocate a buffer the DLL then writes past.
+    ///
+    /// stepLen must be positive: the fillet advances by it, and at zero the native
+    /// loop makes no progress. Everything else about the turn's quality -- whether
+    /// the two fillets have room to meet smoothly -- is the caller's to judge and
+    /// report, not a reason to refuse the call.
+    ///
+    /// This is the 2D entry point. No z reaches it and none comes back.
+    /// </remarks>
+    public static unsafe TurnWaypoints BuildTurnWaypoints(
+        double ex, double ey, double avx, double avy,
+        double sx, double sy, double bvx, double bvy,
+        double thetaMaxDeg, double stepLen, double extendLen)
+    {
+        if (stepLen <= 0.0)
+            throw new ArgumentOutOfRangeException(nameof(stepLen), stepLen, "stepLen must be greater than 0.");
+
+        double effectiveTheta = thetaMaxDeg > 1e-6 ? thetaMaxDeg : 1.0;
+        int maxPoints = (int)Math.Ceiling(180.0 / effectiveTheta) + 2;
+
+        var exitPts = new double[maxPoints * 2];
+        var entryPts = new double[maxPoints * 2];
+        int exitCount = 0, entryCount = 0;
+
+        fixed (double* xp = exitPts)
+        fixed (double* np = entryPts)
+        {
+            NativeMethods.BuildTurnWaypoints(ex, ey, avx, avy, sx, sy, bvx, bvy,
+                                             thetaMaxDeg, stepLen, extendLen,
+                                             xp, &exitCount, np, &entryCount);
+        }
+
+        return new TurnWaypoints(Trim(exitPts, exitCount), Trim(entryPts, entryCount));
+    }
+
+    private static double[] Trim(double[] buffer, int pointCount)
+    {
+        var trimmed = new double[pointCount * 2];
+        for (int k = 0; k < trimmed.Length; k++)
+            trimmed[k] = buffer[k];
+        return trimmed;
+    }
+
     /// <summary>Length of start → ordered[0] → ordered[1] → … .</summary>
     public static double PathLength(Point3d start, IReadOnlyList<Point3d> ordered)
     {
