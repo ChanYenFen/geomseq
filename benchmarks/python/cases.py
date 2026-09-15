@@ -245,7 +245,14 @@ def _sort_curves_cases():
                     continue
                 axis = dict(data=label, n=n, two_opt=two_opt, if_flip=True)
                 if two_opt:
-                    axis["two_opt_path"] = "exhaustive"  # what auto takes at every n
+                    # Names the implementation that produced the row, which is
+                    # the entire point of the column. It read "exhaustive", with
+                    # a comment about "what auto takes at every n" -- both stale:
+                    # `auto` died with the windowed dispatch, and the exhaustive
+                    # pass was replaced by the pruned search on 2026-09-14. A
+                    # column that misnames its own implementation is worse than
+                    # no column, so it changes whenever the implementation does.
+                    axis["two_opt_path"] = "pruned"
                 cases.append(Case(
                     "sort_curves",
                     "%s_%s_n%d" % (label, "2opt" if two_opt else "greedy", n),

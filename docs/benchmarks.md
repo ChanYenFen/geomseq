@@ -9,7 +9,7 @@ here is quoted from an ad-hoc run.
 |---|---|
 | Machine | Windows 10 AMD64, Intel64 Family 6 Model 165 |
 | Toolchain | MSVC 1929, Python 3.10.6 |
-| DLL under test | `geomseq_core.dll`, sha256 `fd6ad632ec57ae5e…`, built 2026-09-03 |
+| DLL under test | `geomseq_core.dll`, sha256 `ba426c4dd2ace0e4…`, built 2026-09-15 |
 
 `native` is the algorithm alone, `python` is the same call through the wrapper
 (ctypes + marshaling included), and `bridge` is the difference. See
