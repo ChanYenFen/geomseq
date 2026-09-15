@@ -160,9 +160,67 @@ DLL_EXPORT void sort_points(
     }
 
     // --- 2-opt post-processing (point-only: no reversal flags to maintain) ---
-    // For each pair (i, j), compare current edges against the edges obtained by
-    // reversing the sub-sequence i+1 .. j. Accept the reversal if strictly cheaper.
+    // Neighbour-pruned rather than every pair, the same rule sort_curves.cpp
+    // uses and for the same reason. A move drops the edges after positions i and
+    // j and reconnects them:
+    //
+    //     remove: order[i] -> order[i+1]   (length gap_i)
+    //             order[j] -> order[j+1]   (length gap_j)
+    //     add:    order[i] -> order[j]
+    //             order[i+1] -> order[j+1]
+    //
+    // It can only pay if at least one new edge is shorter than the old edge it
+    // is measured against -- if both were longer, so would be their sum. So
+    // every improving move satisfies
+    //
+    //     d(order[i], order[j]) < gap_i   OR   d(order[i+1], order[j+1]) < gap_j
+    //
+    // and each half is a ball query the kd-tree built for the greedy phase can
+    // answer. Both scans are needed: the two radii belong to opposite ends of
+    // the move, so neither alone is complete.
+    //
+    // Simpler here than in sort_curves: a kd-tree index *is* a point index, with
+    // no curve to decode and no entry/exit to pick, and the reversal is a plain
+    // std::reverse because points have no direction. Only `pos` has to be kept
+    // in step, so a candidate point can be turned back into a tour position.
+    //
+    // Nothing improving is discarded, so this still finishes at a true 2-opt
+    // local optimum -- but not the *same* one the exhaustive loop found. Both
+    // take the first improving move they meet and the kd-tree meets them in a
+    // different order, so recorded travel figures do not reproduce to the digit
+    // across this change. See CLAUDE.md.
     if (use_two_opt && n > 3) {
+        // Where each point currently sits in the tour.
+        std::vector<int> pos(n);
+        for (int k = 0; k < n; ++k) {
+            pos[out_order[k]] = k;
+        }
+
+        std::vector<nanoflann::ResultItem<uint32_t, double>> hits;
+        nanoflann::SearchParameters search_params;  // sorted: nearest candidates first
+
+        // Applies the (i, j) move if it shortens the tour. Same arithmetic and
+        // same 1e-6 margin as the exhaustive version it replaces.
+        auto try_move = [&](int i, int j) -> bool {
+            double cost_before = dist_pts(points, out_order[i], out_order[i + 1]);
+            double cost_after  = dist_pts(points, out_order[i], out_order[j]);
+
+            if (j + 1 < n) {
+                cost_before += dist_pts(points, out_order[j],     out_order[j + 1]);
+                cost_after  += dist_pts(points, out_order[i + 1], out_order[j + 1]);
+            }
+
+            if (cost_after >= cost_before - 1e-6) {
+                return false;
+            }
+
+            std::reverse(out_order + i + 1, out_order + j + 1);
+            for (int k = i + 1; k <= j; ++k) {
+                pos[out_order[k]] = k;
+            }
+            return true;
+        };
+
         bool improved = true;
         int  passes   = 0;
 
@@ -170,22 +228,46 @@ DLL_EXPORT void sort_points(
             improved = false;
             ++passes;
 
-            for (int i = 0; i < n - 1; ++i) {
-                for (int j = i + 2; j < n; ++j) {
-                    double cost_before = dist_pts(points, out_order[i], out_order[i + 1]);
-                    double cost_after  = dist_pts(points, out_order[i], out_order[j]);
+            for (int k = 0; k + 1 < n; ++k) {
+                // Scan A: k is the move's i, so look for a j whose point lies
+                // within gap of order[k]. radiusSearch works in squared distance.
+                double gap = dist_pts(points, out_order[k], out_order[k + 1]);
 
-                    if (j + 1 < n) {
-                        cost_before += dist_pts(points, out_order[j],     out_order[j + 1]);
-                        cost_after  += dist_pts(points, out_order[i + 1], out_order[j + 1]);
+                hits.clear();
+                (void)tree.radiusSearch(&points[out_order[k] * 3], gap * gap,
+                                        hits, search_params);
+
+                for (size_t h = 0; h < hits.size(); ++h) {
+                    int j = pos[(int)hits[h].first];
+                    // Needs to sit far enough along to leave a segment to
+                    // reverse; this also drops order[k] and order[k+1] themselves.
+                    if (j < k + 2) {
+                        continue;
                     }
-
-                    if (cost_after < cost_before - 1e-6) {
-                        // Reverse sub-sequence [i+1 .. j]. No reversal flags to
-                        // negate here (unlike sort_curves) -- points have no
-                        // direction, so a plain index reversal is enough.
-                        std::reverse(out_order + i + 1, out_order + j + 1);
+                    if (try_move(k, j)) {
                         improved = true;
+                        break;  // tour changed under us; carry on at the next k
+                    }
+                }
+
+                // Scan B: k is the move's j, so look for an i+1 whose point lies
+                // within gap of order[k+1]. Needs k >= 2 to leave room for i >= 0.
+                if (k >= 2) {
+                    gap = dist_pts(points, out_order[k], out_order[k + 1]);
+
+                    hits.clear();
+                    (void)tree.radiusSearch(&points[out_order[k + 1] * 3], gap * gap,
+                                            hits, search_params);
+
+                    for (size_t h = 0; h < hits.size(); ++h) {
+                        int m = pos[(int)hits[h].first];  // the candidate is position i+1
+                        if (m < 1 || m > k - 1) {
+                            continue;
+                        }
+                        if (try_move(m - 1, k)) {
+                            improved = true;
+                            break;
+                        }
                     }
                 }
             }
