@@ -507,12 +507,131 @@ def _turn_cases():
 
 # --------------------------------------------------------------------------
 
+# --- sort_points: where does its pruned 2-opt converge? --------------------
+# sort_curves' cap of 20 was measured on curves. Nothing says points converge at
+# the same rate, and borrowing the number would repeat the mistake the windowed
+# 2-opt was retired for -- a constant carried from a place it was never measured.
+# The pruned search is only ever the worse of the two implementations while it
+# is still unconverged, so where it converges is exactly what decides the cap.
+#
+# Fixtures rather than the generator, because shape is the axis. n is pinned at
+# 64,000, the fixture length, so points_zigzag keeps its serpentine order:
+# sample() preserves the file's order only when it returns the whole file, and a
+# sampled subset of zigzag is not an ordered input any more. Three sources, the
+# same three shapes the curve group uses -- the uniform control, one clustered,
+# one arriving already ordered.
+#
+# 64,000 is also where sort_points actually hurts: the exhaustive pass takes
+# 248.68 s there, which is the number this work exists to change.
+
+POINTS_CONVERGENCE_N = 64000
+POINTS_CONVERGENCE_SWEEP = [1, 2, 3, 5, 10, 20, 30]
+POINTS_CONVERGENCE_DATA = ("uniform", "clustered_100x", "zigzag")
+
+
+def point_path_length(points):
+    """Sum of gaps between consecutive points. No start_pt term: the sort is
+    being compared against itself, and the first hop is identical either way."""
+    return sum(math.hypot(b.X - a.X, b.Y - a.Y)
+               for a, b in zip(points, points[1:]))
+
+
+def _points_convergence_cases():
+    cases = []
+    for label, build, avail in _point_sources():
+        if label not in POINTS_CONVERGENCE_DATA:
+            continue
+        if avail is not None and POINTS_CONVERGENCE_N > avail:
+            continue
+        for passes in POINTS_CONVERGENCE_SWEEP:
+            def run(p, passes=passes):
+                ordered, _ = sort_points_native(
+                    p, use_two_opt=True, two_opt_max_passes=passes, knn_k=KNN_K)
+                return ordered
+
+            def observe(p, passes=passes):
+                ordered, _ = sort_points_native(
+                    p, use_two_opt=True, two_opt_max_passes=passes, knn_k=KNN_K)
+                return dict(travel=round(point_path_length(ordered), 1))
+
+            cases.append(Case(
+                "sort_points_convergence",
+                "%s_n%d_p%d" % (label, POINTS_CONVERGENCE_N, passes),
+                setup=lambda build=build: build(POINTS_CONVERGENCE_N),
+                run=run, observe=observe,
+                axis=dict(data=label, n=POINTS_CONVERGENCE_N, max_passes=passes),
+                heavy=True,
+            ))
+    return cases
+
+
+# --- sort_points: is the pruned search ever the worse one? -----------------
+# The same question `sort_curves_prune_check` answers, asked again rather than
+# inherited. Pruning discards no improving move, but it does not reproduce the
+# other implementation's tour: both take the first improving move they meet and
+# the kd-tree meets them in a different order, so the two settle into different
+# 2-opt local optima and no theorem ranks those. Whether the pruned one is ever
+# the worse is therefore empirical, and the curve result is evidence about
+# curves.
+#
+# 20 passes, where `sort_points_convergence` shows every shape converged, so the
+# columns hold finished tours rather than two points on differently-shaped
+# convergence curves -- pruning trails while unconverged, and comparing
+# mid-flight would measure that instead of the answer.
+#
+# Five seeds at 16,000 ask whether any parity is luck. The 64,000 row is the one
+# that matters: the exhaustive pass takes 248.68 s there, which is the number
+# this work exists to change.
+#
+# Run twice, once per implementation, and compare the travel columns. It cannot
+# be run against both at once: which 2-opt the binary carries is a build-time
+# fact, not a parameter.
+
+POINTS_PRUNE_CHECK_N = 16000
+POINTS_PRUNE_CHECK_SEEDS = [1, 2, 3, 4, 5]
+POINTS_PRUNE_CHECK_BIG_N = 64000
+POINTS_PRUNE_CHECK_PASSES = 20
+
+
+def _points_prune_check_cases():
+    def run(p):
+        ordered, _ = sort_points_native(
+            p, use_two_opt=True, two_opt_max_passes=POINTS_PRUNE_CHECK_PASSES,
+            knn_k=KNN_K)
+        return ordered
+
+    def observe(p):
+        ordered, _ = sort_points_native(
+            p, use_two_opt=True, two_opt_max_passes=POINTS_PRUNE_CHECK_PASSES,
+            knn_k=KNN_K)
+        return dict(travel=round(point_path_length(ordered), 1))
+
+    sizes = [(POINTS_PRUNE_CHECK_N, seed) for seed in POINTS_PRUNE_CHECK_SEEDS]
+    sizes.append((POINTS_PRUNE_CHECK_BIG_N, 1))
+
+    return [
+        Case(
+            "sort_points_prune_check", "generated_n%d_s%d" % (n, seed),
+            setup=lambda n=n, seed=seed: make_points(n, seed=seed),
+            run=run, observe=observe,
+            axis=dict(data="generated_uniform", n=n, seed=seed,
+                      max_passes=POINTS_PRUNE_CHECK_PASSES),
+            heavy=True,
+        )
+        for n, seed in sizes
+    ]
+
+
+# --------------------------------------------------------------------------
+
 GROUPS = ["sort_points", "sort_curves", "sort_curves_convergence",
-          "sort_curves_prune_check", "redistribute_lookups",
+          "sort_curves_prune_check", "sort_points_convergence",
+          "sort_points_prune_check", "redistribute_lookups",
           "build_turn_waypoints"]
 
 
 def all_cases():
     return (_sort_points_cases() + _sort_curves_cases()
             + _convergence_cases() + _prune_check_cases()
+            + _points_convergence_cases() + _points_prune_check_cases()
             + _redistribute_cases() + _turn_cases())
