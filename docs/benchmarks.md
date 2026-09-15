@@ -146,6 +146,50 @@ original timings and did not change the conclusion. Travel figures in the
 control reproduce the first file exactly, which is what confirms it measured the
 same implementation.
 
-The headline numbers are not written up here yet. Anything quoted from them
-should cite the result file by name, as the rule at the top of this document
+### Pruned against exhaustive, paired by seed
+
+`sort_curves_prune_check` is the one comparison built to be quoted rather than
+explored. It runs the same generated input through both implementations at 20
+passes — where each has converged, so the columns hold two finished tours rather
+than two points on differently-shaped convergence curves.
+
+The two columns cannot come from one binary: which 2-opt the library carries is
+decided at compile time, not by a parameter. They come from the closest thing
+available — the same machine, the same MSVC, the same source tree differing in
+one file, built 34 minutes apart, measured 24 seconds apart with Rhino closed
+throughout.
+
+| column | result file | `geomseq_core.dll` |
+|---|---|---|
+| pruned | `baseline-windows-amd64-20260914-sort_curves_prune_check-pruned-heavy` | `b69a189822a4c2ab`, 245,248 bytes |
+| exhaustive | `baseline-windows-amd64-20260914-sort_curves_prune_check-exhaustive-heavy` | `a7002098686e053f`, 240,640 bytes |
+
+| n | seed | exhaustive | pruned | travel | time | speedup |
+|---|---|---|---|---|---|---|
+| 16,000 | 1 | 65825.8 | 65204.3 | −0.94% | 20.75 s → 420.5 ms | 49× |
+| 16,000 | 2 | 66140.0 | 65667.1 | −0.71% | 23.85 s → 381.4 ms | 63× |
+| 16,000 | 3 | 65231.8 | 64851.9 | −0.58% | 24.18 s → 551.1 ms | 44× |
+| 16,000 | 4 | 65839.2 | 65572.5 | −0.41% | 22.44 s → 361.0 ms | 62× |
+| 16,000 | 5 | 66171.9 | 65675.9 | −0.75% | 20.47 s → 478.7 ms | 43× |
+| 50,000 | 1 | 111173.3 | 110916.8 | −0.23% | 295.61 s → 2.62 s | 113× |
+
+Read the rows, not an average. Seed-to-seed spread at fixed n is about 1.3%,
+wider than the effect being measured, so the pairing is what carries the result:
+pruning is shorter on all six, and on the three curve fixtures already recorded
+in `sort_curves_convergence`, for nine inputs with no case of it being worse.
+
+That is an empirical claim and cannot be more than one. Both implementations
+settle into 2-opt local optima, and no theorem ranks two local optima — the tours
+differ because each takes the first improving move it meets and the kd-tree meets
+them in a different order.
+
+The timing columns are not symmetrical in confidence. Every exhaustive row ran
+once, because one repetition already exceeded the harness's 2 s budget, so those
+figures carry whatever noise the machine had; the pruned rows are the best of
+four or five. The travel figures carry none — they are deterministic, and the
+50,000 pruned tour reproduces `sort_curves_convergence`'s converged value to the
+digit from a separate run.
+
+The remaining headline numbers are not written up here yet. Anything quoted from
+them should cite the result file by name, as the rule at the top of this document
 requires.
