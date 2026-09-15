@@ -15,6 +15,7 @@ internal static class Icons
     // Resources/ later is enough -- the csproj embeds that folder by wildcard.
     public static readonly Bitmap RedistributeLookups = Load("redistribute_lookups.png");
     public static readonly Bitmap SampleCurvePoints   = Load("sample_curve_points.png");
+    public static readonly Bitmap DivideCurves        = Load("divide_curves.png");
 
     private static Bitmap Load(string file)
     {
