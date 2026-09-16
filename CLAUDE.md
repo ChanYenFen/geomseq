@@ -366,6 +366,70 @@ groups. The numbers exist; the reading of them does not.
   worst case nobody has addressed. Any further work on sort cost belongs there,
   not in 2-opt.
 
+### Clustered sequencing for layered and zoned fabrication
+
+A separate algorithm, deliberately not folded into the sort components. They
+answer "order these n items from a start point". This one answers "order the
+groups, and order within each, without interleaving them" — a hierarchical tour,
+with group structure as input and the jumps *between* groups in the objective.
+Layer order, colour changes and tool changes all live here rather than there.
+
+`Continuous` on Sort Points and Sort Curves is not this. It does one small,
+predictable thing — start each branch where the last one ended — at fixed cost,
+and claims nothing about optimising the jumps. That is worth keeping separate
+from an algorithm whose cost is still unknown.
+
+**What was measured**, on 30 real points in 3 spatially separated branches, via
+the Python bridge. Not committed to `benchmarks/results/`: it was exploratory,
+one dataset, and nothing here should be quoted as a baseline.
+
+| | travel | inter-branch jumps |
+|---|---|---|
+| flattened, one sort | 190.866 | — |
+| chained, today's single seed | 195.654 | 10.0 / 26.2 / 12.9 |
+| chained, best seed per branch (ceiling) | 189.884 | 16.5 / 15.5 / 13.8 |
+
+The mechanism is visible in the jumps. Sorting a branch from the cursor leaves it
+ending wherever 2-opt finished, with no knowledge of where the next branch is;
+choosing a different *start* steers where it ends. The ceiling row enters branch 0
+further away on purpose (10.0 → 16.5) to finish on its right edge, turning a 26.2
+jump into 15.5.
+
+**Three things that were wrong, recorded so they are not repeated.**
+
+*"Grouping can only cost, never gain."* It gained: the ceiling beats the
+flattened sort. Fewer constraints would guarantee a better *optimum*, but
+flattening is itself only greedy + 2-opt, and the constrained sub-problems get
+solved more cleanly than the whole.
+
+*Seeding by distance to the next group.* Candidates picked as "the branch point
+nearest the next branch" and "the farthest" lost in all three branches — the best
+seed was never among them. The reason is in the numbers: intra-branch length
+barely moves across seeds (47.7–49.8, under 4%), so the score is almost entirely
+entry + exit, and those heuristics optimise exit while ignoring entry. Two and
+three such candidates gained exactly nothing. Four candidates ranked by
+entry + exit reached the ceiling on this dataset, in 12 sorts rather than 30.
+
+*Comparing against a flatten that used a different start.* The first flattened
+figure came from an unconnected `S`, which falls back to the first input point
+(186.979), not from `S = origin` (190.866). Two runs, two start points, one
+meaningless comparison.
+
+**The open question, which decides whether this is viable at all.** Cost is the
+candidate count times the sorts, so it matters enormously whether that count
+stays bounded as branches grow. A first probe — 3 branches at 10/20/40/80 points,
+two seeds each — put the fraction of points needed to reach the ceiling anywhere
+from 0.07 to 1.00 with no trend. Two samples per size, and a brittle measure
+(reaching the ceiling is all-or-nothing, so it jumps from 6 to 41 without the
+problem getting harder). Inconclusive, and the right next measurement is not
+"how many candidates reach the ceiling" but "how much of the gap does a fixed k
+recover" — a continuous quantity, across several layouts and seeds.
+
+Until that is answered, nothing should ship: a fixed k costs a constant factor
+that pruning's 45–113× can absorb, while a k that grows with branch size would
+undo it entirely. And it needs its own benchmark group before it ships, like
+everything else here.
+
 ### Real geometry worth recording
 
 The synthetic set covers items 2 and 3 outright and approximates 1. Its value is
