@@ -51,8 +51,15 @@ public sealed class RedistributeLookupsComponent : GH_Component
             GH_ParamAccess.tree);
 
         // Optional so empty input reaches SolveInstance and gets a Remark rather than
-        // Grasshopper's own missing-input warning.
+        // Grasshopper's own missing-input warning. Low and High have no sensible default
+        // to fall back on, but leaving them required made this the one component that sat
+        // orange on a fresh canvas: Grasshopper warns before SolveInstance ever runs, so
+        // the quiet "nothing connected yet" Remark below never got the chance. Unconnected
+        // now reaches that Remark; Low missing while Lookups are present still stops the
+        // solve, because zero would leave the native marching loop standing still.
         p[0].Optional = true;
+        p[1].Optional = true;
+        p[2].Optional = true;
         p[5].Optional = true;
     }
 
