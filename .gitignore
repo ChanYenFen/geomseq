@@ -18,6 +18,12 @@ benchmarks/native/bench_core
 # .dll/.dylib there's nothing to distribute.
 src/geomseq_core/native/*.so
 
+# Grasshopper plugin build output
+src/gha/bin/
+src/gha/obj/
+*.user
+.vs/
+
 # Rhino history/lock files
 *.rhl
 *.3dmbak

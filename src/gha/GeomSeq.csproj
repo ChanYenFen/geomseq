@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <AssemblyName>GeomSeq</AssemblyName>
+    <RootNamespace>GeomSeq</RootNamespace>
+    <!-- Grasshopper finds plugins by extension; the file is an ordinary .NET assembly. -->
+    <TargetExt>.gha</TargetExt>
+    <Version>0.1.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- NU1701: RhinoCommon/Grasshopper ship net48 reference assemblies only; Rhino 8 runs them on .NET 7+.
+         CA1416: System.Drawing is Windows-only in .NET itself, but Rhino supplies it on macOS too. -->
+    <NoWarn>$(NoWarn);NU1701;CA1416</NoWarn>
+    <!-- The package is two files: no deps.json, no satellite resource folders. -->
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 8.0.23304.9001 is the first Rhino 8 release. Building against the oldest 8.x keeps every
+         Rhino 8 service release able to load the plugin. Rhino provides all three at runtime. -->
+    <PackageReference Include="RhinoCommon" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+    <PackageReference Include="Grasshopper" Version="8.0.23304.9001" ExcludeAssets="runtime" />
+    <PackageReference Include="System.Drawing.Common" Version="7.0.0" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\*.png" LogicalName="GeomSeq.Resources.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- Copies the native library next to the .gha so a local build runs as-is. Defaults to the
+       binary committed under src/geomseq_core/native/, which is for development only: a release
+       build must pass -p:GeomSeqNativeDir=<CI build output> instead. -->
+  <PropertyGroup>
+    <GeomSeqNativeDir Condition="'$(GeomSeqNativeDir)' == ''">$(MSBuildThisFileDirectory)..\geomseq_core\native\</GeomSeqNativeDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(GeomSeqNativeDir)geomseq_core.dll" Link="geomseq_core.dll" CopyToOutputDirectory="PreserveNewest" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
+    <None Include="$(GeomSeqNativeDir)geomseq_core.dylib" Link="geomseq_core.dylib" CopyToOutputDirectory="PreserveNewest" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+  </ItemGroup>
+
+</Project>
