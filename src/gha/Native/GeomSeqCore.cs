@@ -286,4 +286,90 @@ internal static class GeomSeqCore
         }
         return total;
     }
+
+    internal sealed class ShatterResult
+    {
+        public ShatterResult(double[] pieces, int[] pieceCounts)
+        {
+            Pieces = pieces;
+            PieceCounts = pieceCounts;
+        }
+
+        /// <summary>6 doubles per surviving piece, grouped in input-segment order.</summary>
+        public double[] Pieces { get; }
+
+        /// <summary>One entry per input segment. 0 means the gaps swallowed it whole.</summary>
+        public int[] PieceCounts { get; }
+
+        public Line Piece(int k)
+        {
+            double[] p = Pieces;
+            int o = k * 6;
+            return new Line(p[o], p[o + 1], p[o + 2], p[o + 3], p[o + 4], p[o + 5]);
+        }
+    }
+
+    /// <summary>
+    /// Cuts segments where they meet and opens a gap of <paramref name="gapD"/> there.
+    /// Segments are already flattened to 6 doubles each, in the plane the caller wants
+    /// the contacts measured in -- the native side reads x/y only and carries z along.
+    /// </summary>
+    public static unsafe ShatterResult ShatterAtCrossings(
+        double[] segmentBuffer, int n, double gapD, double touchTol,
+        int[]? segmentOwner, bool testSelf)
+    {
+        if (n <= 0)
+            return new ShatterResult(new double[0], new int[0]);
+
+        if (gapD < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(gapD), gapD, "gapD must be 0 or more.");
+
+        if (touchTol < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(touchTol), touchTol, "touchTol must be 0 or more.");
+
+        if (segmentOwner != null && segmentOwner.Length != n)
+            throw new ArgumentException("segmentOwner needs one entry per segment.", nameof(segmentOwner));
+
+        var pieceCounts = new int[n];
+
+        // Optimistic first guess. The real bound is quadratic, so instead of allocating
+        // for a worst case almost no input reaches, the native side reports what it
+        // needed and we go again once with exactly that.
+        int capacity = 2 * n;
+        double[] pieces = new double[capacity * 6];
+        int total = 0;
+
+        fixed (double* seg = segmentBuffer)
+        fixed (int* counts = pieceCounts)
+        {
+            fixed (double* buf = pieces)
+            fixed (int* owner = segmentOwner)
+            {
+                NativeMethods.ShatterAtCrossings(seg, n, gapD, touchTol, owner, testSelf ? 1 : 0,
+                                                 buf, capacity, counts, &total);
+            }
+
+            if (total > capacity)
+            {
+                capacity = total;
+                pieces = new double[capacity * 6];
+                fixed (double* buf = pieces)
+                fixed (int* owner = segmentOwner)
+                {
+                    NativeMethods.ShatterAtCrossings(seg, n, gapD, touchTol, owner, testSelf ? 1 : 0,
+                                                     buf, capacity, counts, &total);
+                }
+            }
+        }
+
+        if (pieces.Length != total * 6)
+        {
+            var trimmed = new double[total * 6];
+            for (int k = 0; k < trimmed.Length; k++)
+                trimmed[k] = pieces[k];
+            pieces = trimmed;
+        }
+
+        return new ShatterResult(pieces, pieceCounts);
+    }
 }

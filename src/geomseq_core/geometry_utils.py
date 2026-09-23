@@ -246,3 +246,75 @@ def build_turn_waypoints_native(Ex, Ey, a_vx, a_vy, Sx, Sy, b_vx, b_vy,
     ]
 
     return exit_pts, entry_pts
+
+
+def shatter_at_crossings_native(segments, gap_d, touch_tol=0.0, segment_owner=None, test_self=True):
+    """C++-backed shatter (native/geometry2d_staging.cpp): cuts segments where they cross each other and removes a gap of `gap_d` centred on each crossing, so the two paths no longer meet there. `gap_d` is the whole gap -- how far apart the two cut ends end up -- and the native side takes half of it off either side.
+    Input order decides who yields: for a crossing pair the lower index is left whole and the higher one is cut. Sort beforehand to impose any other priority.
+    `touch_tol` is how close, in model units, counts as touching rather than missing -- a T-junction (one endpoint landing on another segment) is a contact, not a crossing, and real ones are rarely drawn exact. 0 means exact only.
+    `segment_owner` is one int per segment naming the source curve it came from -- exploding a polyline gives many segments with one owner. With `test_self=False`, pairs sharing an owner are skipped, so a polyline is not cut where it crosses itself. `segment_owner=None` means every segment owns itself, and then `test_self` changes nothing.
+    Returns a nested list of plain ((x,y,z), (x,y,z)) tuples, not Rhino types -- one sub-list per input segment, in input order. Its length always equals the input, and a segment the gaps swallow whole comes back as an empty sub-list, so input index i is always result[i].
+
+    The DLL must be current: geometry2d_staging.cpp is one of the sources in the
+    README build command, and native_bridge declares this signature, so a stale
+    binary fails at load_dll() with a clear error rather than silently."""
+    if not segments:
+        return []
+
+    if gap_d < 0:
+        raise ValueError(f"gap_d must be >= 0, got {gap_d}")
+
+    if touch_tol < 0:
+        raise ValueError(f"touch_tol must be >= 0, got {touch_tol}")
+
+    lib = native_bridge.load_dll()
+
+    # Marshal geometry -> flat double buffer (zero-copy view for ctypes).
+    buf, n = misc.curves_to_endpoint_buffer(segments)
+    seg_ptr = (ctypes.c_double * len(buf)).from_buffer(buf)
+
+    if segment_owner is None:
+        owner_ptr = None
+    else:
+        if len(segment_owner) != n:
+            raise ValueError(f"segment_owner must have one entry per segment: got {len(segment_owner)}, expected {n}")
+        owner_ptr = (ctypes.c_int * n)(*segment_owner)
+
+    out_piece_counts = (ctypes.c_int * n)()
+    out_total        = ctypes.c_int(0)
+
+    # Optimistic first guess. The real worst case is quadratic -- every pair
+    # crossing -- which is far too large to allocate up front, so the native
+    # side reports what it actually needed and we retry once if this fell short.
+    capacity     = 2 * n
+    out_segments = (ctypes.c_double * (capacity * 6))()
+
+    lib.shatter_at_crossings(seg_ptr, n, ctypes.c_double(gap_d), ctypes.c_double(touch_tol),
+                             owner_ptr, 1 if test_self else 0,
+                             out_segments, capacity,
+                             out_piece_counts, ctypes.byref(out_total))
+
+    if out_total.value > capacity:
+        capacity     = out_total.value
+        out_segments = (ctypes.c_double * (capacity * 6))()
+        lib.shatter_at_crossings(seg_ptr, n, ctypes.c_double(gap_d), ctypes.c_double(touch_tol),
+                                 owner_ptr, 1 if test_self else 0,
+                                 out_segments, capacity,
+                                 out_piece_counts, ctypes.byref(out_total))
+
+    # Pieces arrive grouped in input order, so one cursor walks them in step
+    # with the per-segment counts.
+    result = []
+    cursor = 0
+    for i in range(n):
+        pieces = []
+        for _ in range(out_piece_counts[i]):
+            o = cursor * 6
+            pieces.append((
+                (out_segments[o + 0], out_segments[o + 1], out_segments[o + 2]),
+                (out_segments[o + 3], out_segments[o + 4], out_segments[o + 5]),
+            ))
+            cursor += 1
+        result.append(pieces)
+
+    return result

@@ -69,4 +69,23 @@ internal static unsafe class NativeMethods
         double  extendLen,            // how far past E / before S the corners sit
         double* outExitPts,  int* outExitCount,    // 2 doubles per waypoint, leaving E
         double* outEntryPts, int* outEntryCount);  // 2 doubles per waypoint, arriving at S
+
+    // Like redistribute_lookups, the output length is not known from the input -- but here
+    // the true bound is quadratic (every pair meeting), far too large to allocate for. So
+    // outTotal reports what was REQUIRED, not what was written: when it comes back above
+    // outCapacity nothing past the capacity was written and the call is repeated with the
+    // bigger buffer. See GeomSeqCore.ShatterAtCrossings.
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "shatter_at_crossings",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void ShatterAtCrossings(
+        double* segments,         // 6n: x0,y0,z0, x1,y1,z1 per segment
+        int     n,
+        double  gapD,             // the whole gap; gapD/2 comes off either side of a contact
+        double  touchTol,         // model units; how close counts as touching rather than missing
+        int*    segmentOwner,     // n: which source curve each segment came from; may be null
+        int     testSelf,         // 0/1: test pairs sharing an owner (joints are skipped either way)
+        double* outSegments,      // 6 per surviving piece, grouped in input order
+        int     outCapacity,      // how many pieces outSegments has room for
+        int*    outPieceCounts,   // n: pieces produced per input segment; 0 means swallowed whole
+        int*    outTotal);        // pieces REQUIRED -- above outCapacity means retry
 }

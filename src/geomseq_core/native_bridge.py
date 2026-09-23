@@ -83,6 +83,26 @@ def load_dll():
     ]
     lib.build_turn_waypoints.restype = None
 
+    # void shatter_at_crossings(const double*, int, double, double, const int*,
+    #                           int, double*, int, int*, int*)
+    # Declared, unlike the shelved features before it, because argtypes is what
+    # catches a call with the wrong NUMBER of arguments -- ctypes raises
+    # ArgumentError instead of letting the native side read the next pointer as
+    # a buffer and write past it. That is not hypothetical: a retry path here
+    # once passed 7 of these and took Rhino down with it.
+    lib.shatter_at_crossings.argtypes = [
+        ctypes.POINTER(ctypes.c_double),  # segments (6*n)
+        ctypes.c_int,                     # n
+        ctypes.c_double,                  # gap_d
+        ctypes.c_double,                  # touch_tol
+        ctypes.POINTER(ctypes.c_int),     # segment_owner (n), nullable
+        ctypes.c_int,                     # test_self
+        ctypes.POINTER(ctypes.c_double),  # out_segments (caller-allocated)
+        ctypes.c_int,                     # out_capacity, in pieces
+        ctypes.POINTER(ctypes.c_int),     # out_piece_counts (n)
+        ctypes.POINTER(ctypes.c_int),     # out_total
+    ]
+    lib.shatter_at_crossings.restype = None
 
     _DLL = lib
     return lib

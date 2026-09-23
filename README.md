@@ -56,6 +56,13 @@ Two callers, developed and released on different schedules:
 | `sort_points` | single-point sibling of `sort_curves` (no direction/reversal concept) | ✅ |
 | `redistribute_lookups` | redistribute arc-length lookups to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
 | `build_turn_waypoints` | travel path between two segments: extends each end into the gap, then fillets both corners so no waypoint turns by more than `theta_max_deg` (**2D only** — the ABI takes x/y, no Z) | ✅ |
+| `shatter_at_crossings` | cuts segments where they meet and opens a gap of `gap_d` there, so paths no longer touch; covers both a crossing and a T-junction, within a `touch_tol` given in model units. Input order decides which of a meeting pair yields (**2D only**, z interpolated along the segment) | 🚧 |
+
+🚧 — in the DLL, declared in `native_bridge.py` and callable from Python, but
+staged rather than finished: contacts are found by testing every pair (O(n²)),
+collinear overlap is out of scope, there is no benchmark group, and the only
+Grasshopper front end is the GHPython shell in `src/gh/` — no compiled C#
+component yet. Its source lives in `geometry2d_staging.cpp` for that reason.
 
 ## Layout
 
@@ -67,6 +74,7 @@ src/
 │   │   ├── sort_points.cpp             # single-point sibling of sort_curves (no direction/reversal)
 │   │   ├── redistribute_lookups.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
 │   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
+│   │   ├── geometry2d_staging.cpp      # staging: 2D primitives + shatter_at_crossings (see Modules)
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
 │   │   ├── archive/                    # superseded reference implementations (the windowed 2-opt, measured and removed)
 │   │   └── geomseq_core.dll            # official .cpp files compiled into one binary (also .dylib / .so per platform)
@@ -91,15 +99,16 @@ tests/                                  # property tests, plain CPython (no Rhin
 
 Rebuild the native library after editing any `.cpp`. All official sources
 compile into one shared library (`native_bridge.py` loads a single DLL and
-expects `sort_curves`, `sort_points`, `redistribute_lookups`, and
-`build_turn_waypoints` all exported from it), per platform (same code,
-different compiler):
+declares signatures for every exported function, all of which must therefore be
+present in it — so a binary built without one of these sources fails at
+`load_dll()` with a clear error rather than corrupting memory later), per
+platform (same code, different compiler):
 
 Run these from `src/geomseq_core/native/`:
 
 ```
 # Windows (x64 Native Tools Command Prompt)
-cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp /Fe:geomseq_core.dll
+cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp geometry2d_staging.cpp /Fe:geomseq_core.dll
 
 # macOS
 clang++ -std=c++17 -O2 -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp

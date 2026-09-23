@@ -35,8 +35,11 @@ jobs:
       # <geomseq_core>/native/geomseq_core.{so,dll,dylib} by platform, and
       # expects exactly those names (not libgeomseq_core.so).
       #
-      # *.cpp is the four official sources; archive/ holds superseded versions
-      # and is a subdirectory, so these non-recursive globs skip it.
+      # *.cpp is the five official sources; archive/ holds superseded versions
+      # and is a subdirectory, so these non-recursive globs skip it. The Windows
+      # list below is the one that has to be edited by hand when a source is
+      # added -- a glob picks a new file up on two platforms and silently not on
+      # the third, which would ship a DLL missing an export CI never tests for.
       #
       # -pthread: nanoflann references std::thread/std::mutex even though its
       # n_thread_build defaults to 1 and the concurrent build path never runs.
@@ -60,7 +63,7 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: src/geomseq_core/native
         shell: cmd
-        run: cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp /Fe:geomseq_core.dll
+        run: cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp geometry2d_staging.cpp /Fe:geomseq_core.dll
 
       # `python` (not python3) on every platform -- setup-python puts it on PATH.
       # Tests are now pytest-parametrized (no __main__ block), so they must be
