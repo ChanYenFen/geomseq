@@ -2036,7 +2036,7 @@
       "reps": 1
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "input_n101",
       "axis": {
         "input_n": 101,
@@ -2053,7 +2053,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "input_n1001",
       "axis": {
         "input_n": 1001,
@@ -2070,7 +2070,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "input_n10001",
       "axis": {
         "input_n": 10001,
@@ -2087,7 +2087,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "input_n100001",
       "axis": {
         "input_n": 100001,
@@ -2104,7 +2104,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "band_8_20",
       "axis": {
         "input_n": 10001,
@@ -2121,7 +2121,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "band_2_8",
       "axis": {
         "input_n": 10001,
@@ -2138,7 +2138,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "band_0.5_2",
       "axis": {
         "input_n": 10001,
@@ -2155,7 +2155,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "band_0.2_0.8",
       "axis": {
         "input_n": 10001,
@@ -2172,7 +2172,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "corners_0",
       "axis": {
         "input_n": 10001,
@@ -2189,7 +2189,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "corners_10",
       "axis": {
         "input_n": 10001,
@@ -2206,7 +2206,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "corners_100",
       "axis": {
         "input_n": 10001,
@@ -2223,7 +2223,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "corners_1000",
       "axis": {
         "input_n": 10001,
@@ -2240,7 +2240,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "mode0",
       "axis": {
         "input_n": 10001,
@@ -2257,7 +2257,7 @@
       "reps": 5
     },
     {
-      "group": "redistribute_lookups",
+      "group": "redistribute_arc_lengths",
       "name": "mode1",
       "axis": {
         "input_n": 10001,

@@ -8,33 +8,33 @@ using Grasshopper.Kernel.Types;
 
 namespace GeomSeq.Components;
 
-public sealed class RedistributeLookupsComponent : GH_Component
+public sealed class RedistributeArcLengthsComponent : GH_Component
 {
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("32ba6096-d9d0-4d25-b62e-599053ae07db");
 
-    public RedistributeLookupsComponent()
-        : base("Redistribute Lookups", "Redist",
+    public RedistributeArcLengthsComponent()
+        : base("Redistribute Arc Lengths", "Redist",
                "Respaces arc-length positions along a curve to a density profile, keeping named positions exactly. " +
                "Pure 1D arithmetic -- it never touches the curve; feed the result to a component that evaluates points at arc lengths.",
-               "GeomSeq", "Sampling")
+               "GeomSeq", "Division")
     {
     }
 
     public override Guid ComponentGuid => Id;
     public override GH_Exposure Exposure => GH_Exposure.primary;
-    protected override Bitmap Icon => Icons.RedistributeLookups;
+    protected override Bitmap Icon => Icons.RedistributeArcLengths;
 
     // Contract: Grasshopper saves wires by port index. New ports go at the end, never in between.
     //
-    // Lookups and Corners are trees rather than lists, and that is not a style choice.
+    // Arc Lengths and Corners are trees rather than lists, and that is not a style choice.
     // Under list access Grasshopper solves once per branch and appends the iteration
     // index to every output path, so a {0;0} {0;1} input came back as {0;0;0} {0;1;0}
     // -- one level deeper than it went in, which breaks pairing with the curves the
-    // lookups came from. Taking trees keeps the paths the caller sent.
+    // arc lengths came from. Taking trees keeps the paths the caller sent.
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
-        p.AddNumberParameter("Lookups", "L",
+        p.AddNumberParameter("Arc Lengths", "S",
             "Arc-length positions along one curve per branch, ascending. Only the last one in a branch is read as that curve's length.",
             GH_ParamAccess.tree);
         p.AddNumberParameter("Low", "lo", "Smallest step, used where the result is densest. Must be greater than 0.",
@@ -47,7 +47,7 @@ public sealed class RedistributeLookupsComponent : GH_Component
             "Percent of the curve, centred, held at one density; the rest fades between Low and High.",
             GH_ParamAccess.item, 0.0);
         p.AddIntegerParameter("Corners", "C",
-            "Indices into the matching Lookups branch whose arc lengths must appear in the result exactly, e.g. polyline vertices.",
+            "Indices into the matching Arc Lengths branch whose arc lengths must appear in the result exactly, e.g. polyline vertices.",
             GH_ParamAccess.tree);
 
         // Optional so empty input reaches SolveInstance and gets a Remark rather than
@@ -55,7 +55,7 @@ public sealed class RedistributeLookupsComponent : GH_Component
         // to fall back on, but leaving them required made this the one component that sat
         // orange on a fresh canvas: Grasshopper warns before SolveInstance ever runs, so
         // the quiet "nothing connected yet" Remark below never got the chance. Unconnected
-        // now reaches that Remark; Low missing while Lookups are present still stops the
+        // now reaches that Remark; Low missing while Arc Lengths are present still stops the
         // solve, because zero would leave the native marching loop standing still.
         p[0].Optional = true;
         p[1].Optional = true;
@@ -65,7 +65,7 @@ public sealed class RedistributeLookupsComponent : GH_Component
 
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
-        p.AddNumberParameter("Lookups", "L",
+        p.AddNumberParameter("Arc Lengths", "S",
             "Redistributed arc-length positions, on the same paths as the input.", GH_ParamAccess.tree);
     }
 
@@ -77,9 +77,9 @@ public sealed class RedistributeLookupsComponent : GH_Component
             return;
         }
 
-        if (!da.GetDataTree(0, out GH_Structure<GH_Number> lookupTree) || lookupTree.IsEmpty)
+        if (!da.GetDataTree(0, out GH_Structure<GH_Number> arcLengthTree) || arcLengthTree.IsEmpty)
         {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "No lookups to redistribute.");
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "No arc lengths to redistribute.");
             return;
         }
 
@@ -105,39 +105,39 @@ public sealed class RedistributeLookupsComponent : GH_Component
                 $"High ({high:G6}) is below Low ({low:G6}); using {low:G6} for both.");
 
         int cornerBranches = cornerTree?.PathCount ?? 0;
-        if (cornerBranches > 0 && cornerBranches != lookupTree.PathCount)
+        if (cornerBranches > 0 && cornerBranches != arcLengthTree.PathCount)
             AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
-                $"Corners has {cornerBranches} branch(es) against Lookups' {lookupTree.PathCount}; " +
+                $"Corners has {cornerBranches} branch(es) against Arc Lengths' {arcLengthTree.PathCount}; " +
                 "the last one is reused for the remainder.");
 
         var output = new GH_Structure<GH_Number>();
 
-        for (int b = 0; b < lookupTree.PathCount; b++)
+        for (int b = 0; b < arcLengthTree.PathCount; b++)
         {
-            GH_Path path = lookupTree.Paths[b];
-            IList<GH_Number> branch = lookupTree.Branches[b];
+            GH_Path path = arcLengthTree.Paths[b];
+            IList<GH_Number> branch = arcLengthTree.Branches[b];
 
             // An empty branch keeps its path and comes back empty. Dropping it would
             // shift every later branch, which is the same pairing bug in another form.
-            var lookups = new List<double>(branch.Count);
+            var arcLengths = new List<double>(branch.Count);
             foreach (GH_Number? item in branch)
             {
                 if (item != null)
-                    lookups.Add(item.Value);
+                    arcLengths.Add(item.Value);
             }
 
-            if (lookups.Count == 0)
+            if (arcLengths.Count == 0)
             {
                 output.EnsurePath(path);
                 continue;
             }
 
-            double totalLength = lookups[lookups.Count - 1];
+            double totalLength = arcLengths[arcLengths.Count - 1];
             if (high > totalLength)
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
                     $"High ({high:G6}) is longer than branch {path} ({totalLength:G6}), so it comes back as just its two ends.");
 
-            // Out-of-range indices would read past the lookup list, so they are dropped
+            // Out-of-range indices would read past the arc length list, so they are dropped
             // and named rather than failing the whole solve -- the same trade the sort
             // components make for null geometry.
             var kept = new List<int>();
@@ -148,7 +148,7 @@ public sealed class RedistributeLookupsComponent : GH_Component
                 for (int k = 0; k < cornerBranch.Count; k++)
                 {
                     GH_Integer? c = cornerBranch[k];
-                    if (c == null || c.Value < 0 || c.Value >= lookups.Count)
+                    if (c == null || c.Value < 0 || c.Value >= arcLengths.Count)
                         skipped.Add(k);
                     else
                         kept.Add(c.Value);
@@ -160,14 +160,14 @@ public sealed class RedistributeLookupsComponent : GH_Component
 
             // The ABI wants corner arc lengths ascending, and nothing upstream guarantees
             // the indices arrive that way -- Grasshopper hands over whatever order the wire
-            // carries. (geometry_utils.redistribute_lookups_native does not sort either; it
+            // carries. (geometry_utils.redistribute_arc_lengths_native does not sort either; it
             // has simply never been fed an unsorted list.)
             kept.Sort();
 
             double[] result;
             try
             {
-                result = GeomSeqCore.RedistributeLookups(lookups, low, high, mode, flatPct, kept);
+                result = GeomSeqCore.RedistributeArcLengths(arcLengths, low, high, mode, flatPct, kept);
             }
             catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException)
             {

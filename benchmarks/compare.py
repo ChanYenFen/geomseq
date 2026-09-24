@@ -6,14 +6,14 @@ import json
 import sys
 
 # Fields identifying the same case on both sides. The native harness has no
-# input_n axis for redistribute_lookups, so several Python rows share one
+# input_n axis for redistribute_arc_lengths, so several Python rows share one
 # native row -- which is exactly what makes that column worth showing.
 KEYS = {
     "build_turn_waypoints": ["geometry", "theta_max_deg"],
-    "redistribute_lookups": ["band", "corners", "mode"],
+    "redistribute_arc_lengths": ["band", "corners", "mode"],
 }
 # Python-only axes, shown as extra columns and flagged as unmatched.
-PY_ONLY = {"redistribute_lookups": ["input_n"]}
+PY_ONLY = {"redistribute_arc_lengths": ["input_n"]}
 
 
 def norm(v):

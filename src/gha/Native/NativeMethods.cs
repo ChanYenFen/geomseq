@@ -40,11 +40,11 @@ internal static unsafe class NativeMethods
         int*    outOrder);        // n: original point index per position
 
     // Unlike the sort entry points, the output length is not known from the input:
-    // outLookups is sized by the caller from a bound (see GeomSeqCore) and outCount
+    // outArcLengths is sized by the caller from a bound (see GeomSeqCore) and outCount
     // says how much of it was actually written.
-    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "redistribute_lookups",
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "redistribute_arc_lengths",
                CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern void RedistributeLookups(
+    internal static extern void RedistributeArcLengths(
         double  totalLength,      // arc length of the whole curve
         double  low,              // smallest step, at the density peak; must be > 0 or the march never advances
         double  high,             // largest step, at the sparsest point
@@ -52,7 +52,7 @@ internal static unsafe class NativeMethods
         double  flatPct,          // percent of totalLength held at constant density, centred
         double* cornerLengths,    // numCorners, ascending; may be null when numCorners == 0
         int     numCorners,
-        double* outLookups,       // caller-sized; see GeomSeqCore.RedistributeLookups
+        double* outArcLengths,       // caller-sized; see GeomSeqCore.RedistributeArcLengths
         int*    outCount);        // entries actually written
 
     // 2D only: every coordinate here is x/y, with no z anywhere in the signature.
@@ -70,7 +70,7 @@ internal static unsafe class NativeMethods
         double* outExitPts,  int* outExitCount,    // 2 doubles per waypoint, leaving E
         double* outEntryPts, int* outEntryCount);  // 2 doubles per waypoint, arriving at S
 
-    // Like redistribute_lookups, the output length is not known from the input -- but here
+    // Like redistribute_arc_lengths, the output length is not known from the input -- but here
     // the true bound is quadratic (every pair meeting), far too large to allocate for. So
     // outTotal reports what was REQUIRED, not what was written: when it comes back above
     // outCapacity nothing past the capacity was written and the call is repeated with the

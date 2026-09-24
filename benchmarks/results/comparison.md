@@ -1,4 +1,4 @@
-﻿# native vs Python -- where each call's time goes
+# native vs Python -- where each call's time goes
 
 `native` is the algorithm alone (`benchmarks/native/bench_core`). `python` is the same call through the wrapper (`benchmarks/python/run.py`): ctypes, marshaling and wrapper included. `bridge` is the difference.
 
@@ -25,7 +25,7 @@
 | hairpin | 5 | 38 | 0.330 us | 14.94 us | 14.61 us | 2.2% |
 | hairpin | 1 | 182 | 0.944 us | 41.45 us | 40.50 us | 2.3% |
 
-## `redistribute_lookups`
+## `redistribute_arc_lengths`
 
 | band | corners | mode | input_n | out_n | native | python | bridge | native % |
 |---|---|---|---|---|---|---|---|---|

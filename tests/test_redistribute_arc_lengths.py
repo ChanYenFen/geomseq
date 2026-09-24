@@ -1,4 +1,4 @@
-"""Property tests for redistribute_lookups_native; cases are inline, plain floats.
+"""Property tests for redistribute_arc_lengths_native; cases are inline, plain floats.
 Steps stay within [low, high] except where the native side breaks the band to
 land exactly on a corner or on total_length -- both are exempted below."""
 
@@ -11,12 +11,12 @@ import pytest
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "src"))
 
-from geomseq_core.geometry_utils import redistribute_lookups_native
+from geomseq_core.geometry_utils import redistribute_arc_lengths_native
 
 TOL = 1e-9
 
 
-def even_lookups(total_length, n):
+def even_arc_lengths(total_length, n):
     """Evenly spaced samples, as a real curve division would give."""
     return [total_length * i / (n - 1) for i in range(n)]
 
@@ -24,24 +24,24 @@ def even_lookups(total_length, n):
 # flat_pct is a PERCENT (0-100), not a 0-1 fraction: 100.0 holds one density
 # the whole way, 0.0 fades across the entire length.
 CASES = [
-    dict(name="mode0_dense_center", lookups=even_lookups(100.0, 101),
+    dict(name="mode0_dense_center", arc_lengths=even_arc_lengths(100.0, 101),
          low=2.0, high=8.0, mode=0, flat_pct=50.0, corner_indices=None),
-    dict(name="mode1_dense_sides", lookups=even_lookups(100.0, 101),
+    dict(name="mode1_dense_sides", arc_lengths=even_arc_lengths(100.0, 101),
          low=2.0, high=8.0, mode=1, flat_pct=50.0, corner_indices=None),
-    dict(name="mode0_with_corners", lookups=even_lookups(100.0, 101),
+    dict(name="mode0_with_corners", arc_lengths=even_arc_lengths(100.0, 101),
          low=2.0, high=8.0, mode=0, flat_pct=50.0, corner_indices=[17, 43, 78]),
-    dict(name="flat_pct_100_uniform", lookups=even_lookups(100.0, 101),
+    dict(name="flat_pct_100_uniform", arc_lengths=even_arc_lengths(100.0, 101),
          low=3.0, high=9.0, mode=0, flat_pct=100.0, corner_indices=None),
-    dict(name="single_segment", lookups=[0.0, 10.0],
+    dict(name="single_segment", arc_lengths=[0.0, 10.0],
          low=2.0, high=6.0, mode=0, flat_pct=50.0, corner_indices=None),
 ]
 
 
-def check_case(name, lookups, low, high, mode, flat_pct, corner_indices):
-    total_length = lookups[-1]
-    corners = [lookups[i] for i in (corner_indices or [])]
+def check_case(name, arc_lengths, low, high, mode, flat_pct, corner_indices):
+    total_length = arc_lengths[-1]
+    corners = [arc_lengths[i] for i in (corner_indices or [])]
 
-    out = redistribute_lookups_native(lookups, low, high, mode, flat_pct,
+    out = redistribute_arc_lengths_native(arc_lengths, low, high, mode, flat_pct,
                                       corner_indices=corner_indices)
 
     assert len(out) >= 2, f"{name}: expected at least both endpoints, got {len(out)}"
@@ -68,5 +68,5 @@ def check_case(name, lookups, low, high, mode, flat_pct, corner_indices):
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
-def test_redistribute_lookups(case):
+def test_redistribute_arc_lengths(case):
     check_case(**case)

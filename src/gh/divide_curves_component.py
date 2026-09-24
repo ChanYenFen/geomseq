@@ -59,18 +59,18 @@ if __name__ == "__main__":
     join_ends = _resolve_join_ends_flag()
 
     dc = DivideCurves(curves)
-    pts_nested, lookups_nested, corner_indices_nested = [], [], []
+    pts_nested, arc_lengths_nested, corner_indices_nested = [], [], []
 
     for i, crv in enumerate(dc.curves):
         seg_length = _resolve_segment_length(segment_lengths, i)
         this_overlap_length = _resolve_overlap_length(seg_length)
-        crv_pts, crv_lookups, crv_corners = process_curve(
+        crv_pts, crv_arc_lengths, crv_corners = process_curve(
             dc, crv, seg_length, join_ends, overlap, this_overlap_length
         )
         pts_nested.append(crv_pts)
-        lookups_nested.append(crv_lookups)
+        arc_lengths_nested.append(crv_arc_lengths)
         corner_indices_nested.append(crv_corners)
 
     pts_tree = th.list_to_tree(pts_nested)
-    lookups_tree = th.list_to_tree(lookups_nested)
+    arc_lengths_tree = th.list_to_tree(arc_lengths_nested)
     corner_indices_tree = th.list_to_tree(corner_indices_nested)

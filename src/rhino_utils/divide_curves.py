@@ -1,5 +1,5 @@
 """
-Divides (possibly multi-segment) curves into points + a continuous arc-length lookup
+Divides (possibly multi-segment) curves into points + a continuous arc length
 + corner_indices at segment joints. RhinoCommon-dependent; GH input handling is in gh/divide_curves_component.py.
 """
 
@@ -118,12 +118,12 @@ def _dedupe_segment_params(params, is_last, is_single_segment, is_closed, join_e
 
 
 def process_curve(dc, crv, seg_length, join_ends, overlap, overlap_length):
-    """Divides one (possibly multi-segment) curve into points + a continuous arc-length lookup + segment-joint corner indices."""
+    """Divides one (possibly multi-segment) curve into points + a continuous arc length + segment-joint corner indices."""
     segs = dc.get_curve_segments(crv)
     is_closed = dc.check_closed(crv)
 
     crv_pts = []
-    crv_lookups = []
+    crv_arc_lengths = []
     crv_corners = []
     offset = 0.0  # cumulative arc-length of segments already processed
 
@@ -138,11 +138,11 @@ def process_curve(dc, crv, seg_length, join_ends, overlap, overlap_length):
 
         global_params = [p + offset for p in params]  # shift into the whole curve's arc-length frame
         if j > 0:
-            crv_corners.append(len(crv_lookups))  # this segment's first point is the joint with the previous one
-        crv_lookups.extend(global_params)
+            crv_corners.append(len(crv_arc_lengths))  # this segment's first point is the joint with the previous one
+        crv_arc_lengths.extend(global_params)
         offset += this_seg_length
 
     if overlap and is_closed:
         dc.get_overlap(crv_pts, overlap_length, join_ends)
 
-    return crv_pts, crv_lookups, crv_corners
+    return crv_pts, crv_arc_lengths, crv_corners

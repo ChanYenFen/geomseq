@@ -1,6 +1,6 @@
 """
-Redistribute Lookups Component for GeomSeq
-GH entry point: arc-length density redistribution (geometry_utils.redistribute_lookups_native); pure 1D, no Rhino.Geometry needed.
+Redistribute Arc Lengths Component for GeomSeq
+GH entry point: arc-length density redistribution (geometry_utils.redistribute_arc_lengths_native); pure 1D, no Rhino.Geometry needed.
 """
 
 import os
@@ -24,11 +24,11 @@ from geomseq_core import _reload
 _reload.unload_modules("geomseq_core.misc")
 _reload.unload_modules("geomseq_core.geometry_utils")
 
-from geomseq_core.geometry_utils import redistribute_lookups_native
+from geomseq_core.geometry_utils import redistribute_arc_lengths_native
 
 
 if __name__ == "__main__":
-    nested_lookups = th.tree_to_list(lookups_tree)  # type: ignore
+    nested_arc_lengths = th.tree_to_list(arc_lengths_tree)  # type: ignore
 
     # corner_indices_tree is optional.
     try:
@@ -36,14 +36,14 @@ if __name__ == "__main__":
     except Exception:
         nested_corners = None
 
-    out_nested_lookups = []
+    out_nested_arc_lengths = []
 
-    for i, lookups in enumerate(nested_lookups):
+    for i, arc_lengths in enumerate(nested_arc_lengths):
         corners = nested_corners[i] if nested_corners is not None else None
-        new_lookups = redistribute_lookups_native(lookups, low, high, mode, flat_pct,
+        new_arc_lengths = redistribute_arc_lengths_native(arc_lengths, low, high, mode, flat_pct,
                                                    corner_indices=corners)
-        out_nested_lookups.append(new_lookups)
+        out_nested_arc_lengths.append(new_arc_lengths)
 
     # --- Output to Grasshopper ---
     # DataTree output (preserves per-curve grouping)
-    out_lookups_tree = th.list_to_tree(out_nested_lookups)
+    out_arc_lengths_tree = th.list_to_tree(out_nested_arc_lengths)

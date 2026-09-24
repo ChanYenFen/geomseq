@@ -38,7 +38,7 @@ Not one table copied four times — the parameter that drives cost differs:
 |---|---|---|
 | `sort_points` | n × 2-opt on/off × dataset | Sizes and `knn_k`/`max_passes` kept fixed across runs so tables stay comparable |
 | `sort_curves` | n straddling 10,000, plus `if_flip` | 10,000 was where the 2-opt implementation used to switch; the sizes are kept so the rows stay comparable with baselines recorded while it did. `if_flip=False` makes the native side skip 2-opt entirely |
-| `redistribute_lookups` | input n, output density, corner count | Pure 1D marching, no kd-tree — which axis dominates was an open question |
+| `redistribute_arc_lengths` | input n, output density, corner count | Pure 1D marching, no kd-tree — which axis dominates was an open question |
 | `build_turn_waypoints` | `theta_max_deg` × turn geometry | One call is microseconds, below timer resolution, so it is timed in batches of 2,000 |
 
 The sort groups carry a further `data` column naming the input distribution.
@@ -53,7 +53,7 @@ because the declared knob and the actual work can diverge: `theta_max_deg` only
 *caps* the per-waypoint turn, so a straight run produces 2 waypoints whether the
 cap is 30° or 1°.
 
-### Why `redistribute_lookups` sweeps input and output separately
+### Why `redistribute_arc_lengths` sweeps input and output separately
 
 The design guess was that output density dominates. The first run said input
 size did, by a wide margin — which is what exposed that the wrapper was
@@ -456,10 +456,10 @@ scale, square extent, evenly spaced arc lengths.
 5. **Long thin extent** (`points_*` or `curves_*`) — a border or a single row of
    lettering, far wider than tall. The generator always produces a square, and a
    square is where kd-tree splits behave best.
-6. **Non-uniform arc-length lookups** (`lookups_*`) — `redistribute_lookups` is
+6. **Non-uniform arc lengths** (`arc lengths_*`) — `redistribute_arc_lengths` is
    benchmarked only against perfectly even spacing. Real
    `rhino_utils/divide_curves.py` output on a varying-curvature curve is not
-   even. Needs a `lookups_` kind added to the loader plus real corner indices.
+   even. Needs a `arc lengths_` kind added to the loader plus real corner indices.
 7. **Real turn geometry** (`turns_*`) — `build_turn_waypoints` uses four
    hand-written cases copied from the tests. Real E→S pairs from a toolpath
    would cover the documented failure mode: a gap small relative to `step_len`

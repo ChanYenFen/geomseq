@@ -63,7 +63,7 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: src/geomseq_core/native
         shell: cmd
-        run: cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp geometry2d_staging.cpp /Fe:geomseq_core.dll
+        run: cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp geometry2d_staging.cpp /Fe:geomseq_core.dll
 
       # `python` (not python3) on every platform -- setup-python puts it on PATH.
       # Tests are now pytest-parametrized (no __main__ block), so they must be

@@ -9,8 +9,8 @@ using Rhino.Geometry;
 namespace GeomSeq.Components;
 
 /// <summary>
-/// Divides curves into points, a continuous arc-length lookup, and the indices of the
-/// joints between segments. Feeds Redistribute Lookups and Sample Curve Points.
+/// Divides curves into points, a continuous arc length, and the indices of the
+/// joints between segments. Feeds Redistribute Arc Lengths and Sample Curve Points.
 /// </summary>
 /// <remarks>
 /// Like Sample Curve Points and unlike everything else here, there is no native code
@@ -35,9 +35,9 @@ public sealed class DivideCurvesComponent : GH_Component
 
     public DivideCurvesComponent()
         : base("Divide Curves", "DivCrv",
-               "Divides each curve into points, a continuous arc-length lookup, and the indices of its segment joints. " +
+               "Divides each curve into points, a continuous arc length, and the indices of its segment joints. " +
                "Multi-segment curves are exploded first, so the joints survive as exact positions.",
-               "GeomSeq", "Sampling")
+               "GeomSeq", "Division")
     {
     }
 
@@ -72,11 +72,11 @@ public sealed class DivideCurvesComponent : GH_Component
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
         p.AddPointParameter("Points", "P", "Division points, one branch per curve.", GH_ParamAccess.tree);
-        p.AddNumberParameter("Lookups", "L",
+        p.AddNumberParameter("Arc Lengths", "S",
             "Positions along the whole curve, continuous across segment joints, one branch per curve.",
             GH_ParamAccess.tree);
         p.AddIntegerParameter("Corners", "C",
-            "Indices into Lookups where one segment meets the next.", GH_ParamAccess.tree);
+            "Indices into Arc Lengths where one segment meets the next.", GH_ParamAccess.tree);
     }
 
     protected override void SolveInstance(IGH_DataAccess da)
@@ -106,7 +106,7 @@ public sealed class DivideCurvesComponent : GH_Component
         }
 
         var pointTree = new GH_Structure<GH_Point>();
-        var lookupTree = new GH_Structure<GH_Number>();
+        var arcLengthTree = new GH_Structure<GH_Number>();
         var cornerTree = new GH_Structure<GH_Integer>();
 
         var skipped = new List<int>();
@@ -116,7 +116,7 @@ public sealed class DivideCurvesComponent : GH_Component
         {
             var path = new GH_Path(i);
             pointTree.EnsurePath(path);
-            lookupTree.EnsurePath(path);
+            arcLengthTree.EnsurePath(path);
             cornerTree.EnsurePath(path);
 
             Curve? curve = curves[i];
@@ -141,7 +141,7 @@ public sealed class DivideCurvesComponent : GH_Component
             double thisOverlapLength = hasOverlapLength ? overlapLength : segLength;
 
             ProcessCurve(curve, segLength, joinEnds, overlap, thisOverlapLength,
-                         path, pointTree, lookupTree, cornerTree);
+                         path, pointTree, arcLengthTree, cornerTree);
         }
 
         if (skipped.Count > 0)
@@ -153,7 +153,7 @@ public sealed class DivideCurvesComponent : GH_Component
                 "instead of by length.");
 
         da.SetDataTree(0, pointTree);
-        da.SetDataTree(1, lookupTree);
+        da.SetDataTree(1, arcLengthTree);
         da.SetDataTree(2, cornerTree);
     }
 
@@ -162,14 +162,14 @@ public sealed class DivideCurvesComponent : GH_Component
         Curve curve, double segLength, bool joinEnds, bool overlap, double overlapLength,
         GH_Path path,
         GH_Structure<GH_Point> pointTree,
-        GH_Structure<GH_Number> lookupTree,
+        GH_Structure<GH_Number> arcLengthTree,
         GH_Structure<GH_Integer> cornerTree)
     {
         Curve[] segments = GetCurveSegments(curve);
         bool isClosed = curve.IsClosed;
 
         var points = new List<Point3d>();
-        int lookupCount = 0;     // mirrors len(crv_lookups) as the Python builds it
+        int arcLengthCount = 0;     // mirrors len(crv_arc_lengths) as the Python builds it
         double offset = 0.0;     // arc length of the segments already walked
 
         for (int j = 0; j < segments.Length; j++)
@@ -178,7 +178,7 @@ public sealed class DivideCurvesComponent : GH_Component
 
             // set_crv_domain: the parameter interval is rescaled to [0, length]. Note this
             // is a linear rescale, not an arc-length reparameterisation, so the values that
-            // end up in Lookups equal arc length only where the curve has uniform speed --
+            // end up in Arc Lengths equal arc length only where the curve has uniform speed --
             // a line or an arc. Downstream, Sample Curve Points feeds them to
             // LengthParameter, which does treat them as arc lengths. Carried over as-is.
             double segLen = seg.GetLength();
@@ -197,12 +197,12 @@ public sealed class DivideCurvesComponent : GH_Component
                 points.Add(seg.PointAt(t));
 
             if (j > 0)
-                cornerTree.Append(new GH_Integer(lookupCount), path);
+                cornerTree.Append(new GH_Integer(arcLengthCount), path);
 
             foreach (double t in parameters)
             {
-                lookupTree.Append(new GH_Number(t + offset), path);
-                lookupCount++;
+                arcLengthTree.Append(new GH_Number(t + offset), path);
+                arcLengthCount++;
             }
 
             offset += segLen;

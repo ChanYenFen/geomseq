@@ -49,12 +49,12 @@ def load_dll():
     ]
     lib.sort_points.restype = None
 
-    # void redistribute_lookups(double, double, double, int, double, const double*, int, double*, int*)
-    # Takes total_length + resolved corner arc lengths, NOT the original lookup
+    # void redistribute_arc_lengths(double, double, double, int, double, const double*, int, double*, int*)
+    # Takes total_length + resolved corner arc lengths, NOT the original arc length
     # array: the native side never read more than those, so passing the whole
     # array was pure marshaling cost. Corner *indices* -> arc lengths is done
     # in geometry_utils, which keeps the Python-facing signature unchanged.
-    lib.redistribute_lookups.argtypes = [
+    lib.redistribute_arc_lengths.argtypes = [
         ctypes.c_double,                  # total_length
         ctypes.c_double,                  # low
         ctypes.c_double,                  # high
@@ -62,10 +62,10 @@ def load_dll():
         ctypes.c_double,                  # flat_pct
         ctypes.POINTER(ctypes.c_double),  # corner_lengths (num_corners), nullable
         ctypes.c_int,                     # num_corners
-        ctypes.POINTER(ctypes.c_double),  # out_lookups (caller-allocated)
+        ctypes.POINTER(ctypes.c_double),  # out_arc_lengths (caller-allocated)
         ctypes.POINTER(ctypes.c_int),     # out_count
     ]
-    lib.redistribute_lookups.restype = None
+    lib.redistribute_arc_lengths.restype = None
 
     # void build_turn_waypoints(....)
     lib.build_turn_waypoints.argtypes = [

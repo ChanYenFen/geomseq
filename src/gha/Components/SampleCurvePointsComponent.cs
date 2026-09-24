@@ -9,7 +9,7 @@ using Rhino.Geometry;
 namespace GeomSeq.Components;
 
 /// <summary>
-/// The other half of Redistribute Lookups: turns arc-length positions back into points.
+/// The other half of Redistribute Arc Lengths: turns arc-length positions back into points.
 /// </summary>
 /// <remarks>
 /// Nothing here calls the native library. This is RhinoCommon arithmetic -- LengthParameter
@@ -26,8 +26,8 @@ public sealed class SampleCurvePointsComponent : GH_Component
     public SampleCurvePointsComponent()
         : base("Sample Curve Points", "SampleCrv",
                "Evaluates each curve at a branch of arc-length positions. " +
-               "Pairs with Redistribute Lookups, which decides where those positions go.",
-               "GeomSeq", "Sampling")
+               "Pairs with Redistribute Arc Lengths, which decides where those positions go.",
+               "GeomSeq", "Division")
     {
     }
 
@@ -37,14 +37,14 @@ public sealed class SampleCurvePointsComponent : GH_Component
 
     // Contract: Grasshopper saves wires by port index. New ports go at the end, never in between.
     //
-    // Curves is a flat list and Lookups is a tree, deliberately: one curve per lookup
+    // Curves is a flat list and Arc Lengths is a tree, deliberately: one curve per arc length
     // branch, paired by position. That is the shape the GHPython original consumed
-    // (`zip(lookups, curves)`) and the shape Redistribute Lookups emits.
+    // (`zip(arc_lengths, curves)`) and the shape Redistribute Arc Lengths emits.
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
-        p.AddCurveParameter("Curves", "C", "One curve per branch of Lookups, in the same order.",
+        p.AddCurveParameter("Curves", "C", "One curve per branch of Arc Lengths, in the same order.",
             GH_ParamAccess.list);
-        p.AddNumberParameter("Lookups", "L",
+        p.AddNumberParameter("Arc Lengths", "S",
             "Arc-length positions to evaluate, one branch per curve.", GH_ParamAccess.tree);
 
         // Optional so empty input reaches SolveInstance and gets a Remark rather than
@@ -56,7 +56,7 @@ public sealed class SampleCurvePointsComponent : GH_Component
     protected override void RegisterOutputParams(GH_OutputParamManager p)
     {
         p.AddPointParameter("Points", "P",
-            "Points on each curve, on the same paths as Lookups.", GH_ParamAccess.tree);
+            "Points on each curve, on the same paths as Arc Lengths.", GH_ParamAccess.tree);
     }
 
     protected override void SolveInstance(IGH_DataAccess da)
@@ -64,9 +64,9 @@ public sealed class SampleCurvePointsComponent : GH_Component
         var curves = new List<Curve?>();
         da.GetDataList(0, curves);
 
-        if (!da.GetDataTree(1, out GH_Structure<GH_Number> lookupTree) || lookupTree.IsEmpty)
+        if (!da.GetDataTree(1, out GH_Structure<GH_Number> arcLengthTree) || arcLengthTree.IsEmpty)
         {
-            AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "No lookups to evaluate.");
+            AddRuntimeMessage(GH_RuntimeMessageLevel.Remark, "No arc lengths to evaluate.");
             return;
         }
 
@@ -76,17 +76,17 @@ public sealed class SampleCurvePointsComponent : GH_Component
             return;
         }
 
-        if (curves.Count != lookupTree.PathCount)
+        if (curves.Count != arcLengthTree.PathCount)
             AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
-                $"{curves.Count} curve(s) against {lookupTree.PathCount} lookup branch(es); " +
+                $"{curves.Count} curve(s) against {arcLengthTree.PathCount} arc length branch(es); " +
                 "the last curve is reused for the remainder.");
 
         var output = new GH_Structure<GH_Point>();
         int pastEnd = 0;
 
-        for (int b = 0; b < lookupTree.PathCount; b++)
+        for (int b = 0; b < arcLengthTree.PathCount; b++)
         {
-            GH_Path path = lookupTree.Paths[b];
+            GH_Path path = arcLengthTree.Paths[b];
             output.EnsurePath(path);
 
             Curve? curve = curves[b < curves.Count ? b : curves.Count - 1];
@@ -99,7 +99,7 @@ public sealed class SampleCurvePointsComponent : GH_Component
                 continue;
             }
 
-            foreach (GH_Number? item in lookupTree.Branches[b])
+            foreach (GH_Number? item in arcLengthTree.Branches[b])
             {
                 if (item == null)
                 {

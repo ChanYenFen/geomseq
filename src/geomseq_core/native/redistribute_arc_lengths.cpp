@@ -1,5 +1,5 @@
-// redistribute_lookups.cpp
-// Redistributes arc-length lookups along a curve to a new density profile --
+// redistribute_arc_lengths.cpp
+// Redistributes arc lengths along a curve to a new density profile --
 // pure 1D arithmetic; the curve itself is never touched (Python maps the result back via curve.PointAt()).
 
 #if defined(_WIN32)
@@ -11,7 +11,7 @@
 extern "C" {
 
 // Inputs (read-only):
-//   total_length   : arc length of the whole curve (the old `lookups[n-1]`)
+//   total_length   : arc length of the whole curve (the old `arc_lengths[n-1]`)
 //   low            : smallest step size (used at the density peak)
 //   high           : largest step size (used at the sparsest point)
 //   mode           : 0 = dense_center, 1 = dense_sides
@@ -21,7 +21,7 @@ extern "C" {
 //                    ascending; may be nullptr if num_corners == 0
 //   num_corners    : length of corner_lengths, 0 if none
 //
-// This used to take the whole original lookup array plus corner *indices* into
+// This used to take the whole original arc_length array plus corner *indices* into
 // it. It never read more than the last element and the corner entries, so at
 // 100k input samples ~97% of the call's wall time was Python marshaling an
 // array this function then ignored. Resolving the corners to arc lengths on
@@ -29,11 +29,11 @@ extern "C" {
 // the input resolution. The Python wrapper's own signature is unchanged.
 //
 // Outputs (caller pre-allocates, we fill):
-//   out_lookups : new arc-length samples (caller must size the buffer
-//                 generously -- see geometry_utils.redistribute_lookups_native
+//   out_arc_lengths : new arc-length samples (caller must size the buffer
+//                 generously -- see geometry_utils.redistribute_arc_lengths_native
 //                 for the sizing formula)
-//   out_count   : number of entries actually written to out_lookups
-DLL_EXPORT void redistribute_lookups(
+//   out_count   : number of entries actually written to out_arc_lengths
+DLL_EXPORT void redistribute_arc_lengths(
     double        total_length,
     double        low,
     double        high,
@@ -41,7 +41,7 @@ DLL_EXPORT void redistribute_lookups(
     double        flat_pct,
     const double* corner_lengths,
     int           num_corners,
-    double*       out_lookups,
+    double*       out_arc_lengths,
     int*          out_count)
 {
     double fade_len = total_length * (100.0 - flat_pct) / 2.0 / 100.0;
@@ -57,7 +57,7 @@ DLL_EXPORT void redistribute_lookups(
     int count = 0;
     int next_corner_idx = 0;
 
-    out_lookups[count] = position;
+    out_arc_lengths[count] = position;
     count++;
 
     // Skip any corner at or before the start -- already covered by the
@@ -129,7 +129,7 @@ DLL_EXPORT void redistribute_lookups(
         }
 
         position = next_position;
-        out_lookups[count] = position;
+        out_arc_lengths[count] = position;
         count++;
     }
 

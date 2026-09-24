@@ -54,7 +54,7 @@ Two callers, developed and released on different schedules:
 |--------|---------|--------|
 | `sort_curves` | greedy k-NN + 2-opt ordering of curves to minimize travel (direction-aware: reversal flags + optional per-segment travel points) | ✅ |
 | `sort_points` | single-point sibling of `sort_curves` (no direction/reversal concept) | ✅ |
-| `redistribute_lookups` | redistribute arc-length lookups to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
+| `redistribute_arc_lengths` | redistribute arc lengths to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
 | `build_turn_waypoints` | travel path between two segments: extends each end into the gap, then fillets both corners so no waypoint turns by more than `theta_max_deg` (**2D only** — the ABI takes x/y, no Z) | ✅ |
 | `shatter_at_crossings` | cuts segments where they meet and opens a gap of `gap_d` there, so paths no longer touch; covers both a crossing and a T-junction, within a `touch_tol` given in model units. Input order decides which of a meeting pair yields (**2D only**, z interpolated along the segment) | 🚧 |
 
@@ -72,7 +72,7 @@ src/
 │   ├── native/                         # C++ source + compiled binaries
 │   │   ├── sort_curves.cpp
 │   │   ├── sort_points.cpp             # single-point sibling of sort_curves (no direction/reversal)
-│   │   ├── redistribute_lookups.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
+│   │   ├── redistribute_arc_lengths.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
 │   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
 │   │   ├── geometry2d_staging.cpp      # staging: 2D primitives + shatter_at_crossings (see Modules)
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
@@ -83,8 +83,8 @@ src/
 │   ├── misc.py                         # coordinate <-> flat-buffer marshaling
 │   └── _reload.py                      # dev-mode module unloading for GH hot-reload
 ├── rhino_utils/                        # depends on RhinoCommon; logic complex/reusable enough not to be a thin GH shell
-│   ├── divide_curves.py                # curve -> division points + arc-length lookups
-│   └── sample_curve_points.py          # arc-length lookups -> points on a curve
+│   ├── divide_curves.py                # curve -> division points + arc lengths
+│   └── sample_curve_points.py          # arc lengths -> points on a curve
 ├── gh/                                 # Rhino-side verification: GHPython shells, hot-reloaded on edit (GH I/O only)
 │   ├── definitions/                    # .gh example files
 │   └── *_component.py
@@ -108,7 +108,7 @@ Run these from `src/geomseq_core/native/`:
 
 ```
 # Windows (x64 Native Tools Command Prompt)
-cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_lookups.cpp build_turn_waypoints.cpp geometry2d_staging.cpp /Fe:geomseq_core.dll
+cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp geometry2d_staging.cpp /Fe:geomseq_core.dll
 
 # macOS
 clang++ -std=c++17 -O2 -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp
@@ -185,7 +185,7 @@ Build is for distribution, and only its native half could be executed anywhere.
 
 - The C++ core is CAD-independent: it takes and returns plain coordinate arrays,
   so it is testable without Rhino (see Tests) and reusable from any front end.
-- `redistribute_lookups`'s `flat_pct` is a **percent (0–100), not a 0–1
+- `redistribute_arc_lengths`'s `flat_pct` is a **percent (0–100), not a 0–1
   fraction** — `100.0` holds one density for the whole curve, `0.0` fades across
   its entire length. Nothing validates the range, so `1.0` silently gives an
   almost fully graded curve rather than a uniform one.

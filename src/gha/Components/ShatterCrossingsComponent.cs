@@ -35,7 +35,7 @@ public sealed class ShatterCrossingsComponent : GH_Component
 
     // Contract: Grasshopper saves wires by port index. New ports go at the end, never in between.
     //
-    // Curves is a tree rather than a list for the same reason Redistribute Lookups takes
+    // Curves is a tree rather than a list for the same reason Redistribute Arc Lengths takes
     // one: under list access Grasshopper solves once per branch and appends the iteration
     // index to every output path, which would land the results one level deeper than the
     // input index this component exists to preserve.

@@ -74,22 +74,22 @@ test files:
 |---|---|
 | `sort_curves` | Curve sequencing — direction-aware, emits reversal flags |
 | `sort_points` | Point sequencing — no direction, simplified sibling of `sort_curves` |
-| `redistribute_lookups` | Arc-length density redistribution (pure 1D, no kd-tree) |
+| `redistribute_arc_lengths` | Arc-length density redistribution (pure 1D, no kd-tree) |
 | `build_turn_waypoints` | Smooth travel path between two segments, under a per-vertex turn cap |
 
 **CAD-side helpers**:
 
 | Function | Purpose |
 |---|---|
-| `DivideCurves` / `process_curve` | Curve → division points + continuous arc-length lookups; emits `corner_indices` |
-| `sample_curve_points` | Arc-length lookups → points on the curve |
+| `DivideCurves` / `process_curve` | Curve → division points + continuous arc lengths; emits `corner_indices` |
+| `sample_curve_points` | Arc-length arc lengths → points on the curve |
 
 **Bullets**
 
 - **Native core** — every function takes and returns flat coordinate arrays; no CAD type ever crosses the boundary.
 - **CAD-side helpers** — curve evaluation needs to know what a NURBS curve *is*, so it can't be reduced to numbers. This logic stays in Python by design, not by omission.
 - The boundary is what keeps extension cheap: a new native function is one `.cpp`, one ctypes signature, one wrapper — no existing code touched.
-- *(optional closer)* Together they form one pipeline: `divide_curves` → `redistribute_lookups` → `sample_curve_points`, crossing the language boundary twice.
+- *(optional closer)* Together they form one pipeline: `divide_curves` → `redistribute_arc_lengths` → `sample_curve_points`, crossing the language boundary twice.
 
 **Evidence for the third bullet** — adding `build_turn_waypoints` (the fourth
 function) touched a new `.cpp`, +17 lines of `argtypes`, +54 lines of wrapper,

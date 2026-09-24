@@ -19,7 +19,7 @@ here is quoted from an ad-hoc run.
 environment above is stated alongside them. Absolute timings move noticeably
 between runs on the same machine.
 
-## `redistribute_lookups` — the work is in the bridge, not the algorithm
+## `redistribute_arc_lengths` — the work is in the bridge, not the algorithm
 
 ### Output count is the real axis, and the C++ tracks it exactly
 
@@ -53,7 +53,7 @@ Holding the band fixed so `out_n` stays 367 while the input grows 990×:
 990× the input moves the call 3.7× (≈ n^0.19), and the native column does not
 move at all — since the ABI change the native side never receives the input
 array, only `total_length` and the resolved corner arc lengths. It had only ever
-read `lookups[n-1]` and the corner entries; marshaling the rest was pure waste.
+read `arc lengths[n-1]` and the corner entries; marshaling the rest was pure waste.
 
 This was the design guess run backwards. Input size was expected to be
 incidental and output density to dominate; the first harness run showed the

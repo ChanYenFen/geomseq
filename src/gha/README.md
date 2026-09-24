@@ -17,7 +17,7 @@ it was switched to .NET Framework with `SetDotNetRuntime`, the plugin will not l
 ## Components
 
 Two of the library's four modules ship here; both live under
-**GeomSeq › Sequence**. `redistribute_lookups` and `build_turn_waypoints` exist
+**GeomSeq › Sequence**. `redistribute_arc_lengths` and `build_turn_waypoints` exist
 in the core but have no component yet (see Not done yet).
 
 | Component | Inputs | Outputs |
@@ -100,5 +100,5 @@ and the `.gha` together; a `lipo` check that the macOS binary has both x86_64 an
 arm64; `THIRD_PARTY_LICENSES.md` inside the package; a Yak manifest and store
 page that say Rhino 7 is not supported; measured n → time figures to publish.
 
-Deferred components: `redistribute_lookups`, `build_turn_waypoints`, and the
+Deferred components: `redistribute_arc_lengths`, `build_turn_waypoints`, and the
 RhinoCommon-dependent `divide_curves` / `sample_curve_points` pair.

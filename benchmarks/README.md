@@ -64,7 +64,7 @@ minutes.
 
 ## Running the native harness
 
-Covers `build_turn_waypoints` and `redistribute_lookups` only -- the two whose
+Covers `build_turn_waypoints` and `redistribute_arc_lengths` only -- the two whose
 native cost the Python harness cannot resolve. The sort functions are already
 96-97% native at scale, so their Python numbers are within a few percent of the
 truth and are not duplicated here.
@@ -73,10 +73,10 @@ From `benchmarks/native/`:
 
 ```
 # Windows (x64 Native Tools Command Prompt)
-cl /std:c++17 /O2 /EHsc /MT bench_core.cpp ..\..\src\geomseq_core\native\redistribute_lookups.cpp ..\..\src\geomseq_core\native\build_turn_waypoints.cpp /Fe:bench_core.exe
+cl /std:c++17 /O2 /EHsc /MT bench_core.cpp ..\..\src\geomseq_core\native\redistribute_arc_lengths.cpp ..\..\src\geomseq_core\native\build_turn_waypoints.cpp /Fe:bench_core.exe
 
 # macOS / Linux
-c++ -std=c++17 -O2 -o bench_core bench_core.cpp ../../src/geomseq_core/native/redistribute_lookups.cpp ../../src/geomseq_core/native/build_turn_waypoints.cpp
+c++ -std=c++17 -O2 -o bench_core bench_core.cpp ../../src/geomseq_core/native/redistribute_arc_lengths.cpp ../../src/geomseq_core/native/build_turn_waypoints.cpp
 ```
 
 It prints JSON on stdout; redirect it to keep a record:
@@ -92,7 +92,7 @@ later; that is not attempted yet.
 ## Comparing the two
 
 ```
-python benchmarks/python/run.py build_turn_waypoints redistribute_lookups --out benchmarks/results/python
+python benchmarks/python/run.py build_turn_waypoints redistribute_arc_lengths --out benchmarks/results/python
 benchmarks/native/bench_core > benchmarks/results/native.json
 python benchmarks/compare.py benchmarks/results/native.json benchmarks/results/python.json
 ```

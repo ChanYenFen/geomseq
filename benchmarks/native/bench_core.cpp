@@ -16,9 +16,9 @@
 //
 // Build (from benchmarks/native/):
 //   Windows (x64 Native Tools Command Prompt)
-//     cl /std:c++17 /O2 /EHsc /MT bench_core.cpp ..\..\src\geomseq_core\native\redistribute_lookups.cpp ..\..\src\geomseq_core\native\build_turn_waypoints.cpp /Fe:bench_core.exe
+//     cl /std:c++17 /O2 /EHsc /MT bench_core.cpp ..\..\src\geomseq_core\native\redistribute_arc_lengths.cpp ..\..\src\geomseq_core\native\build_turn_waypoints.cpp /Fe:bench_core.exe
 //   macOS / Linux
-//     c++ -std=c++17 -O2 -o bench_core bench_core.cpp ../../src/geomseq_core/native/redistribute_lookups.cpp ../../src/geomseq_core/native/build_turn_waypoints.cpp
+//     c++ -std=c++17 -O2 -o bench_core bench_core.cpp ../../src/geomseq_core/native/redistribute_arc_lengths.cpp ../../src/geomseq_core/native/build_turn_waypoints.cpp
 //
 // Emits JSON on stdout -- redirect into ../results/. Formatting for humans is
 // compare.py's job, so there is only one place that renders a table.
@@ -34,9 +34,9 @@
 // in step with the .cpp definitions -- a mismatch is a link error, not silent
 // corruption, which is the one advantage this has over the ctypes side.
 extern "C" {
-void redistribute_lookups(double total_length, double low, double high, int mode,
+void redistribute_arc_lengths(double total_length, double low, double high, int mode,
                           double flat_pct, const double* corner_lengths, int num_corners,
-                          double* out_lookups, int* out_count);
+                          double* out_arc_lengths, int* out_count);
 
 void build_turn_waypoints(double Ex, double Ey, double a_vx, double a_vy,
                           double Sx, double Sy, double b_vx, double b_vy,
@@ -133,18 +133,18 @@ static void bench_turns() {
 }
 
 // --------------------------------------------------------------------------
-// redistribute_lookups
+// redistribute_arc_lengths
 // --------------------------------------------------------------------------
 // Note there is no input-size axis here any more. Since the ABI change the
 // native side takes total_length and the corner arc lengths only -- the input
-// lookup array it used to receive and ignore is gone, so `input_n` is now a
+// arc_length array it used to receive and ignore is gone, so `input_n` is now a
 // purely Python-side concept. That absence is the finding, not an omission;
 // compare.py annotates it on the Python rows.
 
 static const double TOTAL = 1000.0;
 static const int REDIST_BATCH = 200;
 
-// Mirrors cases.spread_corners(10001, count) resolved through even_lookups:
+// Mirrors cases.spread_corners(10001, count) resolved through even_arc_lengths:
 // index int(1 + i*step) over a 10001-sample list spanning TOTAL.
 static std::vector<double> spread_corners(int count) {
     std::vector<double> out;
@@ -164,7 +164,7 @@ static void redist_row(double low, double high, int mode, int corners) {
     int count = 0;
 
     auto call = [&] {
-        redistribute_lookups(TOTAL, low, high, mode, 50.0,
+        redistribute_arc_lengths(TOTAL, low, high, mode, 50.0,
                              cl.empty() ? nullptr : cl.data(), corners,
                              out.data(), &count);
         g_sink += out[0];
@@ -174,7 +174,7 @@ static void redist_row(double low, double high, int mode, int corners) {
     char key[128];
     std::snprintf(key, sizeof key, "\"band\": \"%g-%g\", \"corners\": %d, \"mode\": %d",
                   low, high, corners, mode);
-    g_recs.push_back({"redistribute_lookups", key, count, us});
+    g_recs.push_back({"redistribute_arc_lengths", key, count, us});
 }
 
 static void bench_redistribute() {

@@ -161,7 +161,7 @@ public sealed class BuildTurnWaypointsComponent : GH_Component
             // Pathed by the stroke the turn leaves, not by a running count of turns.
             // The GHPython original numbers turns consecutively, so one skipped stroke
             // shifts every later branch -- the same pairing failure that made
-            // Redistribute Lookups take trees. A skipped turn leaves a gap instead.
+            // Redistribute Arc Lengths take trees. A skipped turn leaves a gap instead.
             var path = new GH_Path(i);
             output.EnsurePath(path);
             AppendPairs(output, path, turn.Exit, plane);

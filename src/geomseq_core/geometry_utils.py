@@ -1,6 +1,6 @@
 """
 Path Optimization Module for GeomSeq -- embroidery/CNC toolpath sorting. Wrapper functions
-only (sort_curves_native, sort_points_native, redistribute_lookups_native); GH entry points and hot-reload live in gh/*_component.py, so this module just needs to stay importable.
+only (sort_curves_native, sort_points_native, redistribute_arc_lengths_native); GH entry points and hot-reload live in gh/*_component.py, so this module just needs to stay importable.
 """
 
 __author__ = "Yen-Fen Chan"
@@ -126,10 +126,10 @@ def sort_points_native(points, start_pt=None,
     return ordered_points, order
 
 
-def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indices=None):
-    """C++-backed density redistribution of arc-length lookups (native/redistribute_lookups.cpp); `lookups`/return are flat arc-length floats, not Rhino geometry. `mode`: 0=dense_center (sparse ends, dense middle), 1=dense_sides (dense ends, sparse middle); `corner_indices` are lookup indices that must survive exactly (e.g. polyline vertices).
-    Returns a new list of arc-length lookups."""
-    if not lookups:
+def redistribute_arc_lengths_native(arc_lengths, low, high, mode, flat_pct, corner_indices=None):
+    """C++-backed density redistribution of arc lengths (native/redistribute_arc_lengths.cpp); `arc_lengths`/return are flat arc-length floats, not Rhino geometry. `mode`: 0=dense_center (sparse ends, dense middle), 1=dense_sides (dense ends, sparse middle); `corner_indices` are arc_length indices that must survive exactly (e.g. polyline vertices).
+    Returns a new list of arc lengths."""
+    if not arc_lengths:
         return []
 
     if low <= 0:
@@ -137,24 +137,24 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
         raise ValueError(f"low must be > 0, got {low}")
 
     if high < low:
-        print(f"[geomseq_core] redistribute_lookups_native: high ({high}) < low ({low}), clamping high = low")
+        print(f"[geomseq_core] redistribute_arc_lengths_native: high ({high}) < low ({low}), clamping high = low")
         high = low
 
-    total_length = lookups[-1]
+    total_length = arc_lengths[-1]
     if high > total_length:
         # Not unsafe (native side clamps), but degenerates to 2 points.
-        print(f"[geomseq_core] redistribute_lookups_native: high ({high}) > curve length "
+        print(f"[geomseq_core] redistribute_arc_lengths_native: high ({high}) > curve length "
               f"({total_length}) -- result will just be the two endpoints")
 
     lib = native_bridge.load_dll()
 
     # The native side only ever needed total_length and the corner arc lengths,
     # so resolve the corners here (O(num_corners) list indexing) instead of
-    # marshaling the whole lookup array across the boundary for it to ignore.
+    # marshaling the whole arc length array across the boundary for it to ignore.
     # An out-of-range corner index now raises IndexError here rather than
     # reading out of bounds inside the DLL.
     if corner_indices:
-        corner_lengths = [lookups[i] for i in corner_indices]
+        corner_lengths = [arc_lengths[i] for i in corner_indices]
         corner_ptr = (ctypes.c_double * len(corner_lengths))(*corner_lengths)
         num_corners = len(corner_lengths)
     else:
@@ -166,10 +166,10 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
     min_step = low if low < high else high
     max_possible_points = int(total_length / min_step) + num_corners + 10
 
-    out_lookups = (ctypes.c_double * max_possible_points)()
+    out_arc_lengths = (ctypes.c_double * max_possible_points)()
     out_count = ctypes.c_int(0)
 
-    lib.redistribute_lookups(
+    lib.redistribute_arc_lengths(
         total_length,
         low,
         high,
@@ -177,13 +177,13 @@ def redistribute_lookups_native(lookups, low, high, mode, flat_pct, corner_indic
         flat_pct,
         corner_ptr,
         num_corners,
-        out_lookups,
+        out_arc_lengths,
         ctypes.byref(out_count),
     )
 
     # Slicing a ctypes array already builds a list; wrapping it in list() again
     # would just copy it a second time.
-    return out_lookups[:out_count.value]
+    return out_arc_lengths[:out_count.value]
 
 def _unit(vx, vy):
     """Unit vector, or the input unchanged at zero length (matches native unit_vec)."""

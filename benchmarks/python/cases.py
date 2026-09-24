@@ -10,7 +10,7 @@ import random
 
 from geomseq_core.geometry_utils import (
     build_turn_waypoints_native,
-    redistribute_lookups_native,
+    redistribute_arc_lengths_native,
     sort_curves_native,
     sort_points_native,
 )
@@ -125,16 +125,16 @@ def sample(data, n, seed=1):
     return [data[i] for i in idx]
 
 
-def even_lookups(total_length, n):
+def even_arc_lengths(total_length, n):
     """Evenly spaced arc-length samples, as a real curve division would give."""
     return [total_length * i / (n - 1) for i in range(n)]
 
 
-def spread_corners(n_lookups, count):
-    """`count` corner indices spread over the interior of a lookup list."""
+def spread_corners(n_arc_lengths, count):
+    """`count` corner indices spread over the interior of an arc length list."""
     if count <= 0:
         return None
-    step = (n_lookups - 2) / float(count)
+    step = (n_arc_lengths - 2) / float(count)
     return [int(1 + i * step) for i in range(count)]
 
 
@@ -403,7 +403,7 @@ def _prune_check_cases():
     ]
 
 
-# --- redistribute_lookups --------------------------------------------------
+# --- redistribute_arc_lengths --------------------------------------------------
 # Both input n and output count are swept: which dominates was an open question
 # and the answer moved once the ABI stopped passing the input array.
 
@@ -420,43 +420,43 @@ def _redistribute_cases():
 
     # 1. input resolution, band held fixed -> output count should barely move
     for n_in in [101, 1001, 10001, 100001]:
-        call = lambda lk: redistribute_lookups_native(lk, 2.0, 8.0, 0, 50.0)
+        call = lambda lk: redistribute_arc_lengths_native(lk, 2.0, 8.0, 0, 50.0)
         cases.append(Case(
-            "redistribute_lookups", "input_n%d" % n_in,
-            setup=lambda n_in=n_in: even_lookups(REDIST_TOTAL, n_in),
+            "redistribute_arc_lengths", "input_n%d" % n_in,
+            setup=lambda n_in=n_in: even_arc_lengths(REDIST_TOTAL, n_in),
             run=call, observe=_observe_out_n(call),
             axis=dict(input_n=n_in, band="2-8", corners=0, mode=0),
         ))
 
     # 2. output density, input held fixed
     for low, high in [(8.0, 20.0), (2.0, 8.0), (0.5, 2.0), (0.2, 0.8)]:
-        call = (lambda low, high: lambda lk: redistribute_lookups_native(
+        call = (lambda low, high: lambda lk: redistribute_arc_lengths_native(
             lk, low, high, 0, 50.0))(low, high)
         cases.append(Case(
-            "redistribute_lookups", "band_%g_%g" % (low, high),
-            setup=lambda: even_lookups(REDIST_TOTAL, 10001),
+            "redistribute_arc_lengths", "band_%g_%g" % (low, high),
+            setup=lambda: even_arc_lengths(REDIST_TOTAL, 10001),
             run=call, observe=_observe_out_n(call),
             axis=dict(input_n=10001, band="%g-%g" % (low, high), corners=0, mode=0),
         ))
 
     # 3. corner count -- each corner forces a look-ahead and a rescaled step
     for nc in [0, 10, 100, 1000]:
-        call = (lambda nc: lambda lk: redistribute_lookups_native(
+        call = (lambda nc: lambda lk: redistribute_arc_lengths_native(
             lk, 0.5, 2.0, 0, 50.0, corner_indices=spread_corners(10001, nc)))(nc)
         cases.append(Case(
-            "redistribute_lookups", "corners_%d" % nc,
-            setup=lambda: even_lookups(REDIST_TOTAL, 10001),
+            "redistribute_arc_lengths", "corners_%d" % nc,
+            setup=lambda: even_arc_lengths(REDIST_TOTAL, 10001),
             run=call, observe=_observe_out_n(call),
             axis=dict(input_n=10001, band="0.5-2", corners=nc, mode=0),
         ))
 
     # 4. mode 0 vs 1 -- expected flat, recorded to confirm rather than assume
     for mode in [0, 1]:
-        call = (lambda mode: lambda lk: redistribute_lookups_native(
+        call = (lambda mode: lambda lk: redistribute_arc_lengths_native(
             lk, 0.5, 2.0, mode, 50.0))(mode)
         cases.append(Case(
-            "redistribute_lookups", "mode%d" % mode,
-            setup=lambda: even_lookups(REDIST_TOTAL, 10001),
+            "redistribute_arc_lengths", "mode%d" % mode,
+            setup=lambda: even_arc_lengths(REDIST_TOTAL, 10001),
             run=call, observe=_observe_out_n(call),
             axis=dict(input_n=10001, band="0.5-2", corners=0, mode=mode),
         ))
@@ -633,7 +633,7 @@ def _points_prune_check_cases():
 
 GROUPS = ["sort_points", "sort_curves", "sort_curves_convergence",
           "sort_curves_prune_check", "sort_points_convergence",
-          "sort_points_prune_check", "redistribute_lookups",
+          "sort_points_prune_check", "redistribute_arc_lengths",
           "build_turn_waypoints"]
 
 
