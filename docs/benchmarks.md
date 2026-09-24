@@ -1,9 +1,8 @@
 # Benchmarks
 
-Where each call's time actually goes, for the two functions whose cost the
-Python-side harness alone cannot resolve. Every number below comes from the
-recorded baseline in [`benchmarks/results/`](../benchmarks/results/) — nothing
-here is quoted from an ad-hoc run.
+Where each call's time actually goes. Every number below comes from a recorded
+baseline in [`benchmarks/results/`](../benchmarks/results/) — nothing here is
+quoted from an ad-hoc run.
 
 | | |
 |---|---|
@@ -193,3 +192,83 @@ digit from a separate run.
 The remaining headline numbers are not written up here yet. Anything quoted from
 them should cite the result file by name, as the rule at the top of this document
 requires.
+
+## `shatter_at_crossings` — all of the cost, and almost none of the work
+
+From `baseline-windows-amd64-20260924-shatter-heavy`, against
+`geomseq_core.dll` sha256 `756e7af4075d83f7…` — a different binary from the one
+named at the top of this page, which is why this section quotes it separately.
+
+There is no `native` column here, and that is a finding rather than an omission.
+The other two functions needed a second harness because the bridge was 97–98% of
+the call. Here the bridge marshals 6n doubles against a loop costing tens of
+milliseconds, so a native harness would measure the same number twice.
+
+### A clean quadratic, and n is segments
+
+| n | extent | out_n | best | per pair |
+|---|---|---|---|---|
+| 500 | 707 | 520 | 4.1 ms | 32.6 ns |
+| 1,000 | 1,000 | 1,037 | 14.7 ms | 29.3 ns |
+| 2,000 | 1,414 | 2,090 | 55.3 ms | 27.6 ns |
+| 4,000 | 2,000 | 4,160 | 221.6 ms | 27.7 ns |
+| 8,000 | 2,828 | 8,342 | 919.8 ms | 28.7 ns |
+| 16,000 | 4,000 | 16,663 | 3.45 s | 27.0 ns |
+
+Cost per pair is flat across a 32× range of n, so the shape is exactly
+n(n−1)/2 with nothing else in it. The n=500 row sits high because the fixed
+cost per call has not yet been diluted, not because small inputs scale
+differently.
+
+**`n` counts segments, not curves.** The Grasshopper component explodes each
+polyline into one entry per span, so twenty hundred-span polylines is n=2,000,
+not 20. The sweep grows `extent` as √n to hold segments per unit area fixed —
+packing more into the same square would raise n and density together, which is
+the confound `sort_curves_density` had to be added to undo.
+
+### Density changes the answer but not the cost
+
+| extent | out_n | vanished | best |
+|---|---|---|---|
+| 2,000 | 2,046 | 0 | 56.1 ms |
+| 1,000 | 2,153 | 0 | 56.2 ms |
+| 500 | 2,584 | 0 | 58.0 ms |
+| 250 | 3,820 | 0 | 60.8 ms |
+| 125 | 4,721 | 30 | 117.8 ms |
+
+All at n=2,000. Output nearly doubles across the first four rows while time
+moves 8% — the loop tests every pair whatever it finds, so finding more costs
+almost nothing. `gap` behaves the same way: 2, 8 and 32 all land within 57–59 ms,
+even though a gap of 32 consumes 1,291 segments whole.
+
+The last row is not density. It is the wrapper regrowing its output buffer and
+running the whole O(n²) a second time.
+
+### The only cliff is the output buffer
+
+The wrapper sizes its first guess at `SHATTER_FIRST_GUESS` × n and calls again
+if the native side reports it fell short. Falling short costs 100%.
+
+The multiple is 3, measured rather than guessed. Across n, density and gap,
+`out_n / n` stays under 2.4 at any gap wide enough to be worth asking for, and
+3n instead of 2n costs 0.38 ms at n=16,000 against a 3.45 s run. It is not
+higher because higher buys nothing: the distribution is bimodal, and the tail is
+`gap=0`, which removes nothing and so turns every contact into a whole extra
+piece — 5,053 pieces from 2,000 segments in the recorded run, and past 20× in
+denser configurations. 4n and 6n covered the same configurations as 3n. The tail
+is what `out_total` exists for.
+
+### Almost every comparison is wasted
+
+The `gap=0` row is the one that measures contacts exactly: nothing is removed,
+no gaps merge, nothing is swallowed, so each contact adds exactly one piece.
+At n=2,000 and extent 250 it gives 5,053 pieces — **3,053 contacts out of
+1,999,000 pairs tested, or 0.15%**. At the sparser densities the share is far
+smaller again.
+
+That number is what any future broad-phase would be aimed at, and it is the
+reason the ceiling is high: the loop is not slow, it is thorough about pairs
+that cannot touch. What it does **not** yet say is how contacts scale with n,
+because the sweep only runs `gap=0` at one size. Adding a `gap=0` row to the n
+sweep would make that measurable, and should happen before anyone sizes a
+replacement against it.
