@@ -248,6 +248,13 @@ def build_turn_waypoints_native(Ex, Ey, a_vx, a_vy, Sx, Sy, b_vx, b_vy,
     return exit_pts, entry_pts
 
 
+# Multiple of n the shatter output buffer is first sized at. Named rather than
+# inlined because a test and a benchmark both have to agree with it: each checks
+# it is looking at the regrow path, and both went quietly meaningless the once
+# this moved and they did not.
+SHATTER_FIRST_GUESS = 3
+
+
 def shatter_at_crossings_native(segments, gap_d, touch_tol=0.0, segment_owner=None, test_self=True):
     """C++-backed shatter (native/geometry2d_staging.cpp): cuts segments where they cross each other and removes a gap of `gap_d` centred on each crossing, so the two paths no longer meet there. `gap_d` is the whole gap -- how far apart the two cut ends end up -- and the native side takes half of it off either side.
     Input order decides who yields: for a crossing pair the lower index is left whole and the higher one is cut. Sort beforehand to impose any other priority.
@@ -283,10 +290,18 @@ def shatter_at_crossings_native(segments, gap_d, touch_tol=0.0, segment_owner=No
     out_piece_counts = (ctypes.c_int * n)()
     out_total        = ctypes.c_int(0)
 
-    # Optimistic first guess. The real worst case is quadratic -- every pair
-    # crossing -- which is far too large to allocate up front, so the native
-    # side reports what it actually needed and we retry once if this fell short.
-    capacity     = 2 * n
+    # First guess. Falling short costs a second full O(n^2) pass, so this is
+    # sized from measurement rather than optimism: across n, density and gap,
+    # `out_n / n` stays under 2.4 at any gap wide enough to be worth asking for,
+    # and over-allocating is nearly free -- 3n instead of 2n adds 0.38 ms at
+    # n=16,000, against a 3.45 s run.
+    #
+    # 3 and not more, because more buys nothing. The distribution is bimodal:
+    # either the output is about n, or it explodes past any sane multiple --
+    # gap=0 reaches 26x, since nothing is removed so every contact adds a whole
+    # piece. 4n and 6n covered exactly the same configurations as 3n. The tail
+    # is what out_total is for.
+    capacity     = SHATTER_FIRST_GUESS * n
     out_segments = (ctypes.c_double * (capacity * 6))()
 
     lib.shatter_at_crossings(seg_ptr, n, ctypes.c_double(gap_d), ctypes.c_double(touch_tol),

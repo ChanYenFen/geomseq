@@ -217,20 +217,24 @@ public sealed class ShatterCrossingsComponent : GH_Component
                 (int start, int stop) = spans[owner];
                 GH_Path outPath = path.AppendElement(owner);
 
-                // Pieces of one polyline, in order, stay contiguous wherever nothing was
-                // cut away, so a run of pieces that touch end-to-start is one surviving
-                // polyline. A gap inside a segment and a gap at a corner both break a run
-                // by the same test, so neither needs a case of its own.
+                // A run of pieces that touch end-to-start is one surviving polyline. But
+                // contiguity alone cannot decide that: at Distance = 0 the two sides of a
+                // cut touch as well, and welding them back would make the component look
+                // like it did nothing. Only the FIRST piece of a segment may continue the
+                // run before it -- every later piece of the same segment follows a cut, by
+                // construction.
                 var rebuilt = new List<GH_Curve>();
                 var run = new List<Point3d>();
 
-                for (int k = offsets[start]; k < offsets[stop]; k++)
+                for (int si = start; si < stop; si++)
+                for (int k = offsets[si]; k < offsets[si + 1]; k++)
                 {
                     Line piece = result.Piece(k);
                     Point3d from = plane.PointAt(piece.FromX, piece.FromY, piece.FromZ);
                     Point3d to = plane.PointAt(piece.ToX, piece.ToY, piece.ToZ);
 
-                    if (run.Count > 0 && run[run.Count - 1].DistanceTo(from) <= JoinTol)
+                    bool first = (k == offsets[si]);
+                    if (first && run.Count > 0 && run[run.Count - 1].DistanceTo(from) <= JoinTol)
                     {
                         run.Add(to);
                     }

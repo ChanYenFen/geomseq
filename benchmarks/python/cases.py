@@ -9,8 +9,10 @@ import os
 import random
 
 from geomseq_core.geometry_utils import (
+    SHATTER_FIRST_GUESS,
     build_turn_waypoints_native,
     redistribute_arc_lengths_native,
+    shatter_at_crossings_native,
     sort_curves_native,
     sort_points_native,
 )
@@ -631,14 +633,141 @@ def _points_prune_check_cases():
 
 # --------------------------------------------------------------------------
 
+# --- shatter_at_crossings --------------------------------------------------
+# The pair loop is O(n^2) in SEGMENTS, not curves: a polyline explodes into one
+# entry per span, so twenty polylines of a hundred spans is n = 2,000, not 20.
+# That is why n leads here.
+#
+# Density is a separate axis on purpose. Packing more segments into the same
+# square would raise n and density together, which is the exact confound
+# sort_curves_density had to be added to undo -- so the n sweep grows the extent
+# as sqrt(n) and holds segments per unit area fixed, and density gets its own
+# sweep at fixed n.
+#
+# There is no native-harness counterpart. The bridge marshals 6n doubles against
+# a pair loop costing ~28 ns per pair, so at n = 2,000 that is microseconds
+# against 57 ms -- under 0.1%, where for redistribute and build_turn_waypoints
+# it was 97-98%. A second harness here would measure the same number twice.
+
+SHATTER_BASE_N = 1000
+SHATTER_SIZES = [500, 1000, 2000, 4000, 8000, 16000]
+SHATTER_N = 2000              # fixed n for every axis that is not n itself
+SHATTER_EXTENT = 250.0        # contacts on most segments, but still under 2n output
+SHATTER_GAP = 2.0
+SHATTER_TOL = 0.01
+
+
+def fixed_density_extent(n):
+    """Extent holding segments per unit area constant as n grows."""
+    return EXTENT * math.sqrt(float(n) / SHATTER_BASE_N)
+
+
+def make_polyline_segments(n_curves, per_curve, seed=1, extent=None):
+    """Exploded polylines: consecutive segments share a vertex and an owner, so
+    the joint-skipping path is exercised rather than assumed. Returns
+    (segments, owners), which is what the GH component hands the wrapper."""
+    rng = random.Random(seed)
+    span = EXTENT if extent is None else extent
+    segs, owners = [], []
+    for owner in range(n_curves):
+        x, y = rng.uniform(0, span), rng.uniform(0, span)
+        for _ in range(per_curve):
+            ang, ln = rng.uniform(0, 2 * math.pi), rng.uniform(5.0, 20.0)
+            nx, ny = x + math.cos(ang) * ln, y + math.sin(ang) * ln
+            segs.append(_Seg(x, y, nx, ny))
+            owners.append(owner)
+            x, y = nx, ny
+    return segs, owners
+
+
+def _observe_shatter(call):
+    """out_n on its own is misleading: past a certain density it FALLS, because
+    segments stop being cut and start being consumed whole. `vanished` is what
+    tells those two apart. `regrew` flags the rows where out_n passed the
+    wrapper's first guess and the native call therefore ran twice."""
+    def observe(payload):
+        out = call(payload)
+        n = len(out)
+        out_n = sum(len(g) for g in out)
+        return dict(out_n=out_n,
+                    vanished=sum(1 for g in out if not g),
+                    regrew=int(out_n > SHATTER_FIRST_GUESS * n))
+    return observe
+
+
+def _plain(segs):
+    return shatter_at_crossings_native(segs, SHATTER_GAP, touch_tol=SHATTER_TOL)
+
+
+def _shatter_cases():
+    cases = []
+
+    # 1. n, density held fixed -- the quadratic on its own
+    for n in SHATTER_SIZES:
+        cases.append(Case(
+            "shatter_at_crossings", "n%d" % n,
+            setup=lambda n=n: make_segments(n, seed=11, extent=fixed_density_extent(n)),
+            run=_plain, observe=_observe_shatter(_plain),
+            axis=dict(n=n, extent=int(fixed_density_extent(n)),
+                      shape="loose", self_x=0, gap=SHATTER_GAP),
+            heavy=(n > 4000),
+        ))
+
+    # 2. density, n held fixed -- the pair loop does not care how many contacts
+    #    there are, so anything that moves here is interval work, output size,
+    #    and the regrow.
+    for ext in [2000.0, 1000.0, 500.0, 250.0, 125.0]:
+        cases.append(Case(
+            "shatter_at_crossings", "extent%d" % int(ext),
+            setup=lambda ext=ext: make_segments(SHATTER_N, seed=11, extent=ext),
+            run=_plain, observe=_observe_shatter(_plain),
+            axis=dict(n=SHATTER_N, extent=int(ext),
+                      shape="loose", self_x=0, gap=SHATTER_GAP),
+        ))
+
+    # 3. the same segment count arriving as polylines, with self-crossing off
+    #    then on. Off skips every same-owner pair, which is 100 x 20 x 19 / 2 of
+    #    them here; on skips only the joints. The difference is what owners buy.
+    for test_self in (False, True):
+        call = (lambda ts: lambda p: shatter_at_crossings_native(
+            p[0], SHATTER_GAP, touch_tol=SHATTER_TOL,
+            segment_owner=p[1], test_self=ts))(test_self)
+        cases.append(Case(
+            "shatter_at_crossings", "polyline_self%d" % int(test_self),
+            setup=lambda: make_polyline_segments(100, 20, seed=11, extent=SHATTER_EXTENT),
+            run=call,
+            observe=(lambda c: lambda p: _observe_shatter(c)(p))(call),
+            axis=dict(n=SHATTER_N, extent=int(SHATTER_EXTENT),
+                      shape="polyline", self_x=int(test_self), gap=SHATTER_GAP),
+        ))
+
+    # 4. gap width. It cannot change how many pairs are tested, only how much
+    #    each contact removes -- recorded to confirm that rather than assume it,
+    #    and because it is what drives segments to vanish.
+    for gap in [0.0, 2.0, 8.0, 32.0]:
+        call = (lambda g: lambda segs: shatter_at_crossings_native(
+            segs, g, touch_tol=SHATTER_TOL))(gap)
+        cases.append(Case(
+            "shatter_at_crossings", "gap%g" % gap,
+            setup=lambda: make_segments(SHATTER_N, seed=11, extent=SHATTER_EXTENT),
+            run=call,
+            observe=(lambda c: lambda p: _observe_shatter(c)(p))(call),
+            axis=dict(n=SHATTER_N, extent=int(SHATTER_EXTENT),
+                      shape="loose", self_x=0, gap=gap),
+        ))
+
+    return cases
+
+
 GROUPS = ["sort_points", "sort_curves", "sort_curves_convergence",
           "sort_curves_prune_check", "sort_points_convergence",
           "sort_points_prune_check", "redistribute_arc_lengths",
-          "build_turn_waypoints"]
+          "build_turn_waypoints", "shatter_at_crossings"]
 
 
 def all_cases():
     return (_sort_points_cases() + _sort_curves_cases()
             + _convergence_cases() + _prune_check_cases()
             + _points_convergence_cases() + _points_prune_check_cases()
-            + _redistribute_cases() + _turn_cases())
+            + _redistribute_cases() + _turn_cases()
+            + _shatter_cases())

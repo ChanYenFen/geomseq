@@ -160,24 +160,29 @@ if __name__ == "__main__":
                                                 test_self=test_self)
 
         # --- rejoin, back in world space ---
-        # Pieces of one polyline, in order, are contiguous wherever nothing was
-        # cut away -- so a run of pieces that touch end-to-start is one surviving
-        # polyline. Both the gaps inside a segment and the gaps at a vertex break
-        # a run by the same test, so neither needs its own case.
+        # A run of pieces that touch end-to-start is one surviving polyline. But
+        # contiguity alone is not enough to decide that: at D = 0 the two sides
+        # of a cut touch as well, and welding them back would make the whole
+        # component look like a no-op. Where the piece came from settles it --
+        # see below.
         nested_pieces, nested_counts = [], []
         for src_index, start, stop in spans:
-            flat = []
-            for s_i in range(start, stop):
-                flat.extend(shattered[s_i])
-
             runs, cur = [], []
-            for s, e in flat:
-                if cur and all(abs(cur[-1][1][d] - s[d]) <= JOIN_TOL for d in (0, 1, 2)):
-                    cur.append((s, e))
-                else:
-                    if cur:
-                        runs.append(cur)
-                    cur = [(s, e)]
+            for s_i in range(start, stop):
+                for k, (s, e) in enumerate(shattered[s_i]):
+                    # Only the FIRST piece of a segment can continue the run
+                    # before it. Later pieces of the same segment follow a cut
+                    # by construction, and at D = 0 a cut is contiguous -- so
+                    # testing contiguity alone would silently weld them back
+                    # together and the component would appear to do nothing.
+                    joins = (k == 0 and cur and
+                             all(abs(cur[-1][1][d] - s[d]) <= JOIN_TOL for d in (0, 1, 2)))
+                    if joins:
+                        cur.append((s, e))
+                    else:
+                        if cur:
+                            runs.append(cur)
+                        cur = [(s, e)]
             if cur:
                 runs.append(cur)
 

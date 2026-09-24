@@ -17,7 +17,10 @@ import pytest
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "src"))
 
-from geomseq_core.geometry_utils import shatter_at_crossings_native
+from geomseq_core.geometry_utils import (
+    SHATTER_FIRST_GUESS,
+    shatter_at_crossings_native,
+)
 
 EPS = 1e-9
 TOL = 1e-9
@@ -371,17 +374,21 @@ class _Line:
 def test_native_retry_path_when_the_first_buffer_is_too_small():
     import random
 
+    # gap=0 is what makes the output explode: nothing is removed, so every
+    # contact adds a whole piece instead of merging into a neighbouring gap.
+    # That is the only reliable way to clear the wrapper's first guess -- see
+    # the sizing note in geometry_utils.
     rnd = random.Random(7)
-    n = 20
-    lines = [_Line(rnd.uniform(0, 100), rnd.uniform(0, 100),
-                   rnd.uniform(0, 100), rnd.uniform(0, 100)) for _ in range(n)]
+    n = 40
+    lines = [_Line(rnd.uniform(0, 60), rnd.uniform(0, 60),
+                   rnd.uniform(0, 60), rnd.uniform(0, 60)) for _ in range(n)]
 
-    out = shatter_at_crossings_native(lines, 3.0,
+    out = shatter_at_crossings_native(lines, 0.0,
                                       segment_owner=list(range(n)), test_self=True)
 
     total = sum(len(g) for g in out)
     assert len(out) == n
-    assert total > 2 * n, "this case must overflow the first guess or it tests nothing"
+    assert total > SHATTER_FIRST_GUESS * n, "this case must overflow the first guess or it tests nothing"
     for group in out:
         for s, e in group:
             assert len(s) == 3 and len(e) == 3
