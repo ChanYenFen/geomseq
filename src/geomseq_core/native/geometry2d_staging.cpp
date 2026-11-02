@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <limits>
 #include <vector>
 
 #if defined(_WIN32)
@@ -144,6 +145,135 @@ static bool share_endpoint(const double* si, const double* sj, double tol) {
 }
 
 // ---------------------------------------------------------------------------
+// Broad phase
+// ---------------------------------------------------------------------------
+
+// Every contact between two segments, as t along the one that yields -- the
+// higher index, see shatter_at_crossings. ts[i] holds segment i's, in no
+// particular order; the caller sorts them anyway.
+//
+// Sweep and prune: segments are visited in order of their bounding box along
+// one axis, and only pairs whose boxes overlap on both axes reach
+// segment_contact_param. This skips only pairs that provably cannot touch,
+// never one that might. Every contact segment_contact_param reports puts a
+// point of one segment inside the other's box widened by max(touch_tol, EPS) --
+// the same widening on_segment applies -- so boxes widened by more than that
+// overlap for every pair it could accept. The extra in `pad` covers rounding at
+// any coordinate magnitude; widening too far costs a few wasted predicate calls,
+// too little would silently drop contacts.
+//
+// What it does NOT change is the predicate, its arguments, or which pairs are
+// asked: the higher index is always passed as AB, so each contact gets exactly
+// the t the pair loop computed, and the caller sorts them anyway. The output is
+// therefore identical to the exhaustive loop, bit for bit -- only the order in
+// which contacts are found differs.
+//
+// The axis is the one whose boxes overlap least: sum of box extents over the
+// overall extent, which is how many boxes one sweep position cuts through on
+// average. Hatching is the case that needs it -- parallel lines spanning the
+// width all overlap in x and none in y.
+//
+// Contacts go straight into a bucket per segment rather than one list sorted
+// afterwards. Where the contact count itself is quadratic -- a cross-hatch,
+// where every line meets every line of the other direction -- sorting or even
+// regrouping all of them cost more than the whole pair loop it replaced.
+static void collect_contacts(const double* segments, int n, double touch_tol,
+                             const int* segment_owner, int test_self,
+                             std::vector<std::vector<double> >& ts)
+{
+    ts.assign(n, std::vector<double>());
+
+    struct Box {
+        double lo[2], hi[2];
+        int    idx;
+    };
+
+    std::vector<Box> boxes;
+    boxes.reserve(n);
+
+    double sum_ext[2] = { 0.0, 0.0 };
+    double all_lo[2]  = {  HUGE_VAL,  HUGE_VAL };
+    double all_hi[2]  = { -HUGE_VAL, -HUGE_VAL };
+    double mag        = 0.0;
+
+    for (int i = 0; i < n; i++) {
+        const double* s = segments + i * 6;
+        Point A = { s[0], s[1] };
+        Point B = { s[3], s[4] };
+
+        // Too short for segment_contact_param to accept on either side of a pair.
+        if (pt_dist(A, B) < EPS) continue;
+
+        Box b;
+        b.idx = i;
+        for (int a = 0; a < 2; a++) {
+            b.lo[a] = std::min(s[a], s[a + 3]);
+            b.hi[a] = std::max(s[a], s[a + 3]);
+            sum_ext[a] += b.hi[a] - b.lo[a];
+            all_lo[a]   = std::min(all_lo[a], b.lo[a]);
+            all_hi[a]   = std::max(all_hi[a], b.hi[a]);
+            mag = std::max(mag, std::max(std::fabs(b.lo[a]), std::fabs(b.hi[a])));
+        }
+        boxes.push_back(b);
+    }
+    if (boxes.size() < 2) return;
+
+    double ratio[2];
+    for (int a = 0; a < 2; a++) {
+        double extent = all_hi[a] - all_lo[a];
+        ratio[a] = (extent > EPS) ? sum_ext[a] / extent : HUGE_VAL;
+    }
+    const int ax = (ratio[1] < ratio[0]) ? 1 : 0;
+    const int ox = 1 - ax;
+
+    const double span = (touch_tol > EPS) ? touch_tol : EPS;
+    const double pad  = 2.0 * span + 8.0 * std::numeric_limits<double>::epsilon() * mag;
+
+    std::sort(boxes.begin(), boxes.end(),
+              [ax](const Box& p, const Box& q) { return p.lo[ax] < q.lo[ax]; });
+
+    std::vector<int> active;
+
+    for (size_t k = 0; k < boxes.size(); k++) {
+        const Box& bi = boxes[k];
+
+        size_t kept = 0;
+        for (size_t m = 0; m < active.size(); m++) {
+            const Box& bj = boxes[active[m]];
+
+            // Ended before this one starts. Every later box starts later still,
+            // so it is dropped for good.
+            if (bj.hi[ax] + pad < bi.lo[ax]) continue;
+            active[kept++] = active[m];
+
+            if (bj.hi[ox] + pad < bi.lo[ox] || bi.hi[ox] + pad < bj.lo[ox]) continue;
+
+            const int hi = std::max(bi.idx, bj.idx);
+            const int lo = std::min(bi.idx, bj.idx);
+            const double* sh = segments + hi * 6;
+            const double* sl = segments + lo * 6;
+
+            if (segment_owner && segment_owner[lo] == segment_owner[hi]) {
+                if (!test_self) continue;
+                if (share_endpoint(sh, sl, touch_tol)) continue;  // a joint, not a crossing
+            }
+
+            Point A = { sh[0], sh[1] };
+            Point B = { sh[3], sh[4] };
+            Point C = { sl[0], sl[1] };
+            Point D = { sl[3], sl[4] };
+
+            double t;
+            if (segment_contact_param(A, B, C, D, touch_tol, t)) {
+                ts[hi].push_back(t);
+            }
+        }
+        active.resize(kept);
+        active.push_back((int)k);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Exported entry point
 // ---------------------------------------------------------------------------
 
@@ -158,6 +288,9 @@ extern "C" {
 // wanted -- this function does not reorder anything. That rule covers a
 // T-junction too: the branch ends at the contact, so cutting it retracts its
 // tip by gap_d/2, which is the same clearance a crossing leaves.
+//
+// Contacts come from collect_contacts, which tests only pairs whose bounding
+// boxes overlap and gives the same result as testing every pair.
 //
 // Inputs (read-only):
 //   segments      : flat array, 6 doubles per segment -> x0,y0,z0, x1,y1,z1
@@ -211,6 +344,9 @@ DLL_EXPORT void shatter_at_crossings(
 {
     int needed = 0;
 
+    std::vector<std::vector<double> > ts;
+    collect_contacts(segments, n, touch_tol, segment_owner, test_self, ts);
+
     std::vector<std::pair<double, double> > removed;
 
     for (int i = 0; i < n; i++) {
@@ -257,21 +393,8 @@ DLL_EXPORT void shatter_at_crossings(
         double dt = (gap_d * 0.5) / len;
 
         removed.clear();
-        for (int j = 0; j < i; j++) {
-            const double* sj = segments + j * 6;
-
-            if (segment_owner && segment_owner[j] == segment_owner[i]) {
-                if (!test_self) continue;
-                if (share_endpoint(si, sj, touch_tol)) continue;  // a joint, not a crossing
-            }
-
-            Point C = { sj[0], sj[1] };
-            Point D = { sj[3], sj[4] };
-
-            double t;
-            if (segment_contact_param(A, B, C, D, touch_tol, t)) {
-                removed.push_back(std::make_pair(t - dt, t + dt));
-            }
+        for (size_t c = 0; c < ts[i].size(); c++) {
+            removed.push_back(std::make_pair(ts[i][c] - dt, ts[i][c] + dt));
         }
 
         // What survives is the complement of the merged removal intervals

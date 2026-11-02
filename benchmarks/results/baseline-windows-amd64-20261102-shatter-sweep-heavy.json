@@ -1,0 +1,361 @@
+{
+  "env": {
+    "timestamp": "2026-11-02T14:55:49",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+    "toolchain_expected": "MSVC",
+    "python": "3.10.6",
+    "binary": {
+      "name": "geomseq_core.dll",
+      "present": true,
+      "size_bytes": 265728,
+      "sha256_prefix": "8f98206b5f86d01d",
+      "mtime": "2026-11-02T14:54:51"
+    }
+  },
+  "heavy": true,
+  "records": [
+    {
+      "group": "shatter_at_crossings",
+      "name": "n500",
+      "axis": {
+        "n": 500,
+        "extent": 707,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 520,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.0009724998380988836,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "n1000",
+      "axis": {
+        "n": 1000,
+        "extent": 1000,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 1037,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.0021066998597234488,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "n2000",
+      "axis": {
+        "n": 2000,
+        "extent": 1414,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 2090,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.004413400078192353,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "n4000",
+      "axis": {
+        "n": 4000,
+        "extent": 2000,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 4160,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.010197000112384558,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "n8000",
+      "axis": {
+        "n": 8000,
+        "extent": 2828,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 8342,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.019942899933084846,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "n16000",
+      "axis": {
+        "n": 16000,
+        "extent": 4000,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 16663,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.0422823999542743,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "extent2000",
+      "axis": {
+        "n": 2000,
+        "extent": 2000,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 2046,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.004456799943000078,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "extent1000",
+      "axis": {
+        "n": 2000,
+        "extent": 1000,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 2153,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.004704399965703487,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "extent500",
+      "axis": {
+        "n": 2000,
+        "extent": 500,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 2584,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.0077846001368016005,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "extent250",
+      "axis": {
+        "n": 2000,
+        "extent": 250,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 3820,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.008337300037965178,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "extent125",
+      "axis": {
+        "n": 2000,
+        "extent": 125,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 4721,
+        "vanished": 30,
+        "regrew": 0
+      },
+      "best_seconds": 0.01125089987181127,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "polyline_self0",
+      "axis": {
+        "n": 2000,
+        "extent": 250,
+        "shape": "polyline",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 3327,
+        "vanished": 1,
+        "regrew": 0
+      },
+      "best_seconds": 0.007547300076112151,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "polyline_self1",
+      "axis": {
+        "n": 2000,
+        "extent": 250,
+        "shape": "polyline",
+        "self_x": 1,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 3659,
+        "vanished": 1,
+        "regrew": 0
+      },
+      "best_seconds": 0.00831159995868802,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "gap0",
+      "axis": {
+        "n": 2000,
+        "extent": 250,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 5053,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.008482399862259626,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "gap2",
+      "axis": {
+        "n": 2000,
+        "extent": 250,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 2.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 3820,
+        "vanished": 0,
+        "regrew": 0
+      },
+      "best_seconds": 0.007482999935746193,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "gap8",
+      "axis": {
+        "n": 2000,
+        "extent": 250,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 8.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 1991,
+        "vanished": 277,
+        "regrew": 0
+      },
+      "best_seconds": 0.005695899948477745,
+      "reps": 5
+    },
+    {
+      "group": "shatter_at_crossings",
+      "name": "gap32",
+      "axis": {
+        "n": 2000,
+        "extent": 250,
+        "shape": "loose",
+        "self_x": 0,
+        "gap": 32.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "out_n": 709,
+        "vanished": 1291,
+        "regrew": 0
+      },
+      "best_seconds": 0.005068999947980046,
+      "reps": 5
+    }
+  ]
+}

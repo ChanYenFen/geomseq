@@ -59,10 +59,12 @@ Two callers, developed and released on different schedules:
 | `shatter_at_crossings` | cuts segments where they meet and opens a gap of `gap_d` there, so paths no longer touch; covers both a crossing and a T-junction, within a `touch_tol` given in model units. Input order decides which of a meeting pair yields (**2D only**, z interpolated along the segment) | 🚧 |
 
 🚧 — in the DLL, declared in `native_bridge.py` and callable from Python, but
-staged rather than finished: contacts are found by testing every pair (O(n²)),
-collinear overlap is out of scope, there is no benchmark group, and the only
-Grasshopper front end is the GHPython shell in `src/gh/` — no compiled C#
-component yet. Its source lives in `geometry2d_staging.cpp` for that reason.
+staged rather than finished: collinear overlap is out of scope, so a pair that
+overlaps along a line is left uncut. Contacts are found by a sweep over bounding
+boxes rather than by testing every pair, with output identical to the pair loop
+it replaced, and the function has its own benchmark group and both a GHPython
+shell and a C# component. Its source lives in `geometry2d_staging.cpp` until
+collinear overlap is decided.
 
 ## Layout
 

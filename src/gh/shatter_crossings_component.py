@@ -5,9 +5,10 @@ GH entry point: cuts polylines where they cross and opens a gap at each crossing
 
 Polylines only. They are exploded into segments, shattered, and the pieces that
 were never cut are rejoined -- so a 100-segment polyline crossed once comes back
-as two polylines, not a hundred loose lines. Exploding is also what keeps the
-door open for a sweep line later: it would replace how crossings are found,
-without touching the explode/rejoin either side of it.
+as two polylines, not a hundred loose lines. Exploding is also what let the
+native side change how crossings are found -- it now sweeps bounding boxes
+instead of testing every pair -- without touching the explode/rejoin either
+side of it.
 """
 
 import os

@@ -32,7 +32,7 @@ def sort_curves_native(curves, start_pt=None,
     `return_travel_points=True` adds a 3rd return item: a list of n plain (start_xyz, end_xyz) tuples, one per travel segment -- not Rhino types, since this module doesn't depend on Rhino.
     2-opt tests only the pairs that could shorten the tour, found through the
     kd-tree; it discards no improving move, so it still finishes at a true 2-opt
-    local optimum (see CLAUDE.md).
+    local optimum (see docs/design-notes.md).
     The cap is 20 rather than `sort_points_native`'s 10 because every shape
     measured converges by 20 and the pruned search is only ever worse than the
     exhaustive one while it is still unconverged -- reaching convergence is what
@@ -91,7 +91,7 @@ def sort_points_native(points, start_pt=None,
     Returns (sorted points, original indices).
     2-opt tests only the pairs that could shorten the tour, found through the
     kd-tree; it discards no improving move, so it still finishes at a true 2-opt
-    local optimum (see CLAUDE.md).
+    local optimum (see docs/design-notes.md).
     The cap is 20 because that is where every shape measured converges, and a
     pruned search is only ever the worse of the two implementations while it is
     still unconverged -- so the cap guarantees convergence rather than rationing
@@ -290,11 +290,12 @@ def shatter_at_crossings_native(segments, gap_d, touch_tol=0.0, segment_owner=No
     out_piece_counts = (ctypes.c_int * n)()
     out_total        = ctypes.c_int(0)
 
-    # First guess. Falling short costs a second full O(n^2) pass, so this is
+    # First guess. Falling short costs a second full native call, so this is
     # sized from measurement rather than optimism: across n, density and gap,
     # `out_n / n` stays under 2.4 at any gap wide enough to be worth asking for,
     # and over-allocating is nearly free -- 3n instead of 2n adds 0.38 ms at
-    # n=16,000, against a 3.45 s run.
+    # n=16,000. That was measured against the 3.45 s pair loop; with the broad
+    # phase the whole call is ~42 ms, and 0.38 ms is still small beside it.
     #
     # 3 and not more, because more buys nothing. The distribution is bimodal:
     # either the output is about n, or it explodes past any sane multiple --

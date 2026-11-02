@@ -10,6 +10,7 @@ ctypes instead; they are written to hold either way.
 
 import math
 import os
+import random
 import sys
 
 import pytest
@@ -393,6 +394,54 @@ def test_native_retry_path_when_the_first_buffer_is_too_small():
         for s, e in group:
             assert len(s) == 3 and len(e) == 3
             assert s != e
+
+
+# --- the broad phase, through the real DLL ----------------------------------
+# The native side only tests pairs whose bounding boxes overlap; the mirror
+# tests every pair. Any contact the boxes wrongly rule out shows up here as a
+# missing cut. Touches are where that would happen -- a T-junction's boxes meet
+# at a single coordinate, and touch_tol is the only thing keeping a near miss
+# inside -- so the inputs are built to be full of them.
+
+def _random_lines(rnd, n, extent, offset=0.0):
+    out = []
+    for _ in range(n):
+        x, y = rnd.uniform(0, extent) + offset, rnd.uniform(0, extent) + offset
+        a, length = rnd.uniform(0, 2 * math.pi), rnd.uniform(1, 30)
+        out.append(seg(x, y, x + length * math.cos(a), y + length * math.sin(a)))
+    return out
+
+
+def _lattice_lines(rnd, n):
+    # Integer endpoints on a coarse grid: T-junctions, shared endpoints and
+    # axis-aligned segments whose boxes have zero width, all exact.
+    out = []
+    for _ in range(n):
+        x, y = rnd.randint(0, 40), rnd.randint(0, 40)
+        out.append(seg(x, y, x + rnd.choice([-5, 0, 5]), y + rnd.choice([-5, 3, 5])))
+    return out
+
+
+@pytest.mark.parametrize("make, touch_tol", [
+    (lambda r: _random_lines(r, 250, 120), 0.0),
+    (lambda r: _random_lines(r, 250, 120, offset=1e6), 0.0),
+    (lambda r: _lattice_lines(r, 250), 0.0),
+    (lambda r: _lattice_lines(r, 250), 0.3),
+    (lambda r: [seg(x0, y0 + d, x1, y1 + d) for (x0, y0, _), (x1, y1, _) in _lattice_lines(r, 250)
+                for d in [r.uniform(-1e-6, 1e-6)]], 1e-5),
+], ids=["random", "random-far-from-origin", "lattice", "lattice-tol", "lattice-near-miss"])
+def test_native_broad_phase_finds_every_contact_the_pair_loop_does(make, touch_tol):
+    lines = make(random.Random(11))
+    expected = reference_shatter(lines, 1.0, touch_tol)
+
+    out = shatter_at_crossings_native([_Line(a[0], a[1], b[0], b[1]) for a, b in lines],
+                                      1.0, touch_tol=touch_tol)
+
+    assert [len(g) for g in out] == [len(g) for g in expected]
+    for got, want in zip(out, expected):
+        for (gs, ge), (ws, we) in zip(got, want):
+            assert gs[:2] == pytest.approx(ws[:2], abs=1e-9)
+            assert ge[:2] == pytest.approx(we[:2], abs=1e-9)
 
 
 def test_declared_argtypes_reject_a_wrong_arity_call():

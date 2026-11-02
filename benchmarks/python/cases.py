@@ -634,9 +634,11 @@ def _points_prune_check_cases():
 # --------------------------------------------------------------------------
 
 # --- shatter_at_crossings --------------------------------------------------
-# The pair loop is O(n^2) in SEGMENTS, not curves: a polyline explodes into one
-# entry per span, so twenty polylines of a hundred spans is n = 2,000, not 20.
-# That is why n leads here.
+# n counts SEGMENTS, not curves: a polyline explodes into one entry per span, so
+# twenty polylines of a hundred spans is n = 2,000, not 20. That is why n leads
+# here. It was a clean O(n^2) pair loop when this group was written; the broad
+# phase that replaced it is what baseline-...-20261102-shatter-sweep-heavy
+# measures, on these same cases, so the two runs compare row for row.
 #
 # Density is a separate axis on purpose. Packing more segments into the same
 # square would raise n and density together, which is the exact confound
@@ -644,10 +646,11 @@ def _points_prune_check_cases():
 # as sqrt(n) and holds segments per unit area fixed, and density gets its own
 # sweep at fixed n.
 #
-# There is no native-harness counterpart. The bridge marshals 6n doubles against
-# a pair loop costing ~28 ns per pair, so at n = 2,000 that is microseconds
-# against 57 ms -- under 0.1%, where for redistribute and build_turn_waypoints
-# it was 97-98%. A second harness here would measure the same number twice.
+# There is no native-harness counterpart, and that reasoning has expired. It was
+# written when the bridge marshalled 6n doubles against a pair loop costing ~28
+# ns per pair -- under 0.1% of the call. With the broad phase the native call at
+# n = 16,000 is ~4.4 ms (timed ad hoc, not committed) inside a ~42 ms Python
+# call, so the bridge is now most of what this group measures.
 
 SHATTER_BASE_N = 1000
 SHATTER_SIZES = [500, 1000, 2000, 4000, 8000, 16000]
@@ -713,9 +716,9 @@ def _shatter_cases():
             heavy=(n > 4000),
         ))
 
-    # 2. density, n held fixed -- the pair loop does not care how many contacts
-    #    there are, so anything that moves here is interval work, output size,
-    #    and the regrow.
+    # 2. density, n held fixed -- the pair loop did not care how many contacts
+    #    there were; the broad phase does, since denser boxes overlap more, so
+    #    this axis now moves with the candidate count as well as output size.
     for ext in [2000.0, 1000.0, 500.0, 250.0, 125.0]:
         cases.append(Case(
             "shatter_at_crossings", "extent%d" % int(ext),
