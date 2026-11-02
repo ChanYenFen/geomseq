@@ -275,7 +275,7 @@ more now that rows are milliseconds rather than seconds — read the ratios, not
 the digits.
 
 Contacts are now found by sweeping bounding boxes (`collect_contacts` in
-`geometry2d_staging.cpp`); only pairs whose boxes overlap reach the contact
+`shatter_at_crossings.cpp`); only pairs whose boxes overlap reach the contact
 predicate. **`out_n` and `vanished` match the pair-loop baseline in all 17
 rows**, which is the expected result rather than a lucky one: the sweep skips
 only pairs that provably cannot touch, and asks the same predicate the same

@@ -1,7 +1,7 @@
 """Property tests for shatter_at_crossings; cases are inline, plain floats.
 
 What these exercise is the ALGORITHM, not the compiled code. reference_shatter below
-mirrors native/geometry2d_staging.cpp in Python and is what the assertions run
+mirrors native/shatter_at_crossings.cpp in Python and is what the assertions run
 against, so they still pass when the committed DLL is stale -- which it is whenever
 Rhino has it open and it could not be rebuilt. Point `shatter` at
 geometry_utils.shatter_at_crossings_native to run the same expectations through
@@ -27,7 +27,7 @@ EPS = 1e-9
 TOL = 1e-9
 
 
-# --- Python mirror of native/geometry2d_staging.cpp -------------------------
+# --- Python mirror of native/shatter_at_crossings.cpp -------------------------
 
 def _sgn_tol(v, tol):
     t = tol if tol > EPS else EPS

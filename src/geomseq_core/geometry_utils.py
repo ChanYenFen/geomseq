@@ -256,13 +256,13 @@ SHATTER_FIRST_GUESS = 3
 
 
 def shatter_at_crossings_native(segments, gap_d, touch_tol=0.0, segment_owner=None, test_self=True):
-    """C++-backed shatter (native/geometry2d_staging.cpp): cuts segments where they cross each other and removes a gap of `gap_d` centred on each crossing, so the two paths no longer meet there. `gap_d` is the whole gap -- how far apart the two cut ends end up -- and the native side takes half of it off either side.
+    """C++-backed shatter (native/shatter_at_crossings.cpp): cuts segments where they cross each other and removes a gap of `gap_d` centred on each crossing, so the two paths no longer meet there. `gap_d` is the whole gap -- how far apart the two cut ends end up -- and the native side takes half of it off either side.
     Input order decides who yields: for a crossing pair the lower index is left whole and the higher one is cut. Sort beforehand to impose any other priority.
     `touch_tol` is how close, in model units, counts as touching rather than missing -- a T-junction (one endpoint landing on another segment) is a contact, not a crossing, and real ones are rarely drawn exact. 0 means exact only.
     `segment_owner` is one int per segment naming the source curve it came from -- exploding a polyline gives many segments with one owner. With `test_self=False`, pairs sharing an owner are skipped, so a polyline is not cut where it crosses itself. `segment_owner=None` means every segment owns itself, and then `test_self` changes nothing.
     Returns a nested list of plain ((x,y,z), (x,y,z)) tuples, not Rhino types -- one sub-list per input segment, in input order. Its length always equals the input, and a segment the gaps swallow whole comes back as an empty sub-list, so input index i is always result[i].
 
-    The DLL must be current: geometry2d_staging.cpp is one of the sources in the
+    The DLL must be current: shatter_at_crossings.cpp is one of the sources in the
     README build command, and native_bridge declares this signature, so a stale
     binary fails at load_dll() with a clear error rather than silently."""
     if not segments:

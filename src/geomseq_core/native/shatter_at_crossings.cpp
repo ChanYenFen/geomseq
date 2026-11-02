@@ -1,5 +1,6 @@
-// geometry2d_staging.cpp
-// Experimental 2D geometric primitives -- staging, see README Modules.
+// shatter_at_crossings.cpp
+// Cuts 2D segments where they meet and opens a gap there. Collinear overlap is
+// refused by design: it has no single point to centre a gap on.
 
 #include <cmath>
 #include <algorithm>

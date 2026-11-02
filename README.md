@@ -56,15 +56,7 @@ Two callers, developed and released on different schedules:
 | `sort_points` | single-point sibling of `sort_curves` (no direction/reversal concept) | ✅ |
 | `redistribute_arc_lengths` | redistribute arc lengths to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
 | `build_turn_waypoints` | travel path between two segments: extends each end into the gap, then fillets both corners so no waypoint turns by more than `theta_max_deg` (**2D only** — the ABI takes x/y, no Z) | ✅ |
-| `shatter_at_crossings` | cuts segments where they meet and opens a gap of `gap_d` there, so paths no longer touch; covers both a crossing and a T-junction, within a `touch_tol` given in model units. Input order decides which of a meeting pair yields (**2D only**, z interpolated along the segment) | 🚧 |
-
-🚧 — in the DLL, declared in `native_bridge.py` and callable from Python, but
-staged rather than finished: collinear overlap is out of scope, so a pair that
-overlaps along a line is left uncut. Contacts are found by a sweep over bounding
-boxes rather than by testing every pair, with output identical to the pair loop
-it replaced, and the function has its own benchmark group and both a GHPython
-shell and a C# component. Its source lives in `geometry2d_staging.cpp` until
-collinear overlap is decided.
+| `shatter_at_crossings` | cuts segments where they meet and opens a gap of `gap_d` there, so paths no longer touch; covers both a crossing and a T-junction, within a `touch_tol` given in model units. Input order decides which of a meeting pair yields; segments overlapping along a line are left uncut (**2D only**, z interpolated along the segment) | ✅ |
 
 ## Layout
 
@@ -76,7 +68,7 @@ src/
 │   │   ├── sort_points.cpp             # single-point sibling of sort_curves (no direction/reversal)
 │   │   ├── redistribute_arc_lengths.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
 │   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
-│   │   ├── geometry2d_staging.cpp      # staging: 2D primitives + shatter_at_crossings (see Modules)
+│   │   ├── shatter_at_crossings.cpp    # contact predicates + broad phase + shatter_at_crossings
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
 │   │   ├── archive/                    # superseded reference implementations (the windowed 2-opt, measured and removed)
 │   │   └── geomseq_core.dll            # official .cpp files compiled into one binary (also .dylib / .so per platform)
@@ -110,7 +102,7 @@ Run these from `src/geomseq_core/native/`:
 
 ```
 # Windows (x64 Native Tools Command Prompt)
-cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp geometry2d_staging.cpp /Fe:geomseq_core.dll
+cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp shatter_at_crossings.cpp /Fe:geomseq_core.dll
 
 # macOS
 clang++ -std=c++17 -O2 -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp
