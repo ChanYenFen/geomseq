@@ -331,6 +331,60 @@ Component GUIDs are permanent, and new ports are appended, never inserted. A sav
 `.gh` file finds a component by GUID and its wires by port index. The library GUID
 in `GeomSeqInfo` is permanent for the same reason.
 
+## CI and builds
+
+Moved from the README, which now carries only the short version.
+
+### Runners
+
+| Runner | Toolchain | Role |
+|--------|-----------|------|
+| `windows-latest` | MSVC | deployment target |
+| `macos-latest` | clang++ (arm64) | deployment target |
+| `ubuntu-latest` | g++ | portability guard |
+
+`fail-fast` is off, so one platform breaking still reports the other two.
+
+### Why Linux, when Rhino cannot run there
+
+The `.so` it produces is thrown away — nobody ships it. The job earns its place
+as a *third toolchain*: a different standard library catches code that merely
+happens to compile under the other two. It already has. Vendored nanoflann uses
+`std::thread` and `std::mutex` without including `<mutex>` or `<thread>`, leaning
+on transitive includes that MSVC and libc++ provide but other implementations do
+not. Two platforms would never have surfaced that.
+
+It is also the cheapest guard available: ~10s per run, against ~28s for Windows.
+
+### What CI does not cover
+
+- **`rhino_utils/`, `gh/` and `gha/`** — they need RhinoCommon, which no runner has. Verified by hand in Rhino.
+- **Intel macOS** — GitHub no longer allocates those runners (jobs queue until the 24h limit, then cancel). Built and tested locally on an Intel Mac instead.
+- **The committed `.dll` / `.dylib`** — CI compiles its own, so a green badge says nothing about whether the binaries in this repo are current, or built for the right architecture. Rebuild and re-commit them whenever the C++ changes.
+- **Undefined behaviour all three toolchains happen to tolerate** — passing on three is evidence of portability, not proof of it.
+
+CI also builds macOS for the host architecture only; the universal binary in
+Build is for distribution, and only its native half could be executed anywhere.
+
+### The macOS universal binary
+
+Both `-arch` flags are required on macOS. Without them clang builds only the
+host architecture, and the result fails to load in Rhino 8 on the other one —
+it runs natively on Apple Silicon, not under Rosetta. Either Mac can build the
+universal binary; only the host architecture can be tested locally, and CI's
+arm64 runner covers the other half.
+
+### What the tests assert
+
+The sort tests assert the result is a permutation of the input and that travel
+distance never exceeds the input order's. The redistribute test asserts the
+output spans the full arc length, increases strictly, reproduces every corner
+exactly, and keeps step sizes within `[low, high]` — except the final step onto
+`total_length` and steps rescaled to land on a corner, which the native side
+breaks the band for by design. The turn test asserts both ends stay pinned to
+their extend points and that no waypoint turns by more than `theta_max_deg`
+(see *Watch out for* in the README).
+
 ## Future directions
 
 ### Write up the sort baseline

@@ -1,6 +1,6 @@
 """Property tests for build_turn_waypoints_native; cases are inline, plain floats.
 The turn cap holds inside each fillet but not across the exit->entry junction, so
-property 3 is per-case here, not a universal invariant (see README Notes)."""
+property 3 is per-case here, not a universal invariant (see README, "Watch out for")."""
 
 import math
 import os

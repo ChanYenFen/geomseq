@@ -91,12 +91,9 @@ tests/                                  # property tests, plain CPython (no Rhin
 
 ## Build
 
-Rebuild the native library after editing any `.cpp`. All official sources
-compile into one shared library (`native_bridge.py` loads a single DLL and
-declares signatures for every exported function, all of which must therefore be
-present in it — so a binary built without one of these sources fails at
-`load_dll()` with a clear error rather than corrupting memory later), per
-platform (same code, different compiler):
+Rebuild the native library after editing any `.cpp`. Every source compiles into
+one shared library, and `native_bridge.py` checks that every function it expects
+is there — a binary missing one fails at `load_dll()` with a clear error.
 
 Run these from `src/geomseq_core/native/`:
 
@@ -112,92 +109,57 @@ lipo -archs geomseq_core.dylib      # expect: x86_64 arm64
 g++ -std=c++17 -O2 -shared -fPIC -pthread -o geomseq_core.so *.cpp
 ```
 
-Both `-arch` flags are required on macOS. Without them clang builds only the
-host architecture, and the result fails to load in Rhino 8 on the other one —
-it runs natively on Apple Silicon, not under Rosetta. Either Mac can build the
-universal binary; only the host architecture can be tested locally, and CI's
-arm64 runner covers the other half.
+On macOS both `-arch` flags are required: Rhino 8 runs natively on Apple
+Silicon and on Intel, so a single-architecture build fails to load on the other.
 
-The Python bridge auto-selects the right binary (`.dll` / `.dylib` / `.so`) by
-platform. Only `.dll` and `.dylib` are committed — Rhino does not run on Linux,
-so the `.so` exists solely as an ephemeral CI build.
+The Python bridge picks the right binary for the platform. Only `.dll` and
+`.dylib` are committed; Rhino does not run on Linux, so the `.so` is built only
+in CI.
 
 ## Tests
 
-Property tests, run on plain CPython — no Rhino, since the core only ever sees
-coordinate arrays. Needs a compiled binary for the current platform (see Build):
+Run on plain CPython — no Rhino needed. Needs a compiled binary for the current
+platform (see Build):
 
 ```
 pip install -r requirements-dev.txt
 python -m pytest tests/
 ```
 
-Every fixture case is its own parametrized test (17 in total). The sort tests assert the
-result is a permutation of the input and that travel distance never exceeds the
-input order's. The redistribute test asserts the output spans the full arc
-length, increases strictly, reproduces every corner exactly, and keeps step sizes
-within `[low, high]` — except the final step onto `total_length` and steps
-rescaled to land on a corner, which the native side breaks the band for by
-design. The turn test asserts both ends stay pinned to their extend points and
-that no waypoint turns by more than `theta_max_deg` (see Notes).
-
 ## CI
 
-Every push rebuilds the native library from source and runs the whole suite under
-`pytest` on three runners:
+Every push rebuilds the native library from source and runs the tests on
+Windows (MSVC), macOS (clang++, arm64) and Linux (g++). Linux is not a
+deployment target; it is there as a third compiler, to catch code that only
+happens to compile on the other two.
 
-| Runner | Toolchain | Role |
-|--------|-----------|------|
-| `windows-latest` | MSVC | deployment target |
-| `macos-latest` | clang++ (arm64) | deployment target |
-| `ubuntu-latest` | g++ | portability guard |
+What CI does **not** check:
 
-`fail-fast` is off, so one platform breaking still reports the other two.
+- **The committed `.dll` / `.dylib`.** CI builds its own, so a green run says
+  nothing about whether the binaries in this repo are current. Rebuild and
+  commit them whenever the C++ changes.
+- **`rhino_utils/`, `gh/` and `gha/`.** They need Rhino; they are checked by
+  hand.
+- **Intel macOS.** GitHub no longer provides those runners; it is tested
+  locally.
 
-### Why Linux, when Rhino cannot run there
+The reasons behind these choices are in
+[docs/design-notes.md](docs/design-notes.md) (*CI and builds*).
 
-The `.so` it produces is thrown away — nobody ships it. The job earns its place
-as a *third toolchain*: a different standard library catches code that merely
-happens to compile under the other two. It already has. Vendored nanoflann uses
-`std::thread` and `std::mutex` without including `<mutex>` or `<thread>`, leaning
-on transitive includes that MSVC and libc++ provide but other implementations do
-not. Two platforms would never have surfaced that.
+## Watch out for
 
-It is also the cheapest guard available: ~10s per run, against ~28s for Windows.
+- **`redistribute_arc_lengths`'s `flat_pct` is a percent (0–100), not a
+  fraction (0–1).** `100.0` keeps one density along the whole curve, `0.0`
+  fades across all of it. Nothing checks the range, so `1.0` silently gives an
+  almost fully graded curve instead of a uniform one.
+- **`build_turn_waypoints` keeps each turn under `theta_max_deg` within each
+  fillet, but not where the two fillets meet.** They are built independently,
+  so with `step_len` large compared with the gap between the segments the
+  junction can kink sharply (for example 62° at `theta_max_deg=30`). If you
+  need a hard limit, check the gap before calling, or keep `step_len` well
+  under it.
 
-### What CI does not cover
-
-- **`rhino_utils/`, `gh/` and `gha/`** — they need RhinoCommon, which no runner has. Verified by hand in Rhino.
-- **Intel macOS** — GitHub no longer allocates those runners (jobs queue until the 24h limit, then cancel). Built and tested locally on an Intel Mac instead.
-- **The committed `.dll` / `.dylib`** — CI compiles its own, so a green badge says nothing about whether the binaries in this repo are current, or built for the right architecture. Rebuild and re-commit them whenever the C++ changes.
-- **Undefined behaviour all three toolchains happen to tolerate** — passing on three is evidence of portability, not proof of it.
-
-CI also builds macOS for the host architecture only; the universal binary in
-Build is for distribution, and only its native half could be executed anywhere.
-
-## Notes
-
-- The C++ core is CAD-independent: it takes and returns plain coordinate arrays,
-  so it is testable without Rhino (see Tests) and reusable from any front end.
-- `redistribute_arc_lengths`'s `flat_pct` is a **percent (0–100), not a 0–1
-  fraction** — `100.0` holds one density for the whole curve, `0.0` fades across
-  its entire length. Nothing validates the range, so `1.0` silently gives an
-  almost fully graded curve rather than a uniform one.
-- `build_turn_waypoints` caps the per-waypoint turn at `theta_max_deg` **within
-  each fillet, but not across the exit→entry junction** — the two fillets are
-  built independently and their endpoints need not meet along the chord. With
-  `step_len` large relative to the E–S gap the junction can kink sharply (e.g.
-  62° at `theta_max_deg=30`). Callers needing a hard cap should check the gap
-  before calling, or keep `step_len` well under it.
-- Neither sort function tests every 2-opt pair any more. Both prune the search
-  to the candidates that could shorten the tour, found through the kd-tree the
-  greedy phase already built, and neither switches on input size. From the
-  committed baseline: 64,000 points is 1.50 s where it used to be 248.68 s,
-  16,000 curves is 356 ms, and 50,000 curves is 2.62 s. `use_two_opt=False` is
-  still there and still the fastest answer, but it is no longer the escape hatch
-  it was. The greedy k-NN phase is now the larger half of both functions —
-  1.19 s of that 1.50 s — and it keeps its own theoretical O(n²) worst case
-  (unaddressed), from filtering already-used points out of a static kd-tree.
+How fast each function is, and how it scales: [docs/benchmarks.md](docs/benchmarks.md).
 
 ## License
 
