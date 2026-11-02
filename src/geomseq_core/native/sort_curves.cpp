@@ -266,7 +266,7 @@ DLL_EXPORT void sort_curves(
     // fixed WINDOW_K = 500 candidates whose coverage fell from 25% to 1% as n
     // grew, and lost 6-13% of tour quality for it. Here the search shrinks only
     // because the gaps do -- and shorter gaps are the goal, not a compromise.
-    // See CLAUDE.md before reviving anything from
+    // See docs/design-notes.md before reviving anything from
     // archive/sort_curves_v2_with_windowed_2opt.cpp.
     //
     // Skipped entirely when if_flip == 0: reversing a sub-sequence flips

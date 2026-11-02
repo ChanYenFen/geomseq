@@ -2,7 +2,7 @@
 
 Tooling, not part of the shipped library -- it touches no geomseq_core code,
 only Rhino and json. Fixture format: benchmarks/README.md ("Adding a fixture").
-Datasets still worth recording: CLAUDE.md ("Future directions").
+Datasets still worth recording: docs/design-notes.md ("Real geometry worth recording").
 
 Inputs   save_json (bool)  write on True; leave False while wiring things up
          geo       (list)  Point3d when kind="points", Curve when kind="curves".

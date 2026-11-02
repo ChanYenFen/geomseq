@@ -2,7 +2,7 @@
 
 Run once; the output is what the harness reads. Nothing imports this -- run.py
 and cases.py never see it, so it can be deleted without touching the benchmark.
-The rationale for the two axes is in CLAUDE.md, and every generated
+The rationale for the two axes is in docs/design-notes.md, and every generated
 file repeats its own settings in a `params` block, so the datasets stay
 interpretable if this script goes away.
 

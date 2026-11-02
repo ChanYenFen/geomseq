@@ -18,6 +18,57 @@ quoted from an ad-hoc run.
 environment above is stated alongside them. Absolute timings move noticeably
 between runs on the same machine.
 
+## At a glance
+
+### How fast, and where the time goes
+
+Best time through Python, uniform data, at the largest size each group
+measures in common. The sort rows ran at `max_passes = 10`; shipped callers
+use 20, which adds tens of milliseconds at these sizes.
+
+| function | size | time | where the time goes | source |
+|---|---|---|---|---|
+| `sort_points` | 16,000 points | 175.6 ms | greedy walk 87.8 ms, 2-opt the rest; at 64,000 the greedy walk is 1.06 of 1.48 s | `20260915-heavy` |
+| `sort_curves` | 16,000 curves | 356.4 ms | greedy walk 199.5 ms, 2-opt the rest | `20260915-heavy` |
+| `shatter_at_crossings` | 16,000 segments | 42.3 ms | probably the Python bridge — no native measurement yet | `20261102-shatter-sweep-heavy` |
+| `redistribute_arc_lengths` | 3,657 output points | 124.3 µs | 87% bridge, 13% algorithm | `comparison.md` |
+| `build_turn_waypoints` | 182 waypoints | 41.45 µs | 98% bridge | `comparison.md` |
+
+Source files are `benchmarks/results/baseline-windows-amd64-<source>.md`, or
+the file named.
+
+**The one thing to take away:** in both sort functions the greedy walk is now
+the expensive half and the part that scales worst. For the three small
+functions the algorithm is a rounding error beside the wrapper.
+
+### Complexity
+
+*Measured* is the growth between the smallest and largest committed size —
+how it behaved over that range on uniform data, not a complexity class.
+*Worst case* is from reading the code, with the input that would reach it.
+
+| function | measured | over | worst case | what reaches it | memory |
+|---|---|---|---|---|---|
+| `sort_points`, greedy | n^1.58, steepening to n^1.80 over the last 4× | 1k–64k | O(n²) or worse | placed points stay in the kd-tree, so once a region is used up each step doubles its k-NN query until it finds an unused point — up to all n | O(n) |
+| `sort_points`, greedy + 2-opt | n^1.40 | 1k–64k | O(n²) per pass, ≤ 20 passes | ball queries are as wide as the tour's gaps, so a poor tour with long jumps queries most of it; each applied move also reverses up to n entries | O(n) |
+| `sort_curves`, greedy | n^1.42 | 1k–16k | O(n²) or worse | as for points, over 2n endpoints | O(n) |
+| `sort_curves`, greedy + 2-opt | n^1.33 | 1k–16k | O(n²) per pass, ≤ 20 passes | as for points | O(n) |
+| `shatter_at_crossings` | n^1.09 | 500–16k | O(n²) | bounding boxes that overlap without touching: long segments, dense clusters. On a cross-hatch the output itself is O(n²), so nothing can do better | O(n + k), k = contacts — O(n²) on a cross-hatch |
+| `redistribute_arc_lengths` | linear in output, 4.6 ns per point natively | 102–3,657 out | O(n_out + corners) | — input length does not reach the native side at all | O(n_out) |
+| `build_turn_waypoints` | linear in waypoints, 4.5 ns each natively | 2–182 | O(waypoints) | small `theta_max_deg` on a sharp turn — the count is turn angle over the cap | O(waypoints) |
+
+The 64,000 sort rows ran twice, not five times, so the steepening at the top of
+`sort_points` greedy may be partly noise. It is still the right place to look
+next: it is the only measured curve bending upward.
+
+**Other input shapes**, for the sorts — the same baseline also runs the
+synthetic fixtures. The hardest clustering measured costs 10–20% more than
+uniform at the top size: `sort_points` 1.72 s against 1.48 s at 64,000
+(`clustered_1000x`), `sort_curves` 393.0 against 356.4 ms at 16,000
+(`clustered_100x`). Already-sorted input is far cheaper — `sort_curves` on
+`zigzag` takes 47.6 ms at 16,000 — so existing order is detected. Shatter,
+redistribute and the turn builder have been measured on uniform data only.
+
 ## `redistribute_arc_lengths` — the work is in the bridge, not the algorithm
 
 ### Output count is the real axis, and the C++ tracks it exactly
@@ -124,7 +175,7 @@ answer one question each: `sort_curves_crossover`, `sort_curves_density` and
 `sort_curves_passes`. Those three groups have since been retired from the
 harness, because the question they were built to settle is settled: the windowed
 2-opt they compared against was removed. Their result files stay as the evidence
-for that decision, and [`../CLAUDE.md`](../CLAUDE.md) carries the reasoning.
+for that decision, and [`design-notes.md`](design-notes.md) carries the reasoning.
 
 A fourth group, `sort_curves_convergence`, sweeps the 2-opt pass cap across the
 three curve fixtures. It was built to ask whether any input shape was being cut
@@ -189,86 +240,100 @@ four or five. The travel figures carry none — they are deterministic, and the
 50,000 pruned tour reproduces `sort_curves_convergence`'s converged value to the
 digit from a separate run.
 
-The remaining headline numbers are not written up here yet. Anything quoted from
-them should cite the result file by name, as the rule at the top of this document
-requires.
+Headline sort timings and growth rates are in *At a glance* above, from
+`baseline-windows-amd64-20260915-heavy`.
 
-## `shatter_at_crossings` — all of the cost, and almost none of the work
+## `shatter_at_crossings` before the broad phase — the pair loop
 
-From `baseline-windows-amd64-20260924-shatter-heavy`, against
-`geomseq_core.dll` sha256 `756e7af4075d83f7…` — a different binary from the one
-named at the top of this page, which is why this section quotes it separately.
+`baseline-windows-amd64-20260924-shatter-heavy`, sha256 `756e7af4075d83f7…`.
+Superseded; the next section compares against it row for row.
 
-There is no `native` column here, and that is a finding rather than an omission.
-The other two functions needed a second harness because the bridge was 97–98% of
-the call. Here the bridge marshals 6n doubles against a loop costing tens of
-milliseconds, so a native harness would measure the same number twice.
+- **A clean quadratic**: 27–29 ns per pair, flat from n=1,000 to 16,000
+  (3.45 s at 16,000). `n` counts segments — a 100-span polyline is 100.
+- **Density and gap did not change the cost.** The loop tested all n(n−1)/2
+  pairs whatever it found.
+- **Almost every test was wasted**: at n=2,000 and extent 250, 3,053 contacts
+  out of 1,999,000 pairs, or 0.15%. That is what made a broad phase worth
+  writing.
 
-### A clean quadratic, and n is segments
-
-| n | extent | out_n | best | per pair |
-|---|---|---|---|---|
-| 500 | 707 | 520 | 4.1 ms | 32.6 ns |
-| 1,000 | 1,000 | 1,037 | 14.7 ms | 29.3 ns |
-| 2,000 | 1,414 | 2,090 | 55.3 ms | 27.6 ns |
-| 4,000 | 2,000 | 4,160 | 221.6 ms | 27.7 ns |
-| 8,000 | 2,828 | 8,342 | 919.8 ms | 28.7 ns |
-| 16,000 | 4,000 | 16,663 | 3.45 s | 27.0 ns |
-
-Cost per pair is flat across a 32× range of n, so the shape is exactly
-n(n−1)/2 with nothing else in it. The n=500 row sits high because the fixed
-cost per call has not yet been diluted, not because small inputs scale
-differently.
-
-**`n` counts segments, not curves.** The Grasshopper component explodes each
-polyline into one entry per span, so twenty hundred-span polylines is n=2,000,
-not 20. The sweep grows `extent` as √n to hold segments per unit area fixed —
-packing more into the same square would raise n and density together, which is
-the confound `sort_curves_density` had to be added to undo.
-
-### Density changes the answer but not the cost
-
-| extent | out_n | vanished | best |
-|---|---|---|---|
-| 2,000 | 2,046 | 0 | 56.1 ms |
-| 1,000 | 2,153 | 0 | 56.2 ms |
-| 500 | 2,584 | 0 | 58.0 ms |
-| 250 | 3,820 | 0 | 60.8 ms |
-| 125 | 4,721 | 30 | 117.8 ms |
-
-All at n=2,000. Output nearly doubles across the first four rows while time
-moves 8% — the loop tests every pair whatever it finds, so finding more costs
-almost nothing. `gap` behaves the same way: 2, 8 and 32 all land within 57–59 ms,
-even though a gap of 32 consumes 1,291 segments whole.
-
-The last row is not density. It is the wrapper regrowing its output buffer and
-running the whole O(n²) a second time.
-
-### The only cliff is the output buffer
+### The output buffer, which still applies
 
 The wrapper sizes its first guess at `SHATTER_FIRST_GUESS` × n and calls again
-if the native side reports it fell short. Falling short costs 100%.
+if the native side reports it fell short, so falling short doubles the call.
+The multiple is 3, measured: `out_n / n` stays under 2.4 at any gap wide enough
+to be worth asking for, and 4n or 6n covered the same configurations as 3n. The
+tail is `gap=0`, which removes nothing, so every contact becomes a whole extra
+piece — past 20× in dense configurations. That tail is what `out_total` exists
+for.
 
-The multiple is 3, measured rather than guessed. Across n, density and gap,
-`out_n / n` stays under 2.4 at any gap wide enough to be worth asking for, and
-3n instead of 2n costs 0.38 ms at n=16,000 against a 3.45 s run. It is not
-higher because higher buys nothing: the distribution is bimodal, and the tail is
-`gap=0`, which removes nothing and so turns every contact into a whole extra
-piece — 5,053 pieces from 2,000 segments in the recorded run, and past 20× in
-denser configurations. 4n and 6n covered the same configurations as 3n. The tail
-is what `out_total` exists for.
+## `shatter_at_crossings` with a broad phase — the cost now follows the work
 
-### Almost every comparison is wasted
+From `baseline-windows-amd64-20261102-shatter-sweep-heavy`, against
+`geomseq_core.dll` sha256 `8f98206b5f86d01d…`: the same cases as the pair-loop
+baseline above, on the same machine. Rhino was running alongside, which matters
+more now that rows are milliseconds rather than seconds — read the ratios, not
+the digits.
 
-The `gap=0` row is the one that measures contacts exactly: nothing is removed,
-no gaps merge, nothing is swallowed, so each contact adds exactly one piece.
-At n=2,000 and extent 250 it gives 5,053 pieces — **3,053 contacts out of
-1,999,000 pairs tested, or 0.15%**. At the sparser densities the share is far
-smaller again.
+Contacts are now found by sweeping bounding boxes (`collect_contacts` in
+`geometry2d_staging.cpp`); only pairs whose boxes overlap reach the contact
+predicate. **`out_n` and `vanished` match the pair-loop baseline in all 17
+rows**, which is the expected result rather than a lucky one: the sweep skips
+only pairs that provably cannot touch, and asks the same predicate the same
+question about the rest.
 
-That number is what any future broad-phase would be aimed at, and it is the
-reason the ceiling is high: the loop is not slow, it is thorough about pairs
-that cannot touch. What it does **not** yet say is how contacts scale with n,
-because the sweep only runs `gap=0` at one size. Adding a `gap=0` row to the n
-sweep would make that measurable, and should happen before anyone sizes a
-replacement against it.
+### From quadratic to near-linear
+
+| n | extent | out_n | pair loop | broad phase | speed-up | per segment |
+|---|---|---|---|---|---|---|
+| 500 | 707 | 520 | 4.1 ms | 972.5 µs | 4.2× | 1.95 µs |
+| 1,000 | 1,000 | 1,037 | 14.7 ms | 2.1 ms | 7.0× | 2.10 µs |
+| 2,000 | 1,414 | 2,090 | 55.3 ms | 4.4 ms | 12.6× | 2.20 µs |
+| 4,000 | 2,000 | 4,160 | 221.6 ms | 10.2 ms | 21.7× | 2.55 µs |
+| 8,000 | 2,828 | 8,342 | 919.8 ms | 19.9 ms | 46× | 2.49 µs |
+| 16,000 | 4,000 | 16,663 | 3.45 s | 42.3 ms | 82× | 2.64 µs |
+
+Across a 32× range of n, time grows 43×: close to linear. The excess is
+consistent with the n log n sort the sweep starts with, but the bridge could
+account for it just as well — see below. The speed-up therefore grows with n
+rather than settling at a constant, because one side is quadratic and the
+other is not.
+
+**What this table cannot say is how much of it is the bridge.** This group has
+no `native` column, and the reason recorded for that — the bridge was under
+0.1% of a quadratic loop — no longer holds. Per-segment time that is flat
+across n is what marshalling looks like as much as what the sweep looks like.
+A native harness row would settle it, and should exist before anyone tries to
+make this faster.
+
+### Density and gap now cost something, and should
+
+| extent | out_n | pair loop | broad phase |
+|---|---|---|---|
+| 2,000 | 2,046 | 56.1 ms | 4.5 ms |
+| 1,000 | 2,153 | 56.2 ms | 4.7 ms |
+| 500 | 2,584 | 58.0 ms | 7.8 ms |
+| 250 | 3,820 | 60.8 ms | 8.3 ms |
+| 125 | 4,721 | 117.8 ms | 11.3 ms |
+
+All at n=2,000. The pair loop was flat because it tested every pair whatever it
+found; the broad phase tests only overlapping boxes, so packing segments tighter
+raises the candidate count and the time with it — 2.5× across this range. The
+`extent 125` row no longer doubles: the pair-loop run regrew its buffer there,
+this one did not.
+
+`gap` moved in the same direction for a different reason. 0, 2, 8 and 32 give
+8.5, 7.5, 5.7 and 5.1 ms where the pair loop gave 57–59 ms for all but `gap=0`,
+and contacts do not depend on the gap at all. What does is the output: a wider
+gap leaves fewer pieces to build into Python tuples. That is an inference from
+`out_n` falling alongside the time, not a measurement of the bridge.
+
+Polylines — `self_x` off then on — went from 49.8 and 51.2 ms to 7.5 and 8.3 ms.
+
+### What this run does not cover
+
+- **Inputs whose contact count is itself quadratic.** A cross-hatch, where
+  every line meets every line of the other direction, gives the broad phase
+  nothing to skip: the output is O(n²) and so is any method that produces it.
+  No such case is in the group, so the run says nothing about it.
+- **Clustered input**, as for every other group. Overlap between boxes is
+  exactly what clustering raises.

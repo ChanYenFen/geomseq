@@ -23,7 +23,7 @@ internal static class GeomSeqCore
     // pass and raising their cap would have doubled a 248 s solve. They may
     // diverge again; the components are not obliged to agree.
     //
-    // See CLAUDE.md, "Three different numbers now spell max passes" -- the third
+    // See docs/design-notes.md, "Two numbers spell max passes" -- the second
     // is benchmarks/python/cases.py, which stays at 10 on purpose so recorded
     // baselines remain comparable with their own history.
     private const int UseTwoOpt            = 1;

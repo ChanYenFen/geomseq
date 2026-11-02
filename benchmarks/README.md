@@ -4,7 +4,7 @@ Timing harnesses for the core functions. Separate from `tests/` on purpose:
 timings make bad assertions (they are machine- and load-dependent), so nothing
 here runs under `pytest` and nothing here fails a build. Results and what they
 mean live in [../docs/benchmarks.md](../docs/benchmarks.md); design rationale
-lives in [../CLAUDE.md](../CLAUDE.md). This file is how to run things.
+lives in [../docs/design-notes.md](../docs/design-notes.md). This file is how to run things.
 
 ```
 python/cases.py   representative inputs per function -- what counts as a size

@@ -188,7 +188,7 @@ DLL_EXPORT void sort_points(
     // local optimum -- but not the *same* one the exhaustive loop found. Both
     // take the first improving move they meet and the kd-tree meets them in a
     // different order, so recorded travel figures do not reproduce to the digit
-    // across this change. See CLAUDE.md.
+    // across this change. See docs/design-notes.md.
     if (use_two_opt && n > 3) {
         // Where each point currently sits in the tour.
         std::vector<int> pos(n);
