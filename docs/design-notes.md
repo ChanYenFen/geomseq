@@ -220,6 +220,33 @@ And low pass counts got worse, not better — 7.7% worse at one pass, 3.1% at
 three, 0.6% at five — because each position now applies at most one move per
 scan, so a pass pushes less far while costing far less.
 
+### Why the greedy walk keeps live counts in the static tree
+
+Once 2-opt was pruned, the greedy walk was most of both sort functions, and it
+scaled worst: placed points stayed in the kd-tree, so a query near a used-up
+region fetched them by the thousand only to skip them. The fix is the same kind
+of pruning as 2-opt's: each node counts its unplaced points, and a subtree
+whose count is zero is skipped, because it provably cannot hold the answer.
+
+**Why not nanoflann's own removable trees.** The vendored nanoflann has two.
+`KDTreeSingleIndexDynamicAdaptor` hides removed points only inside leaves, so it
+still walks into subtrees that are empty. `KDTreeSingleIndexIncrementalAdaptor`
+does skip dead subtrees, but it is a second tree (2-opt still needs one holding
+every point), it stores one point per node behind pointers, and its different
+shape would break ties differently. Counts beside the existing static tree keep
+one tree, keep its leaf-of-10 layout, and walk it in nanoflann's own order —
+which is what makes the output bit-identical rather than merely as good.
+
+**Verified two ways.** Old and new DLLs were run side by side on 1,200
+`sort_points` and 912 `sort_curves` configurations (every fixture, a 3D
+lattice, heavy duplicates, n from 1 to 64,000, both start points, 2-opt on and
+off, `knn_k` 12 and 1): zero differences. Ad hoc, not committed. The committed
+guard is `test_greedy_step_*`, which checks every step against a brute-force
+nearest; breaking the zero-count skip makes all of its cases fail.
+
+`knn_k` now sizes nothing. It stays in both signatures so the ABI and every
+caller are unchanged.
+
 ### Why shatter's broad phase is sweep and prune, not Bentley–Ottmann
 
 `shatter_at_crossings` used to test every pair, and almost every test was
@@ -377,7 +404,8 @@ arm64 runner covers the other half.
 ### What the tests assert
 
 The sort tests assert the result is a permutation of the input and that travel
-distance never exceeds the input order's. The redistribute test asserts the
+distance never exceeds the input order's, and, with 2-opt off, that every greedy
+step takes a nearest allowed point (checked by brute force). The redistribute test asserts the
 output spans the full arc length, increases strictly, reproduces every corner
 exactly, and keeps step sizes within `[low, high]` — except the final step onto
 `total_length` and steps rescaled to land on a corner, which the native side
@@ -467,11 +495,10 @@ groups. The numbers exist; the reading of them does not.
   or a different algorithm. It turned out to be neither: the pruning rule ported
   from `sort_curves` unchanged, because the move is the same shape, and 64,000
   points went from 248.68 s to 1.50 s with the tour 0.94–1.31% *shorter* across
-  six seed-paired rows. What is left is the observation that replaces this one:
-  **the greedy phase is now the expensive half of both functions.** 1.19 s of
-  that 1.50 s is the kd-tree walk, and it still carries the theoretical O(n²)
-  worst case nobody has addressed. Any further work on sort cost belongs there,
-  not in 2-opt.
+  six seed-paired rows. The greedy phase then became the expensive half of
+  both functions, and on 2026-11-06 got its own pruning (see *Why the greedy
+  walk keeps live counts*): 64,000 points now take 588.9 ms in all, 76.0 ms of
+  it greedy. **2-opt is the expensive part again**, at 77–87% of the call.
 
 - **`shatter_at_crossings` is now bridge-bound, probably.** With the broad
   phase the Python call at n=16,000 is 42.3 ms

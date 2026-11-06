@@ -69,6 +69,7 @@ src/
 │   │   ├── redistribute_arc_lengths.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
 │   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
 │   │   ├── shatter_at_crossings.cpp    # contact predicates + broad phase + shatter_at_crossings
+│   │   ├── nearest_unused.hpp          # greedy's nearest-unplaced-point search, shared by both sorts
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
 │   │   ├── archive/                    # superseded reference implementations (the windowed 2-opt, measured and removed)
 │   │   └── geomseq_core.dll            # official .cpp files compiled into one binary (also .dylib / .so per platform)

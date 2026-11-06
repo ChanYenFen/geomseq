@@ -3,6 +3,7 @@
 // Python via ctypes -- only endpoint coordinates cross the boundary, never geometry.
 
 #include "nanoflann.hpp"
+#include "nearest_unused.hpp"
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -122,112 +123,43 @@ DLL_EXPORT void sort_curves(
     KDTree tree(3, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10));
     tree.buildIndex();
 
-    // Tracks which curves are already placed in the chain.
-    std::vector<bool> used(n, false);
+    // An endpoint is a candidate entry while its curve is unplaced. With
+    // if_flip == 0 a curve may only be entered at its head (even point), so
+    // tails are never candidates at all. Placing a curve removes both of its
+    // endpoints. See nearest_unused.hpp for why this returns the same entry
+    // the k-NN window used to.
+    std::vector<char> allowed(2 * n, 1);
+    if (!if_flip) {
+        for (int pt = 1; pt < 2 * n; pt += 2) {
+            allowed[pt] = 0;
+        }
+    }
+    NearestUnused<KDTree> unused(tree, allowed);
 
-    // The current exit point of the path (where the next curve should connect).
-    double cur[3];
+    // The current exit point of the path (where the next curve should connect):
+    // start_pt, then each placed curve's exit.
+    double cur[3] = { start_pt[0], start_pt[1], start_pt[2] };
 
-    // --- Pick the first curve: nearest entry point to start_pt ---
-    // When if_flip == 0 we may only enter at a head (even point), so we search
-    // a growing neighborhood and skip tails until a head is found.
-    {
-        double q[3] = { start_pt[0], start_pt[1], start_pt[2] };
-
-        int first_curve = -1;
-        int first_rev   = 0;
-        int sc = knn_k;
-
-        while (first_curve == -1) {
-            if (sc > 2 * n) {
-                sc = 2 * n;
-            }
-
-            std::vector<uint32_t> idxs(sc);
-            std::vector<double>   dists(sc);
-            size_t got = tree.knnSearch(&q[0], sc, idxs.data(), dists.data());
-
-            for (size_t r = 0; r < got; ++r) {
-                int pt = (int)idxs[r];
-                if (!if_flip && (pt % 2 == 1)) {
-                    continue;  // direction fixed: heads (even) only
-                }
-                first_curve = pt / 2;
-                first_rev   = (pt % 2 == 1) ? 1 : 0;
-                break;
-            }
-
-            if (first_curve == -1) {
-                if (sc == 2 * n) {
-                    break;
-                }
-                sc *= 2;
-            }
+    // --- Greedy: fill positions 0 .. n-1 ---
+    // knn_k no longer has anything to size; it stays in the signature so the
+    // ABI does not change.
+    (void)knn_k;
+    for (int placed = 0; placed < n; ++placed) {
+        int pt = unused.nearest(cur);
+        if (pt == -1) {
+            break;  // safety break: nothing unused left (shouldn't happen)
         }
 
-        if (first_curve == -1) {  // safety fallback
-            first_curve = 0;
-            first_rev   = 0;
-        }
+        int curve = pt / 2;
+        int rev   = (pt % 2 == 1) ? 1 : 0;
 
-        out_order[0]    = first_curve;
-        out_reversal[0] = first_rev;
-        used[first_curve] = true;
+        out_order[placed]    = curve;
+        out_reversal[placed] = rev;
+        unused.remove((uint32_t)(curve * 2));
+        unused.remove((uint32_t)(curve * 2 + 1));
 
         // Exit point = the OTHER end of this curve.
-        int ep = exit_point(first_curve, first_rev);
-        cur[0] = endpoints[ep * 3 + 0];
-        cur[1] = endpoints[ep * 3 + 1];
-        cur[2] = endpoints[ep * 3 + 2];
-    }
-
-    // --- Greedy: fill positions 1 .. n-1 ---
-    for (int placed = 1; placed < n; ++placed) {
-        int best_curve = -1;
-        int best_rev   = 0;
-
-        // Query k neighbors; if all are used, grow the search and retry.
-        int sc = knn_k;
-        while (best_curve == -1) {
-            if (sc > 2 * n) {
-                sc = 2 * n;
-            }
-
-            std::vector<uint32_t> idxs(sc);
-            std::vector<double>   dists(sc);
-            size_t got = tree.knnSearch(&cur[0], sc, idxs.data(), dists.data());
-
-            for (size_t r = 0; r < got; ++r) {
-                int pt    = (int)idxs[r];
-                if (!if_flip && (pt % 2 == 1)) {
-                    continue;  // direction fixed: heads (even) only
-                }
-                int curve = pt / 2;
-                if (used[curve]) {
-                    continue;
-                }
-                best_curve = curve;
-                best_rev   = (pt % 2 == 1) ? 1 : 0;
-                break;
-            }
-
-            if (best_curve == -1) {
-                if (sc == 2 * n) {
-                    break;  // nothing unused left (safety; shouldn't happen)
-                }
-                sc *= 2;
-            }
-        }
-
-        if (best_curve == -1) {
-            break;  // safety break
-        }
-
-        out_order[placed]    = best_curve;
-        out_reversal[placed] = best_rev;
-        used[best_curve]     = true;
-
-        int ep = exit_point(best_curve, best_rev);
+        int ep = exit_point(curve, rev);
         cur[0] = endpoints[ep * 3 + 0];
         cur[1] = endpoints[ep * 3 + 1];
         cur[2] = endpoints[ep * 3 + 2];

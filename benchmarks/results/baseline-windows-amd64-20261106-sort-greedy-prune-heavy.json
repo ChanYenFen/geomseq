@@ -1,0 +1,1903 @@
+{
+  "env": {
+    "timestamp": "2026-11-06T14:28:13",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+    "toolchain_expected": "MSVC",
+    "python": "3.10.6",
+    "binary": {
+      "name": "geomseq_core.dll",
+      "present": true,
+      "size_bytes": 265728,
+      "sha256_prefix": "41833753c759d84e",
+      "mtime": "2026-11-06T14:28:03"
+    }
+  },
+  "heavy": true,
+  "records": [
+    {
+      "group": "sort_points",
+      "name": "uniform_greedy_n1000",
+      "axis": {
+        "data": "uniform",
+        "n": 1000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0009220000356435776,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_greedy_n2000",
+      "axis": {
+        "data": "uniform",
+        "n": 2000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0017480000387877226,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_greedy_n4000",
+      "axis": {
+        "data": "uniform",
+        "n": 4000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0035964997950941324,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_greedy_n8000",
+      "axis": {
+        "data": "uniform",
+        "n": 8000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.008120500016957521,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_greedy_n16000",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.016084000002592802,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_greedy_n32000",
+      "axis": {
+        "data": "uniform",
+        "n": 32000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.03581729996949434,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_greedy_n64000",
+      "axis": {
+        "data": "uniform",
+        "n": 64000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.07602380006574094,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_greedy_n1000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 1000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0008690999820828438,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_greedy_n2000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 2000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.001816699979826808,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_greedy_n4000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 4000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.00382130010984838,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_greedy_n8000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 8000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.008219100069254637,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_greedy_n16000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 16000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.018623300129547715,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_greedy_n32000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 32000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.03759020008146763,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_greedy_n64000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 64000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.08373580011539161,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_greedy_n1000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 1000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0009034001268446445,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_greedy_n2000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 2000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0018738999497145414,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_greedy_n4000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 4000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.003778900019824505,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_greedy_n8000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 8000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.007990600075572729,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_greedy_n16000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.01695079985074699,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_greedy_n32000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 32000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0356368999928236,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_greedy_n64000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 64000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.07854550005868077,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_greedy_n1000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 1000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0008364999666810036,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_greedy_n2000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 2000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0017093000933527946,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_greedy_n4000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 4000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0035931000020354986,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_greedy_n8000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 8000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0073892001528292894,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_greedy_n16000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 16000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.016742900013923645,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_greedy_n32000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 32000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.03447000007145107,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_greedy_n64000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 64000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.07556289993226528,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_greedy_n1000",
+      "axis": {
+        "data": "grid",
+        "n": 1000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0008272000122815371,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_greedy_n2000",
+      "axis": {
+        "data": "grid",
+        "n": 2000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.001706200186163187,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_greedy_n4000",
+      "axis": {
+        "data": "grid",
+        "n": 4000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0034441999159753323,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_greedy_n8000",
+      "axis": {
+        "data": "grid",
+        "n": 8000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.007379800081253052,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_greedy_n16000",
+      "axis": {
+        "data": "grid",
+        "n": 16000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.01715369988232851,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_greedy_n32000",
+      "axis": {
+        "data": "grid",
+        "n": 32000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.033287799917161465,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_greedy_n64000",
+      "axis": {
+        "data": "grid",
+        "n": 64000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.07316719996742904,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_greedy_n1000",
+      "axis": {
+        "data": "zigzag",
+        "n": 1000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0009236999321728945,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_greedy_n2000",
+      "axis": {
+        "data": "zigzag",
+        "n": 2000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0019392999820411205,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_greedy_n4000",
+      "axis": {
+        "data": "zigzag",
+        "n": 4000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0038970999885350466,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_greedy_n8000",
+      "axis": {
+        "data": "zigzag",
+        "n": 8000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.007908199913799763,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_greedy_n16000",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.014558699913322926,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_greedy_n32000",
+      "axis": {
+        "data": "zigzag",
+        "n": 32000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.02995220012962818,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_greedy_n64000",
+      "axis": {
+        "data": "zigzag",
+        "n": 64000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.06571240001358092,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_greedy_n1000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 1000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0008416001219302416,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_greedy_n2000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 2000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.001729500014334917,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_greedy_n4000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 4000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.003322300035506487,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_greedy_n8000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 8000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.006793700158596039,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_greedy_n16000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 16000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.014700599946081638,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_greedy_n32000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 32000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.032179199857637286,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_greedy_n64000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 64000,
+        "two_opt": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.06515179993584752,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_2opt_n1000",
+      "axis": {
+        "data": "uniform",
+        "n": 1000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.003924899967387319,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_2opt_n2000",
+      "axis": {
+        "data": "uniform",
+        "n": 2000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.00982620008289814,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_2opt_n4000",
+      "axis": {
+        "data": "uniform",
+        "n": 4000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.018447999842464924,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_2opt_n8000",
+      "axis": {
+        "data": "uniform",
+        "n": 8000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.05311919981613755,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_2opt_n16000",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.1066813999786973,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_2opt_n32000",
+      "axis": {
+        "data": "uniform",
+        "n": 32000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.253489000024274,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "uniform_2opt_n64000",
+      "axis": {
+        "data": "uniform",
+        "n": 64000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.5888837999664247,
+      "reps": 4
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_2opt_n1000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 1000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.005426699994131923,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_2opt_n2000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 2000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.009972099913284183,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_2opt_n4000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 4000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.030227699782699347,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_2opt_n8000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 8000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.06772739998996258,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_2opt_n16000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 16000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.14643149985931814,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_2opt_n32000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 32000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.3066584998741746,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_1000x_2opt_n64000",
+      "axis": {
+        "data": "clustered_1000x",
+        "n": 64000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.6807561002206057,
+      "reps": 3
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_2opt_n1000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 1000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.004967899993062019,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_2opt_n2000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 2000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.009623599937185645,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_2opt_n4000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 4000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.027527299942448735,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_2opt_n8000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 8000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.05783060006797314,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_2opt_n16000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.12689870013855398,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_2opt_n32000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 32000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.26813410012982786,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_100x_2opt_n64000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 64000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.6056997000705451,
+      "reps": 4
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_2opt_n1000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 1000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.00552650005556643,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_2opt_n2000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 2000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.00775729981251061,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_2opt_n4000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 4000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.02003989997319877,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_2opt_n8000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 8000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.053224700037389994,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_2opt_n16000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 16000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.11313390010036528,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_2opt_n32000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 32000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.23415899998508394,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "clustered_10x_2opt_n64000",
+      "axis": {
+        "data": "clustered_10x",
+        "n": 64000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.5657466999255121,
+      "reps": 4
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_2opt_n1000",
+      "axis": {
+        "data": "grid",
+        "n": 1000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0045282000210136175,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_2opt_n2000",
+      "axis": {
+        "data": "grid",
+        "n": 2000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.007536099990829825,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_2opt_n4000",
+      "axis": {
+        "data": "grid",
+        "n": 4000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.018406599992886186,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_2opt_n8000",
+      "axis": {
+        "data": "grid",
+        "n": 8000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.05120330001227558,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_2opt_n16000",
+      "axis": {
+        "data": "grid",
+        "n": 16000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.11497829994186759,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_2opt_n32000",
+      "axis": {
+        "data": "grid",
+        "n": 32000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.2111871000379324,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "grid_2opt_n64000",
+      "axis": {
+        "data": "grid",
+        "n": 64000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.4758687000721693,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_2opt_n1000",
+      "axis": {
+        "data": "zigzag",
+        "n": 1000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.003946900134906173,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_2opt_n2000",
+      "axis": {
+        "data": "zigzag",
+        "n": 2000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.008807700127363205,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_2opt_n4000",
+      "axis": {
+        "data": "zigzag",
+        "n": 4000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.01978969993069768,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_2opt_n8000",
+      "axis": {
+        "data": "zigzag",
+        "n": 8000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0439240001142025,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_2opt_n16000",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.10126890009269118,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_2opt_n32000",
+      "axis": {
+        "data": "zigzag",
+        "n": 32000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.2115788001101464,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_2opt_n64000",
+      "axis": {
+        "data": "zigzag",
+        "n": 64000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.41839760006405413,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_2opt_n1000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 1000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0034125999081879854,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_2opt_n2000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 2000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.008595400024205446,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_2opt_n4000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 4000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.020194999873638153,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_2opt_n8000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 8000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.05041229980997741,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_2opt_n16000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 16000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.10856690001673996,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_2opt_n32000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 32000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.22393080010078847,
+      "reps": 5
+    },
+    {
+      "group": "sort_points",
+      "name": "zigzag_s10_2opt_n64000",
+      "axis": {
+        "data": "zigzag_s10",
+        "n": 64000,
+        "two_opt": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.4236768998671323,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_greedy_n1000",
+      "axis": {
+        "data": "uniform",
+        "n": 1000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.002436199923977256,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_greedy_n4000",
+      "axis": {
+        "data": "uniform",
+        "n": 4000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.010406999848783016,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_greedy_n8000",
+      "axis": {
+        "data": "uniform",
+        "n": 8000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.021827699849382043,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_greedy_n12000",
+      "axis": {
+        "data": "uniform",
+        "n": 12000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.033751900075003505,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_greedy_n16000",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.04566480009816587,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_greedy_n1000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 1000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.002495500026270747,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_greedy_n4000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 4000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.010618600063025951,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_greedy_n8000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 8000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.02184609998948872,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_greedy_n12000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 12000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.03457689983770251,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_greedy_n16000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.04744350002147257,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_greedy_n1000",
+      "axis": {
+        "data": "zigzag",
+        "n": 1000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.00240869983099401,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_greedy_n4000",
+      "axis": {
+        "data": "zigzag",
+        "n": 4000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.009952499996870756,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_greedy_n8000",
+      "axis": {
+        "data": "zigzag",
+        "n": 8000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0203938998747617,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_greedy_n12000",
+      "axis": {
+        "data": "zigzag",
+        "n": 12000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.03068499988876283,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_greedy_n16000",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "two_opt": false,
+        "if_flip": true
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.03825649991631508,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_2opt_n1000",
+      "axis": {
+        "data": "uniform",
+        "n": 1000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.007666500052437186,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_2opt_n4000",
+      "axis": {
+        "data": "uniform",
+        "n": 4000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.03573170001618564,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_2opt_n8000",
+      "axis": {
+        "data": "uniform",
+        "n": 8000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.08495100005529821,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_2opt_n12000",
+      "axis": {
+        "data": "uniform",
+        "n": 12000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.1331648000050336,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_2opt_n16000",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.2013445000629872,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_2opt_n1000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 1000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.007796699879691005,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_2opt_n4000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 4000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.04240710008889437,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_2opt_n8000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 8000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.09090439998544753,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_2opt_n12000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 12000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.14610929996706545,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "clustered_100x_2opt_n16000",
+      "axis": {
+        "data": "clustered_100x",
+        "n": 16000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.201829900033772,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_2opt_n1000",
+      "axis": {
+        "data": "zigzag",
+        "n": 1000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.00793519988656044,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_2opt_n4000",
+      "axis": {
+        "data": "zigzag",
+        "n": 4000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.03435249999165535,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_2opt_n8000",
+      "axis": {
+        "data": "zigzag",
+        "n": 8000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.08544560009613633,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_2opt_n12000",
+      "axis": {
+        "data": "zigzag",
+        "n": 12000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.10335969994775951,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "zigzag_2opt_n16000",
+      "axis": {
+        "data": "zigzag",
+        "n": 16000,
+        "two_opt": true,
+        "if_flip": true,
+        "two_opt_path": "pruned"
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.04214100004173815,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_fixeddir_n1000",
+      "axis": {
+        "data": "uniform",
+        "n": 1000,
+        "two_opt": "skipped (if_flip=False)",
+        "if_flip": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0023244000039994717,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_fixeddir_n8000",
+      "axis": {
+        "data": "uniform",
+        "n": 8000,
+        "two_opt": "skipped (if_flip=False)",
+        "if_flip": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.021101600024849176,
+      "reps": 5
+    },
+    {
+      "group": "sort_curves",
+      "name": "uniform_fixeddir_n16000",
+      "axis": {
+        "data": "uniform",
+        "n": 16000,
+        "two_opt": "skipped (if_flip=False)",
+        "if_flip": false
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": null,
+      "best_seconds": 0.0440374999307096,
+      "reps": 5
+    }
+  ]
+}

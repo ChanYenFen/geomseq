@@ -3,6 +3,7 @@
 // over plain points (no direction/reversal); kd-tree plumbing is duplicated rather than shared.
 
 #include "nanoflann.hpp"
+#include "nearest_unused.hpp"
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -87,72 +88,26 @@ DLL_EXPORT void sort_points(
     KDTree tree(3, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10));
     tree.buildIndex();
 
-    // Tracks which points are already placed in the chain.
-    std::vector<bool> used(n, false);
+    // Every point starts allowed; each one placed in the chain is removed, so
+    // a query only ever returns a point not yet placed. See nearest_unused.hpp
+    // for why this returns the same point the k-NN window used to.
+    NearestUnused<KDTree> unused(tree, std::vector<char>(n, 1));
 
-    // The current position of the path (where the next point should connect).
-    double cur[3];
+    // The current position of the path: start_pt, then each placed point.
+    double cur[3] = { start_pt[0], start_pt[1], start_pt[2] };
 
-    // --- Pick the first point: nearest to start_pt ---
-    // No direction to worry about, so a single 1-NN query suffices (unlike
-    // sort_curves's growing-window search, which exists only to skip tails
-    // when if_flip == 0).
-    {
-        double q[3] = { start_pt[0], start_pt[1], start_pt[2] };
-
-        std::vector<uint32_t> idxs(1);
-        std::vector<double>   dists(1);
-        size_t got = tree.knnSearch(&q[0], 1, idxs.data(), dists.data());
-        (void)got;  // always 1 here: n > 0 already checked above
-
-        int first_point = (int)idxs[0];
-
-        out_order[0]     = first_point;
-        used[first_point] = true;
-
-        cur[0] = points[first_point * 3 + 0];
-        cur[1] = points[first_point * 3 + 1];
-        cur[2] = points[first_point * 3 + 2];
-    }
-
-    // --- Greedy: fill positions 1 .. n-1 ---
-    for (int placed = 1; placed < n; ++placed) {
-        int best_point = -1;
-
-        // Query k neighbors; if all are used, grow the search and retry.
-        int sc = knn_k;
-        while (best_point == -1) {
-            if (sc > n) {
-                sc = n;
-            }
-
-            std::vector<uint32_t> idxs(sc);
-            std::vector<double>   dists(sc);
-            size_t got = tree.knnSearch(&cur[0], sc, idxs.data(), dists.data());
-
-            for (size_t r = 0; r < got; ++r) {
-                int pt = (int)idxs[r];
-                if (used[pt]) {
-                    continue;
-                }
-                best_point = pt;
-                break;
-            }
-
-            if (best_point == -1) {
-                if (sc == n) {
-                    break;  // nothing unused left (safety; shouldn't happen)
-                }
-                sc *= 2;
-            }
-        }
-
+    // --- Greedy: fill positions 0 .. n-1 ---
+    // knn_k no longer has anything to size; it stays in the signature so the
+    // ABI does not change.
+    (void)knn_k;
+    for (int placed = 0; placed < n; ++placed) {
+        int best_point = unused.nearest(cur);
         if (best_point == -1) {
-            break;  // safety break
+            break;  // safety break: nothing unused left (shouldn't happen)
         }
 
-        out_order[placed]  = best_point;
-        used[best_point]   = true;
+        out_order[placed] = best_point;
+        unused.remove((uint32_t)best_point);
 
         cur[0] = points[best_point * 3 + 0];
         cur[1] = points[best_point * 3 + 1];

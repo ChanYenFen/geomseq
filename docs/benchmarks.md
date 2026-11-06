@@ -28,8 +28,8 @@ use 20, which adds tens of milliseconds at these sizes.
 
 | function | size | time | where the time goes | source |
 |---|---|---|---|---|
-| `sort_points` | 16,000 points | 175.6 ms | greedy walk 87.8 ms, 2-opt the rest; at 64,000 the greedy walk is 1.06 of 1.48 s | `20260915-heavy` |
-| `sort_curves` | 16,000 curves | 356.4 ms | greedy walk 199.5 ms, 2-opt the rest | `20260915-heavy` |
+| `sort_points` | 16,000 points | 106.7 ms | greedy walk 16.1 ms, 2-opt the rest; at 64,000 the greedy walk is 76.0 of 588.9 ms | `20261106-sort-greedy-prune-heavy` |
+| `sort_curves` | 16,000 curves | 201.3 ms | greedy walk 45.7 ms, 2-opt the rest | `20261106-sort-greedy-prune-heavy` |
 | `shatter_at_crossings` | 16,000 segments | 42.3 ms | probably the Python bridge — no native measurement yet | `20261102-shatter-sweep-heavy` |
 | `redistribute_arc_lengths` | 3,657 output points | 124.3 µs | 87% bridge, 13% algorithm | `comparison.md` |
 | `build_turn_waypoints` | 182 waypoints | 41.45 µs | 98% bridge | `comparison.md` |
@@ -37,9 +37,10 @@ use 20, which adds tens of milliseconds at these sizes.
 Source files are `benchmarks/results/baseline-windows-amd64-<source>.md`, or
 the file named.
 
-**The one thing to take away:** in both sort functions the greedy walk is now
-the expensive half and the part that scales worst. For the three small
-functions the algorithm is a rounding error beside the wrapper.
+**The one thing to take away:** in both sort functions 2-opt is the expensive
+part again — 77–87% of the call — since the greedy walk stopped re-fetching
+placed points. For the three small functions the algorithm is a rounding error
+beside the wrapper.
 
 ### Complexity
 
@@ -49,24 +50,21 @@ how it behaved over that range on uniform data, not a complexity class.
 
 | function | measured | over | worst case | what reaches it | memory |
 |---|---|---|---|---|---|
-| `sort_points`, greedy | n^1.58, steepening to n^1.80 over the last 4× | 1k–64k | O(n²) or worse | placed points stay in the kd-tree, so once a region is used up each step doubles its k-NN query until it finds an unused point — up to all n | O(n) |
-| `sort_points`, greedy + 2-opt | n^1.40 | 1k–64k | O(n²) per pass, ≤ 20 passes | ball queries are as wide as the tour's gaps, so a poor tour with long jumps queries most of it; each applied move also reverses up to n entries | O(n) |
-| `sort_curves`, greedy | n^1.42 | 1k–16k | O(n²) or worse | as for points, over 2n endpoints | O(n) |
-| `sort_curves`, greedy + 2-opt | n^1.33 | 1k–16k | O(n²) per pass, ≤ 20 passes | as for points | O(n) |
+| `sort_points`, greedy | n^1.06 (n^1.12 over the last 4×) | 1k–64k | O(n²) | a subtree is skipped only once *all* its points are placed, so unplaced points left one per leaf across a used region still make a query visit every one of those leaves | O(n) |
+| `sort_points`, greedy + 2-opt | n^1.20 | 1k–64k | O(n²) per pass, ≤ 20 passes | ball queries are as wide as the tour's gaps, so a poor tour with long jumps queries most of it; each applied move also reverses up to n entries | O(n) |
+| `sort_curves`, greedy | n^1.06 | 1k–16k | O(n²) | as for points, over 2n endpoints | O(n) |
+| `sort_curves`, greedy + 2-opt | n^1.18 | 1k–16k | O(n²) per pass, ≤ 20 passes | as for points | O(n) |
 | `shatter_at_crossings` | n^1.09 | 500–16k | O(n²) | bounding boxes that overlap without touching: long segments, dense clusters. On a cross-hatch the output itself is O(n²), so nothing can do better | O(n + k), k = contacts — O(n²) on a cross-hatch |
 | `redistribute_arc_lengths` | linear in output, 4.6 ns per point natively | 102–3,657 out | O(n_out + corners) | — input length does not reach the native side at all | O(n_out) |
 | `build_turn_waypoints` | linear in waypoints, 4.5 ns each natively | 2–182 | O(waypoints) | small `theta_max_deg` on a sharp turn — the count is turn angle over the cap | O(waypoints) |
 
-The 64,000 sort rows ran twice, not five times, so the steepening at the top of
-`sort_points` greedy may be partly noise. It is still the right place to look
-next: it is the only measured curve bending upward.
-
 **Other input shapes**, for the sorts — the same baseline also runs the
-synthetic fixtures. The hardest clustering measured costs 10–20% more than
-uniform at the top size: `sort_points` 1.72 s against 1.48 s at 64,000
-(`clustered_1000x`), `sort_curves` 393.0 against 356.4 ms at 16,000
-(`clustered_100x`). Already-sorted input is far cheaper — `sort_curves` on
-`zigzag` takes 47.6 ms at 16,000 — so existing order is detected. Shatter,
+synthetic fixtures. The hardest clustering measured costs up to 16% more than
+uniform at the top size: `sort_points` 680.8 against 588.9 ms at 64,000
+(`clustered_1000x`), while `sort_curves` on `clustered_100x` is level with
+uniform (201.8 against 201.3 ms at 16,000). Already-sorted input is far cheaper
+— `sort_curves` on `zigzag` takes 42.1 ms at 16,000 — so existing order is
+detected. Shatter,
 redistribute and the turn builder have been measured on uniform data only.
 
 ## `redistribute_arc_lengths` — the work is in the bridge, not the algorithm
@@ -242,6 +240,41 @@ digit from a separate run.
 
 Headline sort timings and growth rates are in *At a glance* above, from
 `baseline-windows-amd64-20260915-heavy`.
+
+## The sort greedy walk with live counts — from quadratic to near-linear
+
+The greedy walk used to ask the kd-tree for 12 neighbours, skip the placed
+ones, and double the query until an unplaced one turned up. Placed points never
+left the tree, so late in the walk each step fetched thousands of them to throw
+away. Each tree node now counts its unplaced points, and the search skips any
+subtree whose count is zero. The output is the same, bit for bit: same order,
+same reversals, ties broken the same way (the reasoning is in
+`nearest_unused.hpp`).
+
+Greedy only, best time through Python, before → after:
+
+| | n | before | after | |
+|---|---|---|---|---|
+| `sort_points`, uniform | 16,000 | 94.2 ms | 16.1 ms | 5.9× |
+| | 64,000 | 1136.8 ms | 76.0 ms | 15.0× |
+| `sort_points`, `clustered_1000x` | 64,000 | 1263.4 ms | 83.7 ms | 15.1× |
+| `sort_points`, `grid` | 64,000 | 933.7 ms | 73.2 ms | 12.8× |
+| `sort_curves`, uniform | 16,000 | 210.7 ms | 45.7 ms | 4.6× |
+| `sort_curves`, `clustered_100x` | 16,000 | 268.9 ms | 47.4 ms | 5.7× |
+
+Before is `baseline-windows-amd64-20261106-sort-before-greedy-prune-heavy`
+(binary `8f98206b`), after is `…-20261106-sort-greedy-prune-heavy`
+(`41833753`), run back to back on the same machine. The speed-up grows with n
+because the cost it removed was the superlinear part: uniform greedy went from
+n^1.58 to n^1.06 over 1k–64k.
+
+With 2-opt on, the whole call gains 1.5–2.9× at the large sizes — 1633.4 →
+588.9 ms for 64,000 uniform points — because 2-opt is now most of what is left.
+
+**What this run does not say.** All of it is through Python, so the greedy
+times include marshaling; how much of the remaining 76 ms is the bridge has not
+been measured. Memory was not measured either: the counts add one small node
+per kd-tree node plus one int and one byte per point.
 
 ## `shatter_at_crossings` before the broad phase — the pair loop
 

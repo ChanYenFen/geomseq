@@ -33,13 +33,16 @@ changing what a rule protects.
 ## Algorithms
 
 - **Pruning must be provable.** A search may skip a candidate only if it can
-  prove the candidate cannot help (2-opt's gap radius, shatter's padded boxes).
+  prove the candidate cannot help (2-opt's gap radius, shatter's padded boxes,
+  greedy's zero-count subtrees).
   Never a fixed constant that trades quality for speed on the caller's behalf —
   that is why the windowed 2-opt was removed. *(Why the windowed 2-opt was
   removed; Why the 2-opt search is pruned)*
 - **Verify a pruned search against the exhaustive one.** 2-opt: a converged tour
   has zero improving moves left. Shatter: output identical to the pair loop, and
-  the guard test must fail when the pruning is deliberately broken.
+  the guard test must fail when the pruning is deliberately broken. Greedy:
+  every step takes a brute-force nearest, and output identical to the old DLL
+  (keep `nearest_unused.hpp` walking nanoflann's order, or ties change).
 - **Shatter's broad phase is sweep and prune, not Bentley–Ottmann**, because the
   function accepts touches within `touch_tol` and multi-line junctions.
   *(Why shatter's broad phase is sweep and prune)*
