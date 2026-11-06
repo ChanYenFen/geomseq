@@ -6,7 +6,7 @@
     <RootNamespace>GeomSeq</RootNamespace>
     <!-- Grasshopper finds plugins by extension; the file is an ordinary .NET assembly. -->
     <TargetExt>.gha</TargetExt>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

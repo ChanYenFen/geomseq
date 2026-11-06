@@ -42,7 +42,7 @@ public sealed class SortPointsComponent : GH_Component
         p.AddPointParameter("Points", "P", "Points to sort, one branch per group.", GH_ParamAccess.tree);
         p.AddPointParameter("Start", "S",
             "Where travel starts. With Continuous on this seeds the first branch only; otherwise every branch. " +
-            "Defaults to each branch's own first point.",
+            "Defaults to the origin, as in the Python bridge.",
             GH_ParamAccess.item);
         p.AddBooleanParameter("Continuous", "Ct",
             "Treat the branches as one journey: each starts where the previous one ended, and its Distance " +
@@ -131,10 +131,10 @@ public sealed class SortPointsComponent : GH_Component
                 largestBranch = points.Count;
 
             // Each branch starts where the last one ended; without Continuous it falls
-            // back to Start, or to its own first point when Start is unconnected.
+            // back to Start, or to the origin when Start is unconnected.
             Point3d from = continuous && cursor.IsValid ? cursor
                          : hasStart ? start
-                         : points[0];
+                         : Point3d.Origin;
 
             int[] order;
             try

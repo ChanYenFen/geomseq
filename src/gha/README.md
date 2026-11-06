@@ -22,8 +22,8 @@ in the core but have no component yet (see Not done yet).
 
 | Component | Inputs | Outputs |
 |---|---|---|
-| Sort Curves (`SortCrv`) | `C` curves · `S` start (optional, default: start of the first curve) · `T` output travel (default false) · `F` allow reversal (default true; false keeps every curve's direction and skips 2-opt) | `C` sorted curves, reversals applied · `i` input indices · `R` reversed · `D` total travel · `T` travel lines (only when input `T` is true) |
-| Sort Points (`SortPt`) | `P` points · `S` start (optional, default: first point) | `P` sorted points · `i` input indices · `D` total path length |
+| Sort Curves (`SortCrv`) | `C` curves · `S` start (optional, default: origin) · `T` output travel (default false) · `F` allow reversal (default true; false keeps every curve's direction and skips 2-opt) | `C` sorted curves, reversals applied · `i` input indices · `R` reversed · `D` total travel · `T` travel lines (only when input `T` is true) |
+| Sort Points (`SortPt`) | `P` points · `S` start (optional, default: origin) | `P` sorted points · `i` input indices · `D` total path length |
 
 `D` includes the move from `S` to the first item, and `i` always refers to
 positions in the original input list.

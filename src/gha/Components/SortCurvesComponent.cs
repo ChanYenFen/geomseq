@@ -45,7 +45,7 @@ public sealed class SortCurvesComponent : GH_Component
         p.AddCurveParameter("Curves", "C", "Curves to sort, one branch per group.", GH_ParamAccess.tree);
         p.AddPointParameter("Start", "S",
             "Where travel starts. With Continuous on this seeds the first branch only; otherwise every branch. " +
-            "Defaults to the start of each branch's own first curve.",
+            "Defaults to the origin, as in the Python bridge.",
             GH_ParamAccess.item);
         p.AddBooleanParameter("Travel", "T", "Also output the travel moves as lines.", GH_ParamAccess.item, false);
         p.AddBooleanParameter("Flip", "F",
@@ -150,10 +150,10 @@ public sealed class SortCurvesComponent : GH_Component
                 largestBranch = curves.Count;
 
             // Each branch starts where the last one ended; without Continuous it falls
-            // back to Start, or to its own first curve when Start is unconnected.
+            // back to Start, or to the origin when Start is unconnected.
             Point3d from = continuous && cursor.IsValid ? cursor
                          : hasStart ? start
-                         : curves[0].PointAtStart;
+                         : Point3d.Origin;
 
             GeomSeqCore.CurveSortResult result;
             try

@@ -552,7 +552,7 @@ three such candidates gained exactly nothing. Four candidates ranked by
 entry + exit reached the ceiling on this dataset, in 12 sorts rather than 30.
 
 *Comparing against a flatten that used a different start.* The first flattened
-figure came from an unconnected `S`, which falls back to the first input point
+figure came from an unconnected `S`, which then fell back to the first input point (plug-in 0.1; 0.2 defaults to the origin)
 (186.979), not from `S = origin` (190.866). Two runs, two start points, one
 meaningless comparison.
 
