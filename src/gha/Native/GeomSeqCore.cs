@@ -299,7 +299,7 @@ internal static class GeomSeqCore
 
         // First guess; if it falls short the native side reports the size needed and
         // the call is repeated once.
-        int capacity = 2 * n;
+        int capacity = 3 * n;
         double[] pieces = new double[capacity * 6];
         int total = 0;
 
