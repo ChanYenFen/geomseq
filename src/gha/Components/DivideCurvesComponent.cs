@@ -13,24 +13,15 @@ namespace GeomSeq.Components;
 /// joints between segments. Feeds Redistribute Arc Lengths and Sample Curve Points.
 /// </summary>
 /// <remarks>
-/// Like Sample Curve Points and unlike everything else here, there is no native code
-/// behind this: it is rhino_utils/divide_curves.py reimplemented against RhinoCommon,
-/// so the same behaviour now exists twice and pytest can reach neither copy of this one.
-///
-/// It is ported as it behaves, not as it reads, including three things that are almost
-/// certainly not what the original author meant. They are marked at each site. Repairing
-/// them here would make the two implementations disagree silently, which is worse than
-/// either of them being wrong in the same way -- fix them in both, deliberately, or not
-/// at all.
+/// No native code: a port of rhino_utils/divide_curves.py, quirks included (marked at
+/// each site). Change behaviour in both copies or in neither.
 /// </remarks>
 public sealed class DivideCurvesComponent : GH_Component
 {
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("698e7c0d-e6b9-4c80-9879-4195c8186507");
 
-    // From rhino_utils/divide_curves.py. Above this, a curve is divided once rather
-    // than by length -- a hard switch the caller cannot see or decline, so the
-    // component reports when it fires.
+    // Above this Segment Length a curve is divided once instead of by length.
     private const double MaxSegLength = 300.0;
 
     public DivideCurvesComponent()
@@ -176,11 +167,8 @@ public sealed class DivideCurvesComponent : GH_Component
         {
             Curve seg = segments[j];
 
-            // set_crv_domain: the parameter interval is rescaled to [0, length]. Note this
-            // is a linear rescale, not an arc-length reparameterisation, so the values that
-            // end up in Arc Lengths equal arc length only where the curve has uniform speed --
-            // a line or an arc. Downstream, Sample Curve Points feeds them to
-            // LengthParameter, which does treat them as arc lengths. Carried over as-is.
+            // set_crv_domain: the domain is rescaled linearly to [0, length], so the
+            // parameters equal arc length only on a line or an arc. Quirk, kept.
             double segLen = seg.GetLength();
             seg.Domain = new Interval(0.0, segLen);
 
@@ -219,20 +207,8 @@ public sealed class DivideCurvesComponent : GH_Component
     /// get_divide_count(): above MaxSegLength the curve is divided once, whatever its length.
     /// </summary>
     /// <remarks>
-    /// The epsilon is not decoration. A length that is exactly n segments of S does not
-    /// always divide to exactly n, because S * n need not round-trip in binary: at
-    /// S = 0.1 and n = 3 the ratio computes as 3.0000000000000004, Ceiling returns 4, and
-    /// every spacing on the curve silently becomes 0.075 -- a quarter short of what was
-    /// asked for. Measured over exact multiples of nine different S values from 0.1 to
-    /// 6.1, 39 of 531 did this (n = 3, 6, 12, 24, 29 and 48 among them); the error is
-    /// worst at small n, where one extra division is a large share of the total.
-    ///
-    /// Relative rather than absolute, so it still absorbs the same few ULPs when the
-    /// ratio is in the thousands. Far too small to swallow a fractional part anyone
-    /// meant: a genuine n + 1e-9 still rounds up.
-    ///
-    /// rhino_utils/divide_curves.py carries the identical line and the identical fix.
-    /// Changing one without the other is how the two implementations start disagreeing.
+    /// The relative epsilon absorbs float error, so a length that is exactly n segments
+    /// does not round up to n + 1. Keep it identical to rhino_utils/divide_curves.py.
     /// </remarks>
     private static int GetDivideCount(double curveLength, double segmentLength)
     {
@@ -244,16 +220,11 @@ public sealed class DivideCurvesComponent : GH_Component
     }
 
     /// <summary>
-    /// get_curve_segments(). check_explodable() is reproduced faithfully and its answer is
-    /// always true: the Python loop increments its counter before testing anything, so
-    /// `count > 0` holds even for a curve with no discontinuity at all. Every curve is
-    /// therefore exploded, which is what this has always done.
+    /// get_curve_segments(): every curve is exploded, because the Python
+    /// check_explodable() always answers true. Quirk, kept.
     /// </summary>
     private static Curve[] GetCurveSegments(Curve curve)
     {
-        // check_explodable() also passes GetLength() as the parameter upper bound, though
-        // the domain has not been rescaled at this point, so the two are unrelated. Kept,
-        // because the result is discarded either way.
         Curve[]? segments = curve.DuplicateSegments();
         if (segments == null || segments.Length == 0)
             return new[] { curve };
@@ -289,9 +260,7 @@ public sealed class DivideCurvesComponent : GH_Component
 
     /// <summary>
     /// get_overlap(): continues one step past the last point, into the start of the loop.
-    /// The Python clamps an over-long overlap to the reference distance and then tests
-    /// `overlap_length <= check`, which after the clamp is always true; the same single
-    /// point is appended here.
+    /// An over-long overlap is clamped to the reference distance, as in the Python.
     /// </summary>
     private static void AddOverlapPoint(List<Point3d> points, double overlapLength, bool joinEnds)
     {

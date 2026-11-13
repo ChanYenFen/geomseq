@@ -10,22 +10,8 @@ namespace GeomSeq.Native;
 /// </summary>
 internal static class GeomSeqCore
 {
-    // Both 2-opt caps are 20, and both were measured rather than assumed. Each
-    // function's search now prunes to the candidates that could shorten the
-    // tour, and a pruned search is only ever the worse of the two
-    // implementations while it is still unconverged -- so the cap exists to
-    // guarantee convergence, not to ration time. 20 is where every shape
-    // measured converges: curves in sort_curves_convergence, points in
-    // sort_points_convergence, with 30 and 50 passes moving nothing.
-    //
-    // They stay two constants rather than one because they were two different
-    // numbers as recently as 2026-09-15, when points still ran the exhaustive
-    // pass and raising their cap would have doubled a 248 s solve. They may
-    // diverge again; the components are not obliged to agree.
-    //
-    // See docs/design-notes.md, "Two numbers spell max passes" -- the second
-    // is benchmarks/python/cases.py, which stays at 10 on purpose so recorded
-    // baselines remain comparable with their own history.
+    // 2-opt pass caps: 20 is where every measured shape converges.
+    // See docs/design-notes.md, "Two numbers spell max passes".
     private const int UseTwoOpt            = 1;
     private const int CurveTwoOptMaxPasses = 20;
     private const int PointTwoOptMaxPasses = 20;
@@ -144,20 +130,11 @@ internal static class GeomSeqCore
     /// Redistributes arc lengths to a new density profile. Returns the new arcLengths.
     /// </summary>
     /// <remarks>
-    /// Two things here are the caller's job rather than the native side's, and both bite.
-    ///
-    /// The output length is not derivable from the input, so the buffer is sized from a
-    /// bound and the native side reports how much it filled. The bound is
-    /// geometry_utils.redistribute_arc_lengths_native's, copied deliberately: it divides by
-    /// <c>min(low, high)</c>, because the native marching step bottoms out at the smaller
-    /// of the two and using <paramref name="low"/> alone would undercount — and undercounting
-    /// here is a buffer overrun, not a short answer.
-    ///
-    /// <paramref name="low"/> must be positive. At zero or below the native loop never
-    /// advances and Rhino hangs with no message, so it throws here rather than trusting
-    /// every caller to have checked. <paramref name="high"/> below <paramref name="low"/>
-    /// is merely meaningless, so it is clamped — the component reports that separately,
-    /// since silently repairing a caller's input without saying so is its own defect.
+    /// <paramref name="low"/> must be positive, or the native loop never advances; it throws.
+    /// <paramref name="high"/> below <paramref name="low"/> is clamped to it.
+    /// The output buffer is sized from the same bound as
+    /// geometry_utils.redistribute_arc_lengths_native: one step of <c>min(low, high)</c> at a
+    /// time. Undercounting it overruns the buffer.
     /// </remarks>
     public static unsafe double[] RedistributeArcLengths(
         IReadOnlyList<double> arcLengths, double low, double high, int mode, double flatPct,
@@ -174,9 +151,7 @@ internal static class GeomSeqCore
 
         double totalLength = arcLengths[arcLengths.Count - 1];
 
-        // Resolved here, not passed as indices: the native side never sees the arc length
-        // array. It used to, and ignored all but these entries -- at 100k samples that
-        // was ~97% of the call spent marshaling an array it did not read.
+        // Corner indices are resolved to arc lengths here; the native side never sees the array.
         int numCorners = cornerIndices?.Count ?? 0;
         var cornerLengths = new double[numCorners];
         for (int k = 0; k < numCorners; k++)
@@ -226,19 +201,9 @@ internal static class GeomSeqCore
     /// Builds the smooth turn from the end of one path to the start of the next.
     /// </summary>
     /// <remarks>
-    /// Output length is not known from the input, so both buffers are sized from the
-    /// bound the .cpp header states -- one extend point plus ceil(180/thetaMaxDeg)
-    /// fillet points per side -- and the native side reports what it wrote. A
-    /// thetaMaxDeg at or below 1e-6 would divide by ~zero, so it falls back to one
-    /// degree here exactly as the native side does internally; sizing for anything
-    /// else would under-allocate a buffer the DLL then writes past.
-    ///
-    /// stepLen must be positive: the fillet advances by it, and at zero the native
-    /// loop makes no progress. Everything else about the turn's quality -- whether
-    /// the two fillets have room to meet smoothly -- is the caller's to judge and
-    /// report, not a reason to refuse the call.
-    ///
-    /// This is the 2D entry point. No z reaches it and none comes back.
+    /// 2D only. stepLen must be positive; it throws otherwise. Both buffers are sized
+    /// from the bound in the .cpp header, with the native side's own fallback to one
+    /// degree when thetaMaxDeg is at or below 1e-6.
     /// </remarks>
     public static unsafe TurnWaypoints BuildTurnWaypoints(
         double ex, double ey, double avx, double avy,
@@ -332,9 +297,8 @@ internal static class GeomSeqCore
 
         var pieceCounts = new int[n];
 
-        // Optimistic first guess. The real bound is quadratic, so instead of allocating
-        // for a worst case almost no input reaches, the native side reports what it
-        // needed and we go again once with exactly that.
+        // First guess; if it falls short the native side reports the size needed and
+        // the call is repeated once.
         int capacity = 2 * n;
         double[] pieces = new double[capacity * 6];
         int total = 0;

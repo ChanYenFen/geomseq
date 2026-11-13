@@ -14,10 +14,8 @@ public sealed class ShatterCrossingsComponent : GH_Component
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("3805baf9-7e11-4aff-b8bb-2a1c63881800");
 
-    // Pieces are rebuilt from the vertices they came from, so an uncut segment
-    // reproduces its ends exactly and a shared vertex is bit-identical. This only
-    // has to absorb the plane round-trip, which both sides of a joint go through
-    // together -- it is not a modelling tolerance, and Tolerance is not it.
+    // How close two piece ends must be to rejoin. Only absorbs the plane round-trip;
+    // unrelated to the Tolerance input.
     private const double JoinTol = 1e-9;
 
     public ShatterCrossingsComponent()
@@ -35,10 +33,8 @@ public sealed class ShatterCrossingsComponent : GH_Component
 
     // Contract: Grasshopper saves wires by port index. New ports go at the end, never in between.
     //
-    // Curves is a tree rather than a list for the same reason Redistribute Arc Lengths takes
-    // one: under list access Grasshopper solves once per branch and appends the iteration
-    // index to every output path, which would land the results one level deeper than the
-    // input index this component exists to preserve.
+    // Curves is a tree, not a list: list access would append an iteration index to
+    // every output path.
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
         p.AddCurveParameter("Curves", "C",
@@ -126,9 +122,7 @@ public sealed class ShatterCrossingsComponent : GH_Component
             GH_Path path = curveTree.Paths[b];
             IList<GH_Curve> branch = curveTree.Branches[b];
 
-            // Refusing rather than approximating: a curve that is not a polyline has no
-            // straight segments to meet, and reducing it to the line between its ends
-            // would move every contact with nothing in the output to say so.
+            // Any non-polyline refuses the whole branch.
             var polylines = new List<Polyline>(branch.Count);
             var rejected = new List<int>();
             for (int i = 0; i < branch.Count; i++)
@@ -147,8 +141,6 @@ public sealed class ShatterCrossingsComponent : GH_Component
 
             if (rejected.Count > 0)
             {
-                // Messages.Skipped is not reusable here: it ends "The rest were sorted",
-                // and nothing is sorted or partially kept -- the branch is refused whole.
                 string listed = string.Join(", ", rejected.Count > 20 ? rejected.GetRange(0, 20) : rejected);
                 if (rejected.Count > 20)
                     listed += $", … ({rejected.Count - 20} more)";
@@ -160,9 +152,8 @@ public sealed class ShatterCrossingsComponent : GH_Component
                 continue;
             }
 
-            // Explode into plane space. The contact test is 2D; working in plane
-            // coordinates puts it on the plane the caller chose and leaves the height
-            // above it as z, which the native side interpolates down each segment.
+            // Explode into plane space: the contact test is 2D, and the height above
+            // the plane rides along as z.
             int segCount = 0;
             foreach (Polyline pl in polylines)
                 segCount += pl.Count - 1;
@@ -217,12 +208,9 @@ public sealed class ShatterCrossingsComponent : GH_Component
                 (int start, int stop) = spans[owner];
                 GH_Path outPath = path.AppendElement(owner);
 
-                // A run of pieces that touch end-to-start is one surviving polyline. But
-                // contiguity alone cannot decide that: at Distance = 0 the two sides of a
-                // cut touch as well, and welding them back would make the component look
-                // like it did nothing. Only the FIRST piece of a segment may continue the
-                // run before it -- every later piece of the same segment follows a cut, by
-                // construction.
+                // A run of pieces that touch end-to-start is one surviving polyline. Only
+                // the first piece of a segment may continue the run: later pieces follow
+                // a cut, and at Distance = 0 a cut still touches.
                 var rebuilt = new List<GH_Curve>();
                 var run = new List<Point3d>();
 
@@ -251,8 +239,7 @@ public sealed class ShatterCrossingsComponent : GH_Component
                 segmentsOut.AppendRange(rebuilt, outPath);
                 countsOut.Append(new GH_Integer(rebuilt.Count), path);
 
-                // An empty path rather than a missing one: dropping it would shift every
-                // later index, which is exactly what this component promises not to do.
+                // Keep an empty path so later indices do not shift.
                 if (rebuilt.Count == 0)
                     segmentsOut.EnsurePath(outPath);
             }

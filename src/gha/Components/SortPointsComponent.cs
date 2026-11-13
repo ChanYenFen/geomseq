@@ -14,14 +14,7 @@ public sealed class SortPointsComponent : GH_Component
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("d146d2e4-f0c0-4ea1-a172-57e49daef001");
 
-    // The largest n actually measured, from baseline-windows-amd64-20260915-heavy:
-    // 64,000 points in 1.50 s.
-    //
-    // It was 16,000, set when this component's 2-opt tested every pair and took
-    // 11.94 s there. sort_points.cpp got the pruned search on 2026-09-15 and
-    // 64,000 fell from 248.68 s to 1.50 s, which left the old threshold marking
-    // nothing at all -- and left the note beside it, warning that no cheaper
-    // 2-opt existed here, describing the week before last.
+    // The largest n measured for points, in baseline-windows-amd64-20260915-heavy.
     private const int TestedLimit = 64_000;
 
     public SortPointsComponent()

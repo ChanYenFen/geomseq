@@ -1,28 +1,15 @@
 // nearest_unused.hpp
-// Nearest-*unused*-point queries over a built nanoflann static kd-tree, for
-// the greedy phase of sort_points and sort_curves.
+// Nearest-unused-point queries over a built nanoflann kd-tree, for the greedy
+// phase of sort_points and sort_curves.
 //
-// The greedy phase used to ask the tree for k neighbours, skip the ones already
-// placed, and double k until an unused one appeared. Placed points never leave
-// the tree, so late in the walk a query could fetch thousands of them only to
-// throw them away -- the reason greedy grew towards O(n^2).
+// Every node carries a count of the still-allowed points beneath it, and the
+// search skips a subtree whose count is zero -- it cannot hold the answer.
 //
-// This keeps, for every node, a count of the points beneath it that are still
-// allowed, and a search that returns as soon as it reaches a subtree whose
-// count is zero. That skip is provable: a subtree with nothing allowed in it
-// cannot hold the answer. Nothing else is skipped that the k-NN search would
-// not also have skipped, so the answer is the same nearest unused point.
-//
-// The answer is also the same *one* when several tie. Both searches walk the
-// tree in the same depth-first order (nearer child first, a leaf's points in
-// vAcc_ order) and both replace the current best only on a strictly smaller
-// distance, so among equal distances the first point visited wins -- which is
-// where nanoflann's sorted k-NN result puts it too. The distance arithmetic is
-// nanoflann's own (evalMetric / accum_dist), so ties are ties in both.
-//
-// The tree is copied into a flat array in depth-first order, so a node is
-// found by index rather than by chasing nanoflann's pointers, and the per-node
-// counts sit next to the split data the search reads anyway.
+// The search walks the tree in nanoflann's own order (nearer child first, a
+// leaf's points in vAcc_ order) with nanoflann's distance arithmetic, and
+// replaces the best only on a strictly smaller distance. Keep it that way:
+// it is what makes ties resolve exactly as nanoflann's k-NN search would.
+// See docs/design-notes.md, "Why the greedy walk keeps live counts".
 
 #pragma once
 
@@ -33,9 +20,7 @@
 template <class Tree>
 class NearestUnused {
 public:
-    // `allowed[pt]` says whether point pt may ever be returned. A point that is
-    // never allowed (a curve's tail when direction is fixed) is simply never
-    // counted, so it costs nothing to skip.
+    // `allowed[pt]` says whether point pt may ever be returned.
     NearestUnused(const Tree& tree, const std::vector<char>& allowed)
         : tree_(tree), alive_(allowed), leaf_of_(allowed.size(), -1)
     {

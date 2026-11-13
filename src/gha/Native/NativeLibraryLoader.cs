@@ -21,7 +21,16 @@ internal static class NativeLibraryLoader
 
     // Every entry point the components call. Checked at load time so a stale binary is
     // reported once, clearly, instead of as EntryPointNotFoundException mid-solve.
-    private static readonly string[] RequiredExports = { "sort_curves", "sort_points" };
+    private static readonly string[] RequiredExports =
+    {
+        AbiVersionExport, "sort_curves", "sort_points", "redistribute_arc_lengths",
+        "build_turn_waypoints", "shatter_at_crossings",
+    };
+
+    // Must equal geomseq_abi_version() in src/geomseq_core/native/abi_version.cpp,
+    // which says when to bump it. A binary with another version is refused.
+    private const int AbiVersion = 1;
+    private const string AbiVersionExport = "geomseq_abi_version";
 
     private static readonly object Gate = new();
     private static IntPtr _handle;
@@ -90,6 +99,14 @@ internal static class NativeLibraryLoader
                 }
             }
 
+            int found = ReadAbiVersion(handle);
+            if (found != AbiVersion)
+            {
+                NativeLibrary.Free(handle);
+                return $"{path} is ABI version {found}, but this plugin expects {AbiVersion}. " +
+                       "Install GeomSeq.gha and the native library from the same release.";
+            }
+
             _handle = handle;
             return null;
         }
@@ -97,6 +114,14 @@ internal static class NativeLibraryLoader
         string where = searched.Count == 0 ? "(the plugin's install folder could not be determined)"
                                            : string.Join("\n  ", searched);
         return $"{fileName} was not found next to GeomSeq.gha ({Platform}). Searched:\n  {where}";
+    }
+
+    // Called through the export's address rather than a DllImport: the resolver hands out
+    // _handle, which is only set once this check has passed.
+    private static unsafe int ReadAbiVersion(IntPtr handle)
+    {
+        var getVersion = (delegate* unmanaged[Cdecl]<int>)NativeLibrary.GetExport(handle, AbiVersionExport);
+        return getVersion();
     }
 
     private static IEnumerable<string> CandidateDirectories()

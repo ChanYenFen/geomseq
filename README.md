@@ -69,6 +69,7 @@ src/
 │   │   ├── redistribute_arc_lengths.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
 │   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
 │   │   ├── shatter_at_crossings.cpp    # contact predicates + broad phase + shatter_at_crossings
+│   │   ├── abi_version.cpp             # geomseq_abi_version(): the number both wrappers check at load time
 │   │   ├── nearest_unused.hpp          # greedy's nearest-unplaced-point search, shared by both sorts
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
 │   │   ├── archive/                    # superseded reference implementations (the windowed 2-opt, measured and removed)
@@ -94,13 +95,15 @@ tests/                                  # property tests, plain CPython (no Rhin
 
 Rebuild the native library after editing any `.cpp`. Every source compiles into
 one shared library, and `native_bridge.py` checks that every function it expects
-is there — a binary missing one fails at `load_dll()` with a clear error.
+is there — a binary missing one fails at `load_dll()` with a clear error. It also
+refuses a binary whose ABI version differs from its own; bump that number, in
+the three places `abi_version.cpp` lists, whenever an exported signature changes.
 
 Run these from `src/geomseq_core/native/`:
 
 ```
 # Windows (x64 Native Tools Command Prompt)
-cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp shatter_at_crossings.cpp /Fe:geomseq_core.dll
+cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp shatter_at_crossings.cpp abi_version.cpp /Fe:geomseq_core.dll
 
 # macOS
 clang++ -std=c++17 -O2 -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp

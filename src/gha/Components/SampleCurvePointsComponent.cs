@@ -12,11 +12,8 @@ namespace GeomSeq.Components;
 /// The other half of Redistribute Arc Lengths: turns arc-length positions back into points.
 /// </summary>
 /// <remarks>
-/// Nothing here calls the native library. This is RhinoCommon arithmetic -- LengthParameter
-/// then PointAt -- reimplemented from rhino_utils/sample_curve_points.py rather than wrapped,
-/// because there is no C++ to wrap. That makes it the first piece of behaviour in the plug-in
-/// with a second implementation living elsewhere, and pytest cannot reach this one: it needs
-/// RhinoCommon. If the two ever disagree, nothing automatic will say so.
+/// No native code: a port of rhino_utils/sample_curve_points.py (LengthParameter, then
+/// PointAt). Keep the two in step by hand.
 /// </remarks>
 public sealed class SampleCurvePointsComponent : GH_Component
 {
@@ -37,9 +34,7 @@ public sealed class SampleCurvePointsComponent : GH_Component
 
     // Contract: Grasshopper saves wires by port index. New ports go at the end, never in between.
     //
-    // Curves is a flat list and Arc Lengths is a tree, deliberately: one curve per arc length
-    // branch, paired by position. That is the shape the GHPython original consumed
-    // (`zip(arc_lengths, curves)`) and the shape Redistribute Arc Lengths emits.
+    // Curves is a flat list and Arc Lengths a tree: one curve per branch, paired by position.
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
         p.AddCurveParameter("Curves", "C", "One curve per branch of Arc Lengths, in the same order.",
@@ -107,9 +102,7 @@ public sealed class SampleCurvePointsComponent : GH_Component
                     continue;
                 }
 
-                // LengthParameter fails rather than throwing for a position past the
-                // curve's end, which is how the Python version silently drops them.
-                // Counted here so the count can be reported instead.
+                // LengthParameter fails for a position past the curve's end; count it.
                 if (curve.LengthParameter(item.Value, out double t))
                     output.Append(new GH_Point(curve.PointAt(t)), path);
                 else

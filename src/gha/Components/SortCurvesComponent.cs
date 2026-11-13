@@ -15,15 +15,8 @@ public sealed class SortCurvesComponent : GH_Component
     // Contract: never change. Saved .gh files find this component by it.
     private static readonly Guid Id = new("30183340-903f-45f8-a5e5-d6509ffbb897");
 
-    // The largest n actually measured for curves: 50,000, in
-    // baseline-windows-amd64-20260914-sort_curves_prune_check-pruned-heavy,
-    // where a 20-pass solve takes 2.62 s.
-    //
-    // It was 16,000, from a build whose 2-opt tested every pair and needed ~12 s
-    // there. Pruning made that number meaningless -- 16,000 curves now finish in
-    // about 0.4 s -- so the warning would have fired, in orange, on work that
-    // ends before the user lets go of the mouse. A warning that cries wolf about
-    // instant results teaches people to ignore it.
+    // The largest n measured for curves, in
+    // baseline-windows-amd64-20260914-sort_curves_prune_check-pruned-heavy.
     private const int TestedLimit = 50_000;
 
     public SortCurvesComponent()

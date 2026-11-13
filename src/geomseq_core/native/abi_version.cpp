@@ -1,0 +1,22 @@
+// abi_version.cpp
+// The version of this library's binary interface. Both wrappers read it at
+// load time and refuse a binary whose number differs from their own.
+//
+// Bump it when an exported signature changes, or an export is added or
+// removed, together with its two copies:
+//   ABI_VERSION  in src/geomseq_core/native_bridge.py
+//   AbiVersion   in src/gha/Native/NativeLibraryLoader.cs
+
+#if defined(_WIN32)
+    #define DLL_EXPORT __declspec(dllexport)
+#else
+    #define DLL_EXPORT __attribute__((visibility("default")))
+#endif
+
+extern "C" {
+
+DLL_EXPORT int geomseq_abi_version() {
+    return 1;
+}
+
+} // extern "C"

@@ -332,9 +332,26 @@ which is empty when Grasshopper's "memory load" option reads the `.gha` as bytes
 The fallback for that case, `GH_AssemblyInfo.Location`, can only be exercised
 inside Rhino and has not been yet.
 
-The loader also checks for the `sort_curves` and `sort_points` exports, so a
+The loader also checks that every export the components call is present, so a
 stale binary gets one clear message instead of `EntryPointNotFoundException`
 halfway through a solve.
+
+### Why the binary carries an ABI version
+
+An export being present says nothing about its arguments. ctypes and P/Invoke
+both push what the wrapper declares and trust the binary to agree, so a wrapper
+one revision away from its binary does not fail — it reads and writes the wrong
+memory, which inside Rhino is a crash with no message. Three things make that
+likely here rather than theoretical: the binaries are committed separately from
+the sources, the dylib can only be rebuilt on a Mac, and CI never loads the
+committed ones.
+
+`geomseq_abi_version()` in `abi_version.cpp` returns one integer, and both
+wrappers compare it with their own copy at load time and refuse the binary if
+it differs. The number is bumped by hand, in three places, whenever an exported
+signature changes or an export is added or removed; `tests/test_abi_version.py`
+fails if the three disagree. What it cannot catch is a signature changed
+*without* a bump — the number records a decision, it does not derive one.
 
 ### Why some component behaviour is not obvious
 

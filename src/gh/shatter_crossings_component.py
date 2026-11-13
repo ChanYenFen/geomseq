@@ -4,11 +4,7 @@ GH entry point: cuts polylines where they cross and opens a gap at each crossing
 (geometry_utils.shatter_at_crossings_native).
 
 Polylines only. They are exploded into segments, shattered, and the pieces that
-were never cut are rejoined -- so a 100-segment polyline crossed once comes back
-as two polylines, not a hundred loose lines. Exploding is also what let the
-native side change how crossings are found -- it now sweeps bounding boxes
-instead of testing every pair -- without touching the explode/rejoin either
-side of it.
+were never cut are rejoined into polylines.
 """
 
 import os
@@ -36,10 +32,7 @@ _reload.unload_modules("geomseq_core.geometry_utils")
 
 from geomseq_core.geometry_utils import shatter_at_crossings_native
 
-# Pieces are built from the same doubles the vertices came from, so an uncut
-# segment reproduces its endpoints exactly and a shared vertex is bit-identical.
-# This only has to absorb the plane round-trip, which both sides of a joint go
-# through together.
+# How close two piece ends must be to rejoin. Only absorbs the plane round-trip.
 JOIN_TOL = 1e-9
 
 
@@ -76,9 +69,7 @@ def _resolve_gap_distance():
 
 
 def _resolve_touch_tolerance():
-    """How close counts as touching rather than missing. A T-junction -- one
-    polyline ending on another -- is a contact, and real ones are drawn a hair
-    out, so the document tolerance is the right default rather than 0."""
+    """How close counts as touching. Unconnected reads as the document tolerance."""
     try:
         value = touch_tolerance  # type: ignore
     except NameError:
@@ -100,9 +91,8 @@ def _resolve_self_intersection():
 
 
 def _to_polylines(curves):
-    """(polylines, rejected) -- rejected holds the input indices that are not
-    polylines. Arcs and general NURBS have no straight segments to cross, so
-    they are refused rather than approximated by their control structure."""
+    """Returns (polylines, rejected): rejected holds the input indices that are
+    not polylines."""
     polylines, rejected = [], []
     for i, crv in enumerate(curves):
         if crv is None:
@@ -127,9 +117,7 @@ if __name__ == "__main__":
     polylines, rejected = _to_polylines(raw)
 
     if rejected:
-        # Refusing rather than warning: a non-polyline silently reduced to the
-        # line between its ends would move the crossings, and nothing in the
-        # output would say so.
+        # Any non-polyline refuses the whole input.
         print("[geomseq_core] %d of %d input curves are not polylines (indices %s). "
               "Shatter Crossings handles polylines only -- nothing was computed."
               % (len(rejected), len(raw), rejected[:20]))
@@ -137,10 +125,8 @@ if __name__ == "__main__":
         piece_counts_tree = th.list_to_tree([[]])
     else:
         # --- explode, in plane space ---
-        # The crossing test is 2D. Working in plane coordinates puts it on the
-        # plane the caller chose, and the out-of-plane offset rides along as z:
-        # the native side interpolates z down each segment, so a cut point keeps
-        # the height it would have had.
+        # The crossing test is 2D, in plane coordinates; the height above the
+        # plane rides along as z.
         segs, owners, spans = [], [], []
         for owner, (src_index, pl) in enumerate(polylines):
             local = []
@@ -161,21 +147,14 @@ if __name__ == "__main__":
                                                 test_self=test_self)
 
         # --- rejoin, back in world space ---
-        # A run of pieces that touch end-to-start is one surviving polyline. But
-        # contiguity alone is not enough to decide that: at D = 0 the two sides
-        # of a cut touch as well, and welding them back would make the whole
-        # component look like a no-op. Where the piece came from settles it --
-        # see below.
+        # A run of pieces that touch end-to-start is one surviving polyline.
         nested_pieces, nested_counts = [], []
         for src_index, start, stop in spans:
             runs, cur = [], []
             for s_i in range(start, stop):
                 for k, (s, e) in enumerate(shattered[s_i]):
-                    # Only the FIRST piece of a segment can continue the run
-                    # before it. Later pieces of the same segment follow a cut
-                    # by construction, and at D = 0 a cut is contiguous -- so
-                    # testing contiguity alone would silently weld them back
-                    # together and the component would appear to do nothing.
+                    # Only the first piece of a segment can continue the run:
+                    # later pieces follow a cut, and at D = 0 a cut still touches.
                     joins = (k == 0 and cur and
                              all(abs(cur[-1][1][d] - s[d]) <= JOIN_TOL for d in (0, 1, 2)))
                     if joins:
@@ -196,8 +175,6 @@ if __name__ == "__main__":
             nested_pieces.append(out_curves)
             nested_counts.append(len(out_curves))
 
-        # Path {branch; input index}: a polyline cut in two stays addressable by
-        # the index it went in with, and one the gaps swallowed whole keeps its
-        # path and holds nothing rather than shifting every index after it.
+        # Path {branch; input index}; a polyline swallowed whole keeps an empty path.
         segments_tree = th.list_to_tree([nested_pieces])
         piece_counts_tree = th.list_to_tree([nested_counts])

@@ -11,8 +11,34 @@ _LIB_NAMES = {
 }
 
 
+# Must equal geomseq_abi_version() in native/abi_version.cpp, which says when to bump it.
+ABI_VERSION = 1
+
+
+def _check_abi_version(lib, dll_path):
+    """Raise if the binary's ABI version is not the one this module declares."""
+    try:
+        get_version = lib.geomseq_abi_version
+    except AttributeError:
+        raise RuntimeError(
+            "%s has no geomseq_abi_version, so it is older than this Python "
+            "wrapper (which expects ABI version %d). Rebuild it from "
+            "src/geomseq_core/native/ -- see Build in README.md."
+            % (dll_path, ABI_VERSION))
+    get_version.argtypes = []
+    get_version.restype = ctypes.c_int
+    found = get_version()
+    if found != ABI_VERSION:
+        raise RuntimeError(
+            "%s is ABI version %d, but this Python wrapper expects %d. The "
+            "binary and the wrapper are from different revisions; rebuild the "
+            "binary from src/geomseq_core/native/ -- see Build in README.md."
+            % (dll_path, found, ABI_VERSION))
+
+
 def load_dll():
-    """Load the native library (once) and declare the sort_curves/sort_points signatures."""
+    """Load the native library (once) and declare every export's signature.
+    Always declare argtypes: it is what rejects a call with the wrong argument count."""
     global _DLL
     if _DLL is not None:
         return _DLL
@@ -21,6 +47,7 @@ def load_dll():
     lib_name = _LIB_NAMES[platform.system()]
     dll_path = os.path.join(here, "native", lib_name)
     lib = ctypes.CDLL(dll_path)
+    _check_abi_version(lib, dll_path)
 
     # void sort_curves(const double*, int, const double*, int, int, int, int, int*, int*, double*)
     lib.sort_curves.argtypes = [
@@ -50,10 +77,6 @@ def load_dll():
     lib.sort_points.restype = None
 
     # void redistribute_arc_lengths(double, double, double, int, double, const double*, int, double*, int*)
-    # Takes total_length + resolved corner arc lengths, NOT the original arc length
-    # array: the native side never read more than those, so passing the whole
-    # array was pure marshaling cost. Corner *indices* -> arc lengths is done
-    # in geometry_utils, which keeps the Python-facing signature unchanged.
     lib.redistribute_arc_lengths.argtypes = [
         ctypes.c_double,                  # total_length
         ctypes.c_double,                  # low
@@ -85,11 +108,6 @@ def load_dll():
 
     # void shatter_at_crossings(const double*, int, double, double, const int*,
     #                           int, double*, int, int*, int*)
-    # Declared, unlike the shelved features before it, because argtypes is what
-    # catches a call with the wrong NUMBER of arguments -- ctypes raises
-    # ArgumentError instead of letting the native side read the next pointer as
-    # a buffer and write past it. That is not hypothetical: a retry path here
-    # once passed 7 of these and took Rhino down with it.
     lib.shatter_at_crossings.argtypes = [
         ctypes.POINTER(ctypes.c_double),  # segments (6*n)
         ctypes.c_int,                     # n

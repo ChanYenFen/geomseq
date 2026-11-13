@@ -50,6 +50,13 @@ changing what a rule protects.
   components, and do not ship it before the candidate-count question is
   measured. *(Clustered sequencing for layered and zoned fabrication)*
 
+## Native interface
+
+- **Bump the ABI version when an exported signature changes**, or an export is
+  added or removed — in `abi_version.cpp`, `native_bridge.py` and
+  `NativeLibraryLoader.cs` together, then rebuild the DLL.
+  *(Why the binary carries an ABI version)*
+
 ## Grasshopper plug-in (`src/gha/`)
 
 - **GUIDs are permanent; new ports are appended, never inserted.** Saved `.gh`

@@ -1,9 +1,5 @@
 // build_turn_waypoints.cpp
-// Smooth polygonal turn generation between two path segments.
-//
-// Only build_turn_waypoints is exported (extern "C"). unit_vec,
-// angle_between, polygonal_turn, and fillet_corner are internal
-// helpers, not meant to be called across the ctypes boundary.
+// Smooth polygonal turn between two path segments. 2D only.
 
 #include <cmath>
 #include <vector>
@@ -96,15 +92,11 @@ static void polygonal_turn(
     *out_count = count;
 }
 
-// Rounds the corner at `vertex` by walking away from it, starting along
-// fixed_x/y (the heading arriving at the vertex, in walk direction) and
-// rotating at most theta_max_deg per step until it reaches rotate_x/y (the
-// heading departing it) -- so no vertex in the emitted chain turns by more
-// than theta_max_deg. Note both are travel headings, not outward rays from
-// the vertex: at a hairpin the two rays nearly coincide while the headings
-// are nearly opposed, and it's the heading change that must be smoothed.
-// The vertex itself is not emitted; the caller places it. Both direction
-// inputs must be unit length. out_pts needs ceil(180/theta_max_deg) points.
+// Rounds the corner at `vertex`: walks away from it, starting along fixed_x/y
+// (the heading arriving at the vertex) and rotating at most theta_max_deg per
+// step until it reaches rotate_x/y (the heading leaving it). Both are travel
+// headings of unit length, not outward rays from the vertex. The vertex itself
+// is not emitted. out_pts needs ceil(180/theta_max_deg) points.
 static void fillet_corner(
     double vertex_x, double vertex_y,
     double fixed_x, double fixed_y,
@@ -165,8 +157,7 @@ extern "C" {
 // and the start of the next path (S, heading b_vec).
 //
 // E and S are each extended by extend_len into the gap between them, and the
-// corner at each extend point is filleted independently -- the real path
-// segments themselves never rotate.
+// corner at each extend point is filleted independently.
 //
 // Inputs (read-only):
 //   Ex, Ey       : end of current path
@@ -199,9 +190,7 @@ DLL_EXPORT void build_turn_waypoints(
     double b_hx, b_hy;
     unit_vec(b_vx, b_vy, b_hx, b_hy);
 
-    // 2. Extend points, both pushed into the turn zone: E forward along its
-    //    own heading, S backward along its own. This keeps E_prev/E/E_extend
-    //    and S_extend/S/S_next collinear, so neither real path segment moves.
+    // 2. Extend points: E forward along its heading, S backward along its own.
     double e_ext_x = Ex + a_hx * extend_len;
     double e_ext_y = Ey + a_hy * extend_len;
     double s_ext_x = Sx - b_hx * extend_len;
@@ -211,9 +200,7 @@ DLL_EXPORT void build_turn_waypoints(
     double chord_hx, chord_hy;
     unit_vec(s_ext_x - e_ext_x, s_ext_y - e_ext_y, chord_hx, chord_hy);
 
-    // 4. Exit: E_extend, then round its corner -- arriving heading a_h,
-    //    departing heading the chord. Walked along travel direction, so it
-    //    appends directly in order.
+    // 4. Exit: E_extend, then its corner, from heading a_h to the chord.
     out_exit_pts[0] = e_ext_x;
     out_exit_pts[1] = e_ext_y;
 
@@ -223,10 +210,8 @@ DLL_EXPORT void build_turn_waypoints(
                   out_exit_pts + 2, &exit_fillet_count);
     *out_exit_count = 1 + exit_fillet_count;
 
-    // 5. Entry: same treatment at S_extend, but walked backwards -- arriving
-    //    heading is -b_h (S->S_extend reversed), departing is -chord_h (back
-    //    up the chord). So the fillet comes out back-to-front and is flipped,
-    //    with S_extend last.
+    // 5. Entry: the same at S_extend, walked backwards (from -b_h to -chord),
+    //    so the fillet is reversed afterwards and S_extend goes last.
     int k_max = (int)ceil(180.0 / ((theta_max_deg > 1e-6) ? theta_max_deg : 1.0));
     std::vector<double> entry_raw(k_max * 2);
     int entry_fillet_count;

@@ -13,12 +13,8 @@
     #define DLL_EXPORT __attribute__((visibility("default")))
 #endif
 
-// Floor for every tolerance below, and the tolerance used where none is given.
-// Note this is a DISTANCE: the side tests divide their cross product by the
-// segment length before comparing, so the threshold means the same thing at any
-// coordinate magnitude. A raw cross product would not -- it scales with
-// coordinate size times segment length, so an absolute epsilon on it silently
-// tightens as a drawing grows.
+// Floor for every tolerance below, and the default where none is given.
+// A distance in model units, not a raw cross-product threshold.
 static const double EPS = 1e-9;
 
 struct Point {
@@ -53,11 +49,8 @@ static double project_t(Point p, Point q, Point r) {
     return ((r.x - p.x) * dx + (r.y - p.y) * dy) / (dx * dx + dy * dy);
 }
 
-// General contact predicate: true for a transversal crossing, a collinear
-// overlap, or a bare endpoint touch. Nothing calls it -- shatter_at_crossings
-// needs the position of the contact, which segment_contact_param reports -- but
-// it is the only thing here that answers for collinear overlap, which is where
-// this would be picked up again.
+// True for a crossing, a collinear overlap, or an endpoint touch. Unused:
+// kept as the only predicate here that answers for collinear overlap.
 static bool segment_intersect(Point A, Point B, Point C, Point D) {
     double d1 = cross(A, B, C);
     double d2 = cross(A, B, D);
@@ -75,18 +68,11 @@ static bool segment_intersect(Point A, Point B, Point C, Point D) {
     return false;
 }
 
-// Where AB meets CD, as a parameter along A->B. Covers both a transversal
-// crossing and a touch -- an endpoint of one landing on the other, which is
-// what a T-junction is, and what a toolpath is full of.
+// Where AB meets CD, as a parameter along A->B. Covers a crossing and a touch
+// (an endpoint of one resting on the other, i.e. a T-junction).
 //
-// The side tests are PERPENDICULAR DISTANCES, not raw cross products: each is
-// divided by the length of the segment it is measured against, so touch_tol is
-// a distance in model units and can be set from the document tolerance. A
-// junction drawn 1e-6 out -- which is most of them -- reads as a touch rather
-// than as a crossing a hair further along.
-//
-// Collinear overlap is still refused: it has no single point to centre a gap
-// on. segment_intersect above is the one that answers for it.
+// The side tests are perpendicular distances -- cross product over segment
+// length -- so touch_tol is in model units. Collinear overlap returns false.
 static bool segment_contact_param(Point A, Point B, Point C, Point D,
                                   double touch_tol, double& out_t) {
     double ab_len = pt_dist(A, B);
@@ -102,9 +88,7 @@ static bool segment_contact_param(Point A, Point B, Point C, Point D,
     if (g1 == 0 && g2 == 0) return false;
     if (g3 == 0 && g4 == 0) return false;
 
-    // Transversal crossing -- the parameter comes from the same cross products,
-    // since d3 and d4 are proportional to how far A and B sit from line CD and
-    // t is where that distance reaches zero.
+    // Transversal crossing: t is where the distance from line CD reaches zero.
     if (g1 * g2 < 0 && g3 * g4 < 0) {
         double d3 = cross(C, D, A);
         double d4 = cross(C, D, B);
@@ -128,11 +112,9 @@ static bool segment_contact_param(Point A, Point B, Point C, Point D,
     return false;
 }
 
-// True when the two segments meet end to end. Used to tell a polyline's own
-// joints apart from a place where it genuinely crosses itself -- without this,
-// admitting touches would cut every polyline at every vertex. Comparing the
-// endpoints rather than the indices also covers a closed polyline, whose first
-// and last segments are joined but not adjacent in the buffer.
+// True when the two segments meet end to end: a polyline's own joint, not a
+// place where it crosses itself. Compares endpoints, not indices, so a closed
+// polyline's first and last segments count too.
 static bool share_endpoint(const double* si, const double* sj, double tol) {
     double t = (tol > EPS) ? tol : EPS;
     const int ends[2] = { 0, 3 };
@@ -149,35 +131,18 @@ static bool share_endpoint(const double* si, const double* sj, double tol) {
 // Broad phase
 // ---------------------------------------------------------------------------
 
-// Every contact between two segments, as t along the one that yields -- the
-// higher index, see shatter_at_crossings. ts[i] holds segment i's, in no
-// particular order; the caller sorts them anyway.
+// Every contact between two segments, as t along the one that yields (the
+// higher index). ts[i] holds segment i's contacts, unsorted.
 //
 // Sweep and prune: segments are visited in order of their bounding box along
-// one axis, and only pairs whose boxes overlap on both axes reach
-// segment_contact_param. This skips only pairs that provably cannot touch,
-// never one that might. Every contact segment_contact_param reports puts a
-// point of one segment inside the other's box widened by max(touch_tol, EPS) --
-// the same widening on_segment applies -- so boxes widened by more than that
-// overlap for every pair it could accept. The extra in `pad` covers rounding at
-// any coordinate magnitude; widening too far costs a few wasted predicate calls,
-// too little would silently drop contacts.
+// one axis, and only pairs whose boxes overlap on both axes are tested. Boxes
+// are widened by `pad`, which exceeds the tolerance segment_contact_param
+// accepts, so no pair that could touch is skipped and the output is identical
+// to testing every pair. Do not shrink `pad`: too little silently drops contacts.
 //
-// What it does NOT change is the predicate, its arguments, or which pairs are
-// asked: the higher index is always passed as AB, so each contact gets exactly
-// the t the pair loop computed, and the caller sorts them anyway. The output is
-// therefore identical to the exhaustive loop, bit for bit -- only the order in
-// which contacts are found differs.
-//
-// The axis is the one whose boxes overlap least: sum of box extents over the
-// overall extent, which is how many boxes one sweep position cuts through on
-// average. Hatching is the case that needs it -- parallel lines spanning the
-// width all overlap in x and none in y.
-//
-// Contacts go straight into a bucket per segment rather than one list sorted
-// afterwards. Where the contact count itself is quadratic -- a cross-hatch,
-// where every line meets every line of the other direction -- sorting or even
-// regrouping all of them cost more than the whole pair loop it replaced.
+// The sweep axis is the one whose boxes overlap least (hatching overlaps
+// entirely in one axis and not at all in the other).
+// See docs/design-notes.md, "Why shatter's broad phase is sweep and prune".
 static void collect_contacts(const double* segments, int n, double touch_tol,
                              const int* segment_owner, int test_self,
                              std::vector<std::vector<double> >& ts)
@@ -202,7 +167,7 @@ static void collect_contacts(const double* segments, int n, double touch_tol,
         Point A = { s[0], s[1] };
         Point B = { s[3], s[4] };
 
-        // Too short for segment_contact_param to accept on either side of a pair.
+        // Too short for segment_contact_param to accept.
         if (pt_dist(A, B) < EPS) continue;
 
         Box b;
@@ -242,8 +207,7 @@ static void collect_contacts(const double* segments, int n, double touch_tol,
         for (size_t m = 0; m < active.size(); m++) {
             const Box& bj = boxes[active[m]];
 
-            // Ended before this one starts. Every later box starts later still,
-            // so it is dropped for good.
+            // Ended before this one starts, so before every later one too: drop it.
             if (bj.hi[ax] + pad < bi.lo[ax]) continue;
             active[kept++] = active[m];
 
@@ -283,54 +247,34 @@ extern "C" {
 // Cuts segments where they meet, removing a gap of gap_d centred on each
 // contact so the two paths no longer touch there.
 //
-// Which segment yields is decided by input order: for a meeting pair the lower
-// index is left intact and the higher one is cut, so segment i is only ever cut
-// by the segments before it. Sort the input first if some other priority is
-// wanted -- this function does not reorder anything. That rule covers a
-// T-junction too: the branch ends at the contact, so cutting it retracts its
-// tip by gap_d/2, which is the same clearance a crossing leaves.
-//
-// Contacts come from collect_contacts, which tests only pairs whose bounding
-// boxes overlap and gives the same result as testing every pair.
+// Input order decides which segment yields: of a meeting pair the lower index
+// is left intact and the higher one is cut. Sort the input first if another
+// priority is wanted.
 //
 // Inputs (read-only):
 //   segments      : flat array, 6 doubles per segment -> x0,y0,z0, x1,y1,z1
 //   n             : number of segments
-//   gap_d         : the full gap -- how far apart the two cut ends end up.
-//                   Each contact removes gap_d/2 to either side of itself.
-//   touch_tol     : how close, in model units, counts as touching rather than
-//                   missing. 0 means exact only. Set it from the document
-//                   tolerance: a T-junction is rarely drawn to the last bit,
-//                   and below this it would otherwise read as a near miss.
-//   segment_owner : n ints naming which source curve each segment came from.
-//                   Exploding a polyline gives many segments with one owner.
-//                   May be nullptr, which means every segment owns itself --
-//                   but then a polyline's own joints cannot be recognised, so
-//                   pass real owners for anything exploded.
-//   test_self     : 0 skips pairs that share an owner, so a polyline is not cut
-//                   where it crosses itself; 1 tests them. Either way, two
-//                   segments of one curve that meet end to end are skipped:
-//                   that is a joint, not a crossing.
+//   gap_d         : the full gap; each contact removes gap_d/2 to either side
+//   touch_tol     : how close, in model units, counts as touching. 0 means
+//                   exact only; set it from the document tolerance.
+//   segment_owner : n ints naming the source curve of each segment (an
+//                   exploded polyline gives many segments with one owner).
+//                   May be nullptr: every segment then owns itself, and a
+//                   polyline's own joints cannot be recognised.
+//   test_self     : 0 skips pairs that share an owner; 1 tests them, except
+//                   where they meet end to end (a joint, not a crossing).
 //
-// Only x and y take part in the geometry -- crossing is a 2D question, same as
-// build_turn_waypoints. z is carried through by interpolating it along the
-// segment, so a flat path keeps its height and a sloped one stays on its line.
+// Only x and y take part in the geometry. z is interpolated along the segment.
 //
 // Outputs (caller pre-allocates, we fill):
 //   out_segments     : surviving pieces, 6 doubles each, grouped in input order
 //                      and ordered along the direction of their own segment
 //   out_capacity     : how many pieces out_segments has room for
-//   out_piece_counts : n ints, how many pieces each input segment produced. A
-//                      segment swallowed whole by the gaps reports 0 rather
-//                      than vanishing, so the index mapping of the caller
-//                      survives.
-//   out_total        : total pieces REQUIRED. Coming back greater than
-//                      out_capacity means the buffer was too small: nothing
-//                      past the capacity was written, and the call should be
-//                      repeated with out_total as the new capacity. The worst
-//                      case here is quadratic (every pair crossing), which is
-//                      why the caller is told the requirement instead of being
-//                      asked to allocate for a bound almost no input reaches.
+//   out_piece_counts : n ints, pieces produced per input segment; 0 means the
+//                      gaps swallowed it whole
+//   out_total        : total pieces REQUIRED. If greater than out_capacity,
+//                      nothing past the capacity was written: call again with
+//                      out_total as the new capacity.
 DLL_EXPORT void shatter_at_crossings(
     const double* segments,
     int           n,
@@ -364,10 +308,8 @@ DLL_EXPORT void shatter_at_crossings(
         int  pieces   = 0;
         bool zero_len = (len < EPS);
 
-        // Emits the sub-segment spanning [t0, t1] of this input segment.
-        // Always counts, but only writes while the buffer of the caller has
-        // room -- that is what lets out_total report the true requirement
-        // after an undersized call.
+        // Emits the sub-segment spanning [t0, t1]. Always counts, but only
+        // writes while the buffer has room, so out_total stays the true requirement.
         auto emit = [&](double t0, double t1) {
             if (!zero_len && (t1 - t0) * len < EPS) return;  // numerical crumb, not a piece
             pieces++;
@@ -383,9 +325,7 @@ DLL_EXPORT void shatter_at_crossings(
         };
 
         if (zero_len) {
-            // Nothing to cut, and no direction to measure gap_d along. Passed
-            // through unchanged rather than dropped, so it still occupies its
-            // slot in the index mapping of the caller.
+            // Nothing to cut: passed through unchanged, so it keeps its slot.
             emit(0.0, 1.0);
             out_piece_counts[i] = pieces;
             continue;
@@ -399,10 +339,7 @@ DLL_EXPORT void shatter_at_crossings(
         }
 
         // What survives is the complement of the merged removal intervals
-        // within [0, 1]. Cutting at every contact, and dropping a piece a gap
-        // swallows whole, both fall out of this rather than needing a branch of
-        // their own: intervals covering [0, 1] simply leave nothing behind, and
-        // overlapping gaps merge instead of cutting each other into crumbs.
+        // within [0, 1]; overlapping gaps merge.
         std::sort(removed.begin(), removed.end());
 
         double cursor = 0.0;

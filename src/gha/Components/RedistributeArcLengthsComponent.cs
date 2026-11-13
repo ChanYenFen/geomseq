@@ -27,11 +27,8 @@ public sealed class RedistributeArcLengthsComponent : GH_Component
 
     // Contract: Grasshopper saves wires by port index. New ports go at the end, never in between.
     //
-    // Arc Lengths and Corners are trees rather than lists, and that is not a style choice.
-    // Under list access Grasshopper solves once per branch and appends the iteration
-    // index to every output path, so a {0;0} {0;1} input came back as {0;0;0} {0;1;0}
-    // -- one level deeper than it went in, which breaks pairing with the curves the
-    // arc lengths came from. Taking trees keeps the paths the caller sent.
+    // Arc Lengths and Corners are trees, not lists: list access would append an
+    // iteration index to every output path and break pairing with the curves.
     protected override void RegisterInputParams(GH_InputParamManager p)
     {
         p.AddNumberParameter("Arc Lengths", "S",
@@ -51,12 +48,7 @@ public sealed class RedistributeArcLengthsComponent : GH_Component
             GH_ParamAccess.tree);
 
         // Optional so empty input reaches SolveInstance and gets a Remark rather than
-        // Grasshopper's own missing-input warning. Low and High have no sensible default
-        // to fall back on, but leaving them required made this the one component that sat
-        // orange on a fresh canvas: Grasshopper warns before SolveInstance ever runs, so
-        // the quiet "nothing connected yet" Remark below never got the chance. Unconnected
-        // now reaches that Remark; Low missing while Arc Lengths are present still stops the
-        // solve, because zero would leave the native marching loop standing still.
+        // Grasshopper's own missing-input warning. A missing Low still stops the solve below.
         p[0].Optional = true;
         p[1].Optional = true;
         p[2].Optional = true;
@@ -92,8 +84,7 @@ public sealed class RedistributeArcLengthsComponent : GH_Component
         da.GetData(3, ref mode);
         da.GetData(4, ref flatPct);
 
-        // Stops the solve rather than reporting and continuing: at low <= 0 the native
-        // marching loop never advances, so Rhino would hang with nothing on screen.
+        // At low <= 0 the native loop never advances and Rhino would hang.
         if (low <= 0.0)
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Low must be greater than 0.");
@@ -117,8 +108,7 @@ public sealed class RedistributeArcLengthsComponent : GH_Component
             GH_Path path = arcLengthTree.Paths[b];
             IList<GH_Number> branch = arcLengthTree.Branches[b];
 
-            // An empty branch keeps its path and comes back empty. Dropping it would
-            // shift every later branch, which is the same pairing bug in another form.
+            // An empty branch keeps its path and comes back empty.
             var arcLengths = new List<double>(branch.Count);
             foreach (GH_Number? item in branch)
             {
@@ -137,9 +127,7 @@ public sealed class RedistributeArcLengthsComponent : GH_Component
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Remark,
                     $"High ({high:G6}) is longer than branch {path} ({totalLength:G6}), so it comes back as just its two ends.");
 
-            // Out-of-range indices would read past the arc length list, so they are dropped
-            // and named rather than failing the whole solve -- the same trade the sort
-            // components make for null geometry.
+            // Out-of-range corner indices are dropped and reported.
             var kept = new List<int>();
             var skipped = new List<int>();
             if (cornerBranches > 0)
@@ -158,10 +146,7 @@ public sealed class RedistributeArcLengthsComponent : GH_Component
                 AddRuntimeMessage(GH_RuntimeMessageLevel.Warning,
                     Messages.Skipped(skipped, $"out-of-range corner index in branch {path}"));
 
-            // The ABI wants corner arc lengths ascending, and nothing upstream guarantees
-            // the indices arrive that way -- Grasshopper hands over whatever order the wire
-            // carries. (geometry_utils.redistribute_arc_lengths_native does not sort either; it
-            // has simply never been fed an unsorted list.)
+            // The native side wants corner arc lengths ascending.
             kept.Sort();
 
             double[] result;

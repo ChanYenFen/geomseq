@@ -1,6 +1,6 @@
 // sort_points.cpp
-// Single-point sibling of sort_curves.cpp -- same greedy k-NN + 2-opt, but
-// over plain points (no direction/reversal); kd-tree plumbing is duplicated rather than shared.
+// Orders points to shorten travel between them: greedy nearest-neighbour
+// (kd-tree), then 2-opt. The sibling of sort_curves.cpp, without direction.
 
 #include "nanoflann.hpp"
 #include "nearest_unused.hpp"
@@ -9,15 +9,11 @@
 #include <algorithm>
 #include <cstdint>
 
-// ---------------------------------------------------------------------------
-// Data source that nanoflann queries to build the kd-tree: n plain 3D points.
-// Contrast with sort_curves's EndpointCloud, which holds 2*n endpoints and
-// decodes a curve index via pt/2. Here the kd-tree point index IS the point
-// index -- no decoding needed.
-// ---------------------------------------------------------------------------
+// nanoflann's view of the points buffer (borrowed, not copied): n points,
+// 3 doubles each. A kd-tree index is the point index.
 struct PointCloud {
-    const double* pts;  // borrowed pointer to the flat points buffer (n*3)
-    int           num;  // number of points = n
+    const double* pts;
+    int           num;  // n
 
     inline size_t kdtree_get_point_count() const {
         return num;
@@ -39,7 +35,7 @@ typedef nanoflann::KDTreeSingleIndexAdaptor<
     3
 > KDTree;
 
-// Euclidean distance between two points, given their point indices.
+// Euclidean distance between two points, by point index.
 static double dist_pts(const double* pts, int a, int b) {
     double dx = pts[a * 3 + 0] - pts[b * 3 + 0];
     double dy = pts[a * 3 + 1] - pts[b * 3 + 1];
@@ -55,15 +51,13 @@ static double dist_pts(const double* pts, int a, int b) {
 
 extern "C" {
 
-// The single entry point GH/ctypes will call.
-//
 // Inputs (read-only):
 //   points    : flat array, 3 doubles per point -> x,y,z
 //   n         : number of points
-//   start_pt  : 3 doubles -> reference point to pick the first point
+//   start_pt  : 3 doubles -> where the path starts; picks the first point
 //   use_two_opt        : 0/1 flag
 //   two_opt_max_passes : cap on 2-opt passes
-//   knn_k     : how many nearest neighbors to query per greedy step
+//   knn_k     : unused; kept so the signature does not change
 //
 // Outputs (caller pre-allocates, we fill):
 //   out_order : n ints -> original point indices in sorted order
@@ -88,22 +82,18 @@ DLL_EXPORT void sort_points(
     KDTree tree(3, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(10));
     tree.buildIndex();
 
-    // Every point starts allowed; each one placed in the chain is removed, so
-    // a query only ever returns a point not yet placed. See nearest_unused.hpp
-    // for why this returns the same point the k-NN window used to.
+    // Every point starts allowed and is removed once placed.
     NearestUnused<KDTree> unused(tree, std::vector<char>(n, 1));
 
-    // The current position of the path: start_pt, then each placed point.
+    // The current end of the path: start_pt, then each placed point.
     double cur[3] = { start_pt[0], start_pt[1], start_pt[2] };
 
     // --- Greedy: fill positions 0 .. n-1 ---
-    // knn_k no longer has anything to size; it stays in the signature so the
-    // ABI does not change.
     (void)knn_k;
     for (int placed = 0; placed < n; ++placed) {
         int best_point = unused.nearest(cur);
         if (best_point == -1) {
-            break;  // safety break: nothing unused left (shouldn't happen)
+            break;  // nothing unused left (shouldn't happen)
         }
 
         out_order[placed] = best_point;
@@ -114,38 +104,24 @@ DLL_EXPORT void sort_points(
         cur[2] = points[best_point * 3 + 2];
     }
 
-    // --- 2-opt post-processing (point-only: no reversal flags to maintain) ---
-    // Neighbour-pruned rather than every pair, the same rule sort_curves.cpp
-    // uses and for the same reason. A move drops the edges after positions i and
-    // j and reconnects them:
+    // --- 2-opt ---
+    // A move drops the edges after positions i and j and reconnects them:
     //
     //     remove: order[i] -> order[i+1]   (length gap_i)
     //             order[j] -> order[j+1]   (length gap_j)
     //     add:    order[i] -> order[j]
     //             order[i+1] -> order[j+1]
     //
-    // It can only pay if at least one new edge is shorter than the old edge it
-    // is measured against -- if both were longer, so would be their sum. So
-    // every improving move satisfies
+    // The search is pruned, and provably loses nothing: a move can only shorten
+    // the tour if at least one new edge is shorter than the old edge it replaces,
     //
     //     d(order[i], order[j]) < gap_i   OR   d(order[i+1], order[j+1]) < gap_j
     //
-    // and each half is a ball query the kd-tree built for the greedy phase can
-    // answer. Both scans are needed: the two radii belong to opposite ends of
-    // the move, so neither alone is complete.
-    //
-    // Simpler here than in sort_curves: a kd-tree index *is* a point index, with
-    // no curve to decode and no entry/exit to pick, and the reversal is a plain
-    // std::reverse because points have no direction. Only `pos` has to be kept
-    // in step, so a candidate point can be turned back into a tour position.
-    //
-    // Nothing improving is discarded, so this still finishes at a true 2-opt
-    // local optimum -- but not the *same* one the exhaustive loop found. Both
-    // take the first improving move they meet and the kd-tree meets them in a
-    // different order, so recorded travel figures do not reproduce to the digit
-    // across this change. See docs/design-notes.md.
+    // so each half is a radius query on the kd-tree. Both scans are needed;
+    // neither alone is complete. See docs/design-notes.md, "Why the 2-opt
+    // search is pruned".
     if (use_two_opt && n > 3) {
-        // Where each point currently sits in the tour.
+        // Tour position of each point, kept in step with every reversal below.
         std::vector<int> pos(n);
         for (int k = 0; k < n; ++k) {
             pos[out_order[k]] = k;
@@ -154,8 +130,7 @@ DLL_EXPORT void sort_points(
         std::vector<nanoflann::ResultItem<uint32_t, double>> hits;
         nanoflann::SearchParameters search_params;  // sorted: nearest candidates first
 
-        // Applies the (i, j) move if it shortens the tour. Same arithmetic and
-        // same 1e-6 margin as the exhaustive version it replaces.
+        // Applies the (i, j) move if it shortens the tour by more than 1e-6.
         auto try_move = [&](int i, int j) -> bool {
             double cost_before = dist_pts(points, out_order[i], out_order[i + 1]);
             double cost_after  = dist_pts(points, out_order[i], out_order[j]);
@@ -194,19 +169,19 @@ DLL_EXPORT void sort_points(
 
                 for (size_t h = 0; h < hits.size(); ++h) {
                     int j = pos[(int)hits[h].first];
-                    // Needs to sit far enough along to leave a segment to
-                    // reverse; this also drops order[k] and order[k+1] themselves.
+                    // j must leave a segment to reverse.
                     if (j < k + 2) {
                         continue;
                     }
                     if (try_move(k, j)) {
                         improved = true;
-                        break;  // tour changed under us; carry on at the next k
+                        break;  // tour changed; carry on at the next k
                     }
                 }
 
                 // Scan B: k is the move's j, so look for an i+1 whose point lies
                 // within gap of order[k+1]. Needs k >= 2 to leave room for i >= 0.
+                // The gap is recomputed because scan A may have just changed it.
                 if (k >= 2) {
                     gap = dist_pts(points, out_order[k], out_order[k + 1]);
 

@@ -70,11 +70,8 @@ internal static unsafe class NativeMethods
         double* outExitPts,  int* outExitCount,    // 2 doubles per waypoint, leaving E
         double* outEntryPts, int* outEntryCount);  // 2 doubles per waypoint, arriving at S
 
-    // Like redistribute_arc_lengths, the output length is not known from the input -- but here
-    // the true bound is quadratic (every pair meeting), far too large to allocate for. So
-    // outTotal reports what was REQUIRED, not what was written: when it comes back above
-    // outCapacity nothing past the capacity was written and the call is repeated with the
-    // bigger buffer. See GeomSeqCore.ShatterAtCrossings.
+    // outTotal reports the pieces REQUIRED, not written: when it is above outCapacity,
+    // nothing past the capacity was written and the caller repeats with a bigger buffer.
     [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "shatter_at_crossings",
                CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
     internal static extern void ShatterAtCrossings(

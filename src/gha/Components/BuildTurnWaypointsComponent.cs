@@ -14,15 +14,8 @@ namespace GeomSeq.Components;
 /// gap and its corner filleted, so no waypoint turns by more than the given angle.
 /// </summary>
 /// <remarks>
-/// The native turn is planar and cannot be otherwise: it picks which way to turn from
-/// the sign of a 2D cross product, and in three dimensions "which way" has no meaning
-/// without a reference normal. Adding z to the ABI would not make it 3D -- what it
-/// needs is a plane to turn in.
-///
-/// So the plane is the component's, not the core's. Everything is converted into plane
-/// coordinates, the 2D core runs unchanged, and the waypoints are mapped back out. With
-/// no plane supplied that plane is world XY, which is exactly what this did before the
-/// input existed, so saved definitions keep their results.
+/// The native turn is 2D. Points are converted into the Plane input's coordinates
+/// (world XY by default), the core runs there, and the waypoints are mapped back out.
 /// </remarks>
 public sealed class BuildTurnWaypointsComponent : GH_Component
 {
@@ -97,8 +90,7 @@ public sealed class BuildTurnWaypointsComponent : GH_Component
             return;
         }
 
-        // Stops the solve rather than reporting and continuing: the fillet advances by
-        // this, so at zero the native side makes no progress.
+        // At zero the native loop makes no progress.
         if (stepLen <= 0.0)
         {
             AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Step must be greater than 0.");
@@ -128,9 +120,7 @@ public sealed class BuildTurnWaypointsComponent : GH_Component
                 continue;
             }
 
-            // Only these four points reach the core, so only their out-of-plane offsets
-            // are discarded -- counting every point in the branch would inflate the
-            // number with points the turn never looks at.
+            // Only these four points reach the core, so only they are counted as off-plane.
             Point2d e = ToPlane(stroke[stroke.Count - 1], plane, ref offPlane);
             Point2d ePrev = ToPlane(stroke[stroke.Count - 2], plane, ref offPlane);
             Point2d s = ToPlane(next[0], plane, ref offPlane);
@@ -139,10 +129,8 @@ public sealed class BuildTurnWaypointsComponent : GH_Component
             double avx = e.X - ePrev.X, avy = e.Y - ePrev.Y;
             double bvx = sNext.X - s.X, bvy = sNext.Y - s.Y;
 
-            // Both fillets need room to open up before the junction between them is
-            // smooth; the native side caps the angle within each fillet but cannot see
-            // the other one. Reported rather than refused -- the result is still usable,
-            // just sharper at the join than the angle suggests.
+            // The angle limit holds within each fillet, not where the two meet: report
+            // turns with too little room.
             if (IsJunctionRough(e, s, avx, avy, bvx, bvy, stepLen, extendLen))
                 roughJunctions++;
 
@@ -158,10 +146,8 @@ public sealed class BuildTurnWaypointsComponent : GH_Component
                 return;
             }
 
-            // Pathed by the stroke the turn leaves, not by a running count of turns.
-            // The GHPython original numbers turns consecutively, so one skipped stroke
-            // shifts every later branch -- the same pairing failure that made
-            // Redistribute Arc Lengths take trees. A skipped turn leaves a gap instead.
+            // Pathed by the stroke the turn leaves, so a skipped turn leaves a gap
+            // instead of shifting later branches.
             var path = new GH_Path(i);
             output.EnsurePath(path);
             AppendPairs(output, path, turn.Exit, plane);
@@ -196,9 +182,8 @@ public sealed class BuildTurnWaypointsComponent : GH_Component
     }
 
     /// <summary>
-    /// World point to plane coordinates, by projection onto the plane's axes. Done with
-    /// dot products rather than a helper so the discarded component -- the distance off
-    /// the plane -- is visible and countable rather than an API's business.
+    /// World point to plane coordinates. Counts the point in <paramref name="offPlane"/>
+    /// when it sits off the plane.
     /// </summary>
     private static Point2d ToPlane(Point3d pt, Plane plane, ref int offPlane)
     {
@@ -208,10 +193,7 @@ public sealed class BuildTurnWaypointsComponent : GH_Component
         return new Point2d(d * plane.XAxis, d * plane.YAxis);
     }
 
-    // A reporting threshold, not a geometric one. RhinoMath.ZeroTolerance is 1e-12,
-    // tight enough that ordinary float noise in user geometry would trip it and make
-    // the count meaningless; the document tolerance would be better calibrated but
-    // would tie this component to whichever file happens to be open.
+    // Distance off the plane above which a point is reported as flattened.
     private const double OffPlaneTolerance = 1e-9;
 
     /// <summary>

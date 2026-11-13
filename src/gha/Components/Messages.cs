@@ -17,12 +17,8 @@ internal static class Messages
     }
 
     /// <summary>
-    /// Both components prune their 2-opt now, so neither has a cost story worth
-    /// a paragraph: they are quick at every size measured and simply unmeasured
-    /// above it. This says that and stops. It is posted as a Remark, not a
-    /// Warning -- nothing is wrong, the component has just left the range anyone
-    /// has numbers for, and an orange bubble on a correct result teaches people
-    /// to ignore the bubbles that matter.
+    /// Text for an input larger than any measured one. Post it as a Remark, not a
+    /// Warning: nothing is wrong.
     /// </summary>
     public static string AboveTestedLimit(int n, string items, int limit)
         => $"{n:N0} {items} is above the largest measured input ({limit:N0}); timing beyond it is untested.";
