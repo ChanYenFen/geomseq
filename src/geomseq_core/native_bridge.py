@@ -12,7 +12,7 @@ _LIB_NAMES = {
 
 
 # Must equal geomseq_abi_version() in native/abi_version.cpp, which says when to bump it.
-ABI_VERSION = 1
+ABI_VERSION = 3
 
 
 def _check_abi_version(lib, dll_path):
@@ -121,6 +121,20 @@ def load_dll():
         ctypes.POINTER(ctypes.c_int),     # out_total
     ]
     lib.shatter_at_crossings.restype = None
+
+    # int point_in_curve(const double*, const int*, int, const double*, int, double, int*)
+    # The only export with a return value: a PIC_* status, negative meaning
+    # nothing was written. See native/point_in_curve.cpp for the codes.
+    lib.point_in_curve.argtypes = [
+        ctypes.POINTER(ctypes.c_double),  # polylines (2*sum(vertex_counts))
+        ctypes.POINTER(ctypes.c_int),     # vertex_counts (num_polylines)
+        ctypes.c_int,                     # num_polylines, 1 in stage 1
+        ctypes.POINTER(ctypes.c_double),  # query_pts (2*num_query)
+        ctypes.c_int,                     # num_query
+        ctypes.c_double,                  # tol
+        ctypes.POINTER(ctypes.c_int),     # out_relationship (num_query)
+    ]
+    lib.point_in_curve.restype = ctypes.c_int
 
     _DLL = lib
     return lib

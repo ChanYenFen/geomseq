@@ -300,3 +300,82 @@ def shatter_at_crossings_native(segments, gap_d, touch_tol=0.0, segment_owner=No
         result.append(pieces)
 
     return result
+
+
+# point_in_curve's status codes, as native/point_in_curve.cpp defines them.
+# Below zero nothing was written, and the wrapper raises instead of returning.
+PIC_OK                 = 0
+PIC_WARN_FLAT_AREA     = 1
+PIC_ERR_POLYLINE_COUNT = -1
+PIC_ERR_TOO_FEW_VERTS  = -2
+PIC_ERR_NOT_CLOSED     = -3
+PIC_ERR_BAD_ARGUMENT   = -4
+PIC_ERR_NEGATIVE_TOL   = -5
+
+# What point_in_curve writes per query point: the integers Grasshopper's own
+# Point In Curve reports in R. NOT Rhino's PointContainment enum, which numbers
+# the same three states differently (Unset 0, Inside 1, Outside 2, Coincident 3).
+PIC_OUTSIDE    = 0
+PIC_COINCIDENT = 1
+PIC_INSIDE     = 2
+
+_PIC_ERRORS = {
+    PIC_ERR_POLYLINE_COUNT: "point_in_curve takes exactly one polyline in this stage",
+    PIC_ERR_TOO_FEW_VERTS:  "a polyline needs at least 4 vertices (3 corners plus the repeated first)",
+    PIC_ERR_NOT_CLOSED:     "a polyline is not closed: its last vertex is not its first within tol",
+    PIC_ERR_BAD_ARGUMENT:   "point_in_curve got a null pointer or a negative count",
+    PIC_ERR_NEGATIVE_TOL:   "tol must be >= 0",
+}
+
+
+def point_in_curve_native(polylines, query_pts, tol=0.0):
+    """Classify 2D query points against closed 2D polylines.
+
+    Takes geometry already flattened into the plane the containment is
+    measured in: only x and y are read from each vertex and query point, and
+    the caller is responsible for the projection. `polylines` is a sequence of
+    polylines, each a sequence of vertices with its first repeated as its
+    last; this stage accepts exactly one. `tol` is how close to the boundary
+    counts as PIC_COINCIDENT, in model units, and 0 means exact only.
+
+    Returns `(relationship, status)`. `relationship` is one PIC_OUTSIDE /
+    PIC_COINCIDENT / PIC_INSIDE per query point. `status` is PIC_OK, or
+    PIC_WARN_FLAT_AREA when the projection collapsed and the caller should
+    say so.
+
+    Raises ValueError for the negative statuses, where nothing was written."""
+    if tol < 0:
+        raise ValueError(f"tol must be >= 0, got {tol}")
+
+    counts = [len(p) for p in polylines]
+    num_polylines = len(counts)
+
+    flat = []
+    for p in polylines:
+        for v in p:
+            flat.append(float(v[0]))
+            flat.append(float(v[1]))
+
+    n_query = len(query_pts)
+    flat_q = []
+    for q in query_pts:
+        flat_q.append(float(q[0]))
+        flat_q.append(float(q[1]))
+
+    lib = native_bridge.load_dll()
+
+    poly_ptr   = (ctypes.c_double * len(flat))(*flat) if flat else None
+    counts_ptr = (ctypes.c_int * num_polylines)(*counts) if counts else None
+    query_ptr  = (ctypes.c_double * len(flat_q))(*flat_q) if flat_q else None
+
+    out_relationship = (ctypes.c_int * n_query)() if n_query else (ctypes.c_int * 1)()
+
+    status = lib.point_in_curve(poly_ptr, counts_ptr, num_polylines,
+                                query_ptr, n_query, ctypes.c_double(tol),
+                                out_relationship)
+
+    if status < 0:
+        raise ValueError("%s (point_in_curve status %d)"
+                         % (_PIC_ERRORS.get(status, "point_in_curve refused the input"), status))
+
+    return [out_relationship[i] for i in range(n_query)], status

@@ -293,6 +293,99 @@ brought it back to parity, which is the most any method can do when the output
 is O(n²). Uniform scatter cannot reveal this, and the committed group still has
 no such case.
 
+### Point in curve, and where it cannot match Rhino's
+
+A cheaper answer for the case that actually comes up: many query points against
+a closed curve, all of them already in one plane. Grasshopper's own Point In
+Curve stays more general — it detects a plane per curve and decides the boundary
+analytically against the NURBS — and this does not cover those; it aims at the
+same semantics inside that narrower case, at a far lower cost per query point.
+Stage 1 takes one closed curve; a multi-curve stage follows, and the ABI is
+already shaped for it — the export takes a
+polyline array with a vertex count per polyline, and refuses a count other than
+1 rather than pretending the generality is there. Lifting that means deciding
+how per-polyline parities combine for nested curves, not changing the
+signature, so no ABI bump is owed to the second stage.
+
+**The curve never crosses the boundary.** `point_in_curve` takes 2D vertices and
+2D query points, nothing else; the C# layer discretizes the curve and projects
+both into the working plane first. That keeps the native side free of CAD types,
+as every other export is, and means the projection is done once for all query
+points instead of once per test.
+
+**Discretization is by chord height, not by count.** `Curve.TryGetPolyline`
+first — a curve that is already a polyline gives its exact vertices and the
+discretization error is zero — otherwise `Curve.ToPolyline` with a chord-height
+tolerance. `DivideByCount` was rejected: equal spacing has no error bound, so
+nothing could be claimed about how far a classification near the boundary might
+be wrong. Chord height bounds it directly, which is what makes the tolerance
+argument meaningful.
+
+**The bounding-box rejection gives up nothing.** `dist_to_box` is a lower bound
+on the distance from a query point to every point of the polyline, because the
+polyline lies inside the box. Past `tol` the point can therefore be neither
+coincident with the boundary nor inside it, and the box decides it outright. The
+answer is the one a full scan would give — not a constant traded for speed, in
+the sense *Pruning must be provable* means.
+
+**`P'` is the point on the plane, not the point on the curve.** Rhino's own
+component outputs the query point projected onto the curve's plane, and this one
+matches it. A first version returned the nearest point on the *boundary*
+instead — a third, unrelated location — on the theory that it would serve the
+conformance test's "how far off the boundary was each disagreement". Two things
+were wrong with that. The reference for a disagreement with Rhino is the
+distance to the real NURBS curve, which `Curve.ClosestPoint` gives and the
+discretized polyline does not, so the number it produced was the one carrying
+the very error being explained. And it cost: the nearest point needs the full
+edge scan whether or not the bounding box had already answered, which disabled
+the rejection above for every query point. `P'` as the plane projection costs
+nothing — the C# layer computes it to call the native side at all — so
+`point_in_curve` returns only the classification, and the box rejection is live.
+
+**No per-curve plane.** Rhino's component detects a plane per curve. This one
+takes an optional `Plane` input and defaults to world XY, because the
+multi-curve stage has to measure every curve in one plane for containment
+between them to mean anything, and a per-curve plane would make that incoherent.
+
+**Where the answers will differ.** Two gaps, both known and neither fixable
+within this design:
+
+- *Coincident.* Rhino decides it analytically against the NURBS; here it is
+  "within `tol` of the discretized polyline". Inside and outside should agree
+  everywhere else, so the disagreements are expected to be points lying nearer
+  the true boundary than the discretization error — which is what the
+  conformance test measures, recording each disagreement's distance to the
+  boundary rather than a bare pass rate.
+- *Per-curve planes*, as above.
+
+**A collapsed projection is reported, not refused.** When the curve's plane is
+near perpendicular to the working plane, the projected polygon encloses almost
+no area and containment stops meaning anything. The export returns
+`PIC_WARN_FLAT_AREA` and still answers, rather than failing a whole solve over
+one degenerate curve. The threshold is relative to the polygon's own bounding
+diagonal, so it is scale free, and it can only raise a warning — never change a
+classification.
+
+**Why the crossing count is half open.** The span test is
+`(y0 > q.y) != (y1 > q.y)`, and neither comparison may be relaxed to `>=`. A
+ray through a vertex meets two edges there; an inclusive test counts both,
+flips the parity twice, and reports an interior point as outside. Half open
+gives the vertex to whichever edge has it as its lower end, so exactly one of
+the two counts. `test_ray_through_a_vertex_is_not_double_counted` is what holds
+this in place.
+
+The boundary is decided before the parity, by `nearest_on_polyline` against
+`tol`, so a point lying *on* an edge never reaches the crossing count and those
+strict comparisons are never asked to settle it.
+
+**Current state.** Stage 1 is written and `tests/test_point_in_curve.py`
+passes: validation, the box rejection, the boundary within `tol`, a ray through
+a vertex, and a concave shape a convex test would get wrong. Still outstanding:
+the conformance run against Grasshopper's own component inside Rhino (the gaps
+above say where it is expected to disagree, and the test records each
+disagreement's distance to the boundary), a benchmark case sweeping n against
+one fixed curve, the C# component, and the multi-curve stage.
+
 ### Why results are only quoted from committed runs
 
 `docs/benchmarks.md` quotes nothing that is not backed by a file in

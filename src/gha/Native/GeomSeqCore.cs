@@ -336,4 +336,152 @@ internal static class GeomSeqCore
 
         return new ShatterResult(pieces, pieceCounts);
     }
+
+    // point_in_curve's statuses, as native/point_in_curve.cpp defines them.
+    // Zero is OK and needs no name; below zero nothing was written. Only
+    // NotClosed is named: the checks below make the rest unreachable, and
+    // StatusMessage falls back to the number for anything that does arrive.
+    private const int PicWarnFlatArea =  1;
+    private const int PicErrNotClosed = -3;
+
+    /// <summary>
+    /// Classifies points against one closed curve, measured in <paramref name="plane"/>.
+    /// </summary>
+    /// <remarks>
+    /// The native side is 2D and knows nothing of curves or planes: the curve is
+    /// discretized and both it and the query points are flattened into the plane
+    /// here, once for all of them. <paramref name="tol"/> is how close to the boundary
+    /// counts as coincident, and <paramref name="chordTol"/> bounds how far the
+    /// discretized boundary may sit from the real one -- see design-notes.md,
+    /// "Point in curve, and where it cannot match Rhino's".
+    /// </remarks>
+    /// <returns>
+    /// <c>relationship</c>: 0 outside, 1 on the boundary, 2 inside, one per query
+    /// point. These are the integers Grasshopper's own Point In Curve reports in
+    /// <c>R</c>; they are NOT Rhino's <see cref="PointContainment"/>, which numbers
+    /// the same three states differently.
+    /// <c>projected</c>: each query point dropped onto the plane, which is where the
+    /// test actually happened -- the <c>P'</c> of Rhino's component. It costs nothing,
+    /// being computed to call the native side at all.
+    /// <c>collapsed</c>: the curve enclosed almost no area once projected, so
+    /// containment means nothing. The answers are still filled in; warn and carry on.
+    /// </returns>
+    public static unsafe (int[] relationship, Point3d[] projected, bool collapsed) PointInCurve(
+        Curve curve, IReadOnlyList<Point3d> queryPoints, Plane plane,
+        double tol, double chordTol)
+    {
+        if (curve == null)
+            throw new ArgumentNullException(nameof(curve));
+
+        // Checked here rather than left to the native guard: Curve.IsClosed is the
+        // authority, and it can answer for the curve rather than for its discretization.
+        if (!curve.IsClosed)
+            throw new ArgumentException("The curve must be closed for containment to mean anything.", nameof(curve));
+
+        if (!plane.IsValid)
+            throw new ArgumentException("The plane is not valid.", nameof(plane));
+
+        if (tol < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(tol), tol, "tol must be 0 or more.");
+
+        if (chordTol <= 0.0)
+            throw new ArgumentOutOfRangeException(nameof(chordTol), chordTol, "chordTol must be greater than 0.");
+
+        Polyline boundary = Discretize(curve, chordTol);
+
+        // Sized for the closure fix-up below, which may add one vertex.
+        var verts = new double[2 * (boundary.Count + 1)];
+        int written = 0;
+        foreach (Point3d p in boundary)
+        {
+            if (!plane.RemapToPlaneSpace(p, out Point3d local))
+                throw new ArgumentException("The curve could not be mapped into the plane.", nameof(plane));
+            verts[written++] = local.X;
+            verts[written++] = local.Y;
+        }
+
+        // Guards the indexing in the fix-up as much as it rejects the input.
+        if (written < 6)
+            throw new ArgumentException(
+                $"The curve discretized to {written / 2} vertices, too few to enclose anything.",
+                nameof(curve));
+
+        // The ABI wants the first vertex repeated as the last. A closed curve's
+        // polyline normally arrives that way; appending costs one vertex where it
+        // does not, and the curve was already known to be closed above.
+        if (verts[0] != verts[written - 2] || verts[1] != verts[written - 1])
+        {
+            verts[written++] = verts[0];
+            verts[written++] = verts[1];
+        }
+
+        int vertexCount = written / 2;
+
+        // Three vertices that already close is a line out and back, enclosing
+        // nothing. Checked after the fix-up, so it catches that case rather than
+        // leaving it to the native guard.
+        if (vertexCount < 4)
+            throw new ArgumentException(
+                $"The curve discretized to {vertexCount} vertices, which enclose no area.", nameof(curve));
+
+        int n = queryPoints.Count;
+        var query = new double[2 * n];
+        for (int k = 0; k < n; k++)
+        {
+            if (!plane.RemapToPlaneSpace(queryPoints[k], out Point3d local))
+                throw new ArgumentException("A query point could not be mapped into the plane.", nameof(plane));
+            query[k * 2]     = local.X;
+            query[k * 2 + 1] = local.Y;
+        }
+
+        int[] counts       = { vertexCount };
+        var   relationship = new int[n];
+
+        int status;
+        fixed (double* vp = verts)
+        fixed (int* cp = counts)
+        fixed (double* qp = query)
+        fixed (int* rp = relationship)
+        {
+            status = NativeMethods.PointInCurve(vp, cp, 1, qp, n, tol, rp);
+        }
+
+        if (status < 0)
+            throw new InvalidOperationException(StatusMessage(status));
+
+        // The flattened query points, read back out of the plane: the point the
+        // classification actually answered for, which is what Rhino's P' reports.
+        var projected = new Point3d[n];
+        for (int k = 0; k < n; k++)
+            projected[k] = plane.PointAt(query[k * 2], query[k * 2 + 1]);
+
+        return (relationship, projected, status == PicWarnFlatArea);
+    }
+
+    /// <summary>Flattens a curve to a polyline whose deviation from it is bounded.</summary>
+    /// <remarks>
+    /// DivideByCount is deliberately not used: equal spacing has no error bound, so
+    /// nothing could be claimed about a classification near the boundary. A chord
+    /// height bounds it directly.
+    /// </remarks>
+    private static Polyline Discretize(Curve curve, double chordTol)
+    {
+        // Already a polyline: its vertices are exact, so there is no error to bound.
+        if (curve.TryGetPolyline(out Polyline exact))
+            return exact;
+
+        // The zeros switch off every constraint but the chord height.
+        PolylineCurve? pc = curve.ToPolyline(0, 0, 0, 0, 0, chordTol, 0, 0, true);
+        Polyline? pl = pc?.ToPolyline();
+        if (pl == null)
+            throw new ArgumentException("The curve could not be discretized into a polyline.", nameof(curve));
+        return pl;
+    }
+
+    private static string StatusMessage(int status) => status switch
+    {
+        PicErrNotClosed => "The discretized curve is not closed, though the curve itself is. " +
+                           "Raise the tolerance, or report this: the discretization lost the closure.",
+        _               => $"point_in_curve refused the input (status {status}).",
+    };
 }

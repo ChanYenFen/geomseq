@@ -85,4 +85,19 @@ internal static unsafe class NativeMethods
         int     outCapacity,      // how many pieces outSegments has room for
         int*    outPieceCounts,   // n: pieces produced per input segment; 0 means swallowed whole
         int*    outTotal);        // pieces REQUIRED -- above outCapacity means retry
+
+    // The only export that returns anything: a PIC_* status, where below zero
+    // nothing was written. point_in_curve.cpp lists the codes; GeomSeqCore maps
+    // them. Everything here is already in the plane the containment is measured
+    // in -- no z appears in the signature, and no Plane either.
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "point_in_curve",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int PointInCurve(
+        double* polylines,        // 2 doubles per vertex, polylines laid end to end
+        int*    vertexCounts,     // numPolylines: vertices in each, first repeated as last
+        int     numPolylines,     // this stage refuses anything but 1
+        double* queryPts,         // 2n: x,y per query point
+        int     numQuery,
+        double  tol,              // model units; within this of the boundary is coincident
+        int*    outRelationship); // n: 0 outside, 1 coincident, 2 inside
 }

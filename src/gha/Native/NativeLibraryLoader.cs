@@ -24,12 +24,12 @@ internal static class NativeLibraryLoader
     private static readonly string[] RequiredExports =
     {
         AbiVersionExport, "sort_curves", "sort_points", "redistribute_arc_lengths",
-        "build_turn_waypoints", "shatter_at_crossings",
+        "build_turn_waypoints", "shatter_at_crossings", "point_in_curve",
     };
 
     // Must equal geomseq_abi_version() in src/geomseq_core/native/abi_version.cpp,
     // which says when to bump it. A binary with another version is refused.
-    private const int AbiVersion = 1;
+    private const int AbiVersion = 3;
     private const string AbiVersionExport = "geomseq_abi_version";
 
     private static readonly object Gate = new();
