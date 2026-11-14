@@ -711,44 +711,57 @@ that pruning's 45–113× can absorb, while a k that grows with branch size woul
 undo it entirely. And it needs its own benchmark group before it ships, like
 everything else here.
 
-**That cost model is only half of it, and the missing half was measured at the
-one size where it does not show.** Splitting is not purely a cost: because the
-sort is superlinear in n, the sub-problems are cheaper per point than the whole,
-so the partition pays back some of the candidate multiplier before any candidate
-is tried. On `sort_points`, greedy only, uniform, doubling n multiplies time by
-roughly 3–3.8× at the top end — closer to n^1.9 than n log n. The same 64,000
-points split into groups therefore cost, serially and with no parallelism at
-all:
+**Whether the partition also pays for itself depends on which half of the sort
+you look at, and the answer changed under us.** Splitting is not purely a cost
+where the sort is superlinear in n: the sub-problems are then cheaper per point
+than the whole, so the partition returns part of the candidate multiplier before
+any candidate is tried. Measured on `sort_points`, uniform, in
+`baseline-darwin-x86_64-20261114-sort_points+sort_curves`:
 
-| | best | vs one sort |
+| n | greedy only | with 2-opt |
 |---|---|---|
-| 1 × 64,000 | 1.57 s | — |
-| 2 × 32,000 | 817 ms | 1.9× |
-| 4 × 16,000 | 543 ms | 2.9× |
-| 8 × 8,000 | 327 ms | 4.8× |
+| 1,000 | 1.1 ms | 4.3 ms |
+| 2,000 | 2.2 ms | 10.6 ms |
+| 4,000 | 5.0 ms | 19.3 ms |
+| 8,000 | 9.8 ms | 57.7 ms |
+| 16,000 | 19.6 ms | — |
+| 32,000 | 41.2 ms | — |
+| 64,000 | 80.6 ms | — |
 
-So at n=64,000, eight groups fund about four candidate seeds each before the
-total returns to the single-sort cost — and four candidates ranked by
-entry + exit reached the ceiling on the 30-point dataset above. At 30 points the
-partition saves nothing, because 30 points is already instant, so the candidate
-count was pure cost there. **The probe was run at the size where this method
-looks worst**, and the next measurement should be at the sizes where it would
-actually be used.
+**The greedy walk is linear now, so partitioning it buys nothing.** Doubling n
+multiplies its time by 1.96–2.27× across the whole sweep, and 64,000 points as
+8 × 8,000 cost 78.4 ms against 80.6 ms in one call — a wash. That is the greedy
+pruning of 2026-11-06 (*Why the greedy walk keeps live counts in the static
+tree*) having removed exactly the superlinearity a partition would have
+exploited: before it, the same rows ran 40.9 ms at 8,000 and 1.57 s at 64,000,
+tripling per doubling.
 
-Rows are the `uniform`, `two_opt=False` group of a macOS run,
-`baseline-darwin-x86_64-20261001-sort_points+sort_curves`, **not committed at
-the time of writing** — so treat them as ad hoc, and nothing here may reach
-`docs/benchmarks.md` until that file is in `benchmarks/results/`. The ratios,
-not the absolute times, are what the argument rests on, and they would survive
-a rerun on another binary. Note that committing the file cannot satisfy *commit
-the DLL with the results it produced*: it names sha256 `d966d3c7c21b7b33…`, and
-the dylib in the tree has since been rebuilt for ABI 3. Rerunning the group is
-the only way to pair numbers with a binary that still exists.
+**2-opt is still superlinear, and it is the half that ships.** Every shipped
+caller passes `use_two_opt = 1`, so the right column is the relevant one. It
+rises 1.82–2.99× per doubling, and 8,000 points as 8 × 1,000 cost 34.4 ms
+against 57.7 ms — about 1.7×, not the 4.8× the greedy-only rows of the previous
+binary suggested. 1.7× funds one extra candidate seed, not four.
 
-Two things this does *not* say. It is not an argument for parallelism — every
-row above is one thread, and `Continuous` remains a serial dependency between
-groups whatever else changes. And it says nothing about tour quality at these
-sizes; the only quality numbers anywhere here are the 30-point ad-hoc ones.
+**What is still unmeasured is the range that matters.** The 2-opt rows stop at
+8,000 because the larger ones need `--heavy`; 16,000 through 64,000 with 2-opt
+is where a partition would actually be used and is blank above. Run that before
+treating 1.7× as the figure — at these sizes 2 × 4,000 (1.49×) beats 4 × 2,000
+(1.36×), which is not monotone and is probably just noise.
+
+**The lesson worth keeping is about the previous version of this passage.** It
+quoted the 2026-10-01 binary, claimed roughly n^1.9, built a 4.8× table on it,
+and said in as many words that "the ratios, not the absolute times, are what the
+argument rests on, and they would survive a rerun on another binary." They did
+not survive it. The pruning that landed between the two runs made the measured
+half linear, and the table was also reading `two_opt=False` — the configuration
+nothing ships. Two faults, one cause: quoting a result file older than the
+binary in the tree. This is what *Why results are only quoted from committed
+runs* is for, and it caught the repository's own author inside one session.
+
+Two things none of this says. It is not an argument for parallelism — every row
+is one thread, and `Continuous` remains a serial dependency between groups
+whatever else changes. And it says nothing about tour quality at these sizes;
+the only quality numbers anywhere here are the 30-point ad-hoc ones above.
 
 ### Real geometry worth recording
 
