@@ -378,13 +378,22 @@ The boundary is decided before the parity, by `nearest_on_polyline` against
 `tol`, so a point lying *on* an edge never reaches the crossing count and those
 strict comparisons are never asked to settle it.
 
-**Current state.** Stage 1 is written and `tests/test_point_in_curve.py`
-passes: validation, the box rejection, the boundary within `tol`, a ray through
-a vertex, and a concave shape a convex test would get wrong. Still outstanding:
-the conformance run against Grasshopper's own component inside Rhino (the gaps
-above say where it is expected to disagree, and the test records each
-disagreement's distance to the boundary), a benchmark case sweeping n against
-one fixed curve, the C# component, and the multi-curve stage.
+**Current state.** Stage 1 ships, component included, and
+`tests/test_point_in_curve.py` passes: validation, the box rejection, the
+boundary within `tol`, a ray through a vertex, and a concave shape a convex
+test would get wrong. What is outstanding is in *Still open* below, not here —
+this section says how the thing works, and a second copy of the todo list is
+what let `src/gha/README.md` claim two shipped components while seven did.
+
+**What the speed actually comes from today, which is not the algorithm.** The
+win over Rhino's component is that the plane transform happens once for the
+whole list rather than per test, and that no per-curve plane is detected. The
+classification itself is brute force: every query point inside the bounding box
+scans all V edges twice, once in `distance_to_polyline` and once in
+`crossing_number_parity`, so the cost is O(n·V). At V=1,000 and n=10,000 that
+is 20M edge visits, and raising the chord tolerance to get a more faithful
+boundary raises V, which makes it worse. Nothing here is measured yet; see
+*Still open*.
 
 ### Why results are only quoted from committed runs
 
@@ -617,6 +626,27 @@ groups. The numbers exist; the reading of them does not.
   row because the bridge used to be under 0.1%; that reason expired with the
   pair loop. Add the row before optimising either side.
 
+- **`point_in_curve` has no edge index, and that is where its next speed-up
+  is.** Every query point inside the bounding box scans all V edges twice, so
+  the cost is O(n·V) and grows with the chord tolerance that makes the boundary
+  faithful. Both scans can be pruned provably rather than approximately: the
+  crossing count only needs edges whose y-span contains the query's y, which is
+  an interval index on y; the nearest-distance scan only needs edges that could
+  beat the best distance found so far, which is a radius query. Neither trades
+  an answer for speed, so both are admissible under *Pruning must be provable*.
+  Nothing is measured yet — there is no benchmark case either, which is the
+  first thing to add, because the claim being made today is only "the plane
+  transform happens once", not "the algorithm is better".
+
+- **Whether `point_in_curve` is bridge-bound at small n is unknown**, and the
+  question arrives with the benchmark case above rather than after it. The
+  wrappers flatten every vertex and query point into a fresh array per call, so
+  for a short query list against a dense curve the marshaling could exceed the
+  classification. Measure before moving the plane projection into C++ — that
+  move is currently justified on architecture (the C# layer should convert
+  types, not do the maths) and not on any number, which is worth admitting
+  rather than dressing up.
+
 ### Clustered sequencing for layered and zoned fabrication
 
 A separate algorithm, deliberately not folded into the sort components. They
@@ -680,6 +710,45 @@ Until that is answered, nothing should ship: a fixed k costs a constant factor
 that pruning's 45–113× can absorb, while a k that grows with branch size would
 undo it entirely. And it needs its own benchmark group before it ships, like
 everything else here.
+
+**That cost model is only half of it, and the missing half was measured at the
+one size where it does not show.** Splitting is not purely a cost: because the
+sort is superlinear in n, the sub-problems are cheaper per point than the whole,
+so the partition pays back some of the candidate multiplier before any candidate
+is tried. On `sort_points`, greedy only, uniform, doubling n multiplies time by
+roughly 3–3.8× at the top end — closer to n^1.9 than n log n. The same 64,000
+points split into groups therefore cost, serially and with no parallelism at
+all:
+
+| | best | vs one sort |
+|---|---|---|
+| 1 × 64,000 | 1.57 s | — |
+| 2 × 32,000 | 817 ms | 1.9× |
+| 4 × 16,000 | 543 ms | 2.9× |
+| 8 × 8,000 | 327 ms | 4.8× |
+
+So at n=64,000, eight groups fund about four candidate seeds each before the
+total returns to the single-sort cost — and four candidates ranked by
+entry + exit reached the ceiling on the 30-point dataset above. At 30 points the
+partition saves nothing, because 30 points is already instant, so the candidate
+count was pure cost there. **The probe was run at the size where this method
+looks worst**, and the next measurement should be at the sizes where it would
+actually be used.
+
+Rows are the `uniform`, `two_opt=False` group of a macOS run,
+`baseline-darwin-x86_64-20261001-sort_points+sort_curves`, **not committed at
+the time of writing** — so treat them as ad hoc, and nothing here may reach
+`docs/benchmarks.md` until that file is in `benchmarks/results/`. The ratios,
+not the absolute times, are what the argument rests on, and they would survive
+a rerun on another binary. Note that committing the file cannot satisfy *commit
+the DLL with the results it produced*: it names sha256 `d966d3c7c21b7b33…`, and
+the dylib in the tree has since been rebuilt for ABI 3. Rerunning the group is
+the only way to pair numbers with a binary that still exists.
+
+Two things this does *not* say. It is not an argument for parallelism — every
+row above is one thread, and `Continuous` remains a serial dependency between
+groups whatever else changes. And it says nothing about tour quality at these
+sizes; the only quality numbers anywhere here are the 30-point ad-hoc ones.
 
 ### Real geometry worth recording
 

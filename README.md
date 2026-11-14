@@ -57,7 +57,7 @@ Two callers, developed and released on different schedules:
 | `redistribute_arc_lengths` | redistribute arc lengths to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
 | `build_turn_waypoints` | travel path between two segments: extends each end into the gap, then fillets both corners so no waypoint turns by more than `theta_max_deg` (**2D only** — the ABI takes x/y, no Z) | ✅ |
 | `shatter_at_crossings` | cuts segments where they meet and opens a gap of `gap_d` there, so paths no longer touch; covers both a crossing and a T-junction, within a `touch_tol` given in model units. Input order decides which of a meeting pair yields; segments overlapping along a line are left uncut (**2D only**, z interpolated along the segment) | ✅ |
-| `point_in_curve` | classifies query points against a closed polyline: outside / coincident / inside. For the common case of many query points coplanar with the curve, where it costs far less per point than Grasshopper's own Point In Curve — which stays the general one (**2D only** — the caller discretizes the curve and projects into the working plane) | 🚧 one closed curve; the conformance run against Rhino's own component is still owed |
+| `point_in_curve` | classifies query points against a closed polyline: outside / coincident / inside. For the common case of many query points coplanar with the curve, where it costs far less per point than Grasshopper's own Point In Curve — which stays the general one (**2D only** — the caller discretizes the curve and projects into the working plane) | 🚧 one closed curve |
 
 ## Layout
 

@@ -118,16 +118,13 @@ and the `.gha` together; a `lipo` check that the macOS binary has both x86_64 an
 arm64; `THIRD_PARTY_LICENSES.md` inside the package; a Yak manifest and store
 page that say Rhino 7 is not supported; measured n → time figures to publish.
 
-Every core module now has a component. What is outstanding is per component
-rather than a backlog of missing ones:
+Every core module now has a component. Anything else outstanding lives in
+*Future directions → Still open* in [../../docs/design-notes.md](../../docs/design-notes.md)
+and is deliberately not repeated here — this file said "two of the library's
+four modules ship here" while seven did, which is what a second copy of a todo
+list does.
 
-- **Point In Curve** is one closed curve only. The multi-curve stage needs the
-  rule for how nested curves combine; the native signature already carries a
-  polyline count for it, so no ABI change is owed. Still owed: the run against
-  Rhino's own component recording where the two disagree — measure each
-  disagreement against the real curve with `Curve.ClosestPoint`, not against
-  our polyline, which carries the error being explained — and a benchmark case
-  sweeping n against one fixed curve.
-- **One icon.** Every component but Point In Curve has artwork; that one draws
-  Grasshopper's default until `point_in_curve.png` lands in `Resources/`, which
-  is all it takes — the csproj embeds that folder by wildcard.
+One thing that is only true of the package, so it belongs here: every component
+but **Point In Curve** has artwork. That one draws Grasshopper's default icon
+until `point_in_curve.png` lands in `Resources/`, which is all it takes — the
+csproj embeds that folder by wildcard.
