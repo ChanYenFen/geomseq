@@ -12,7 +12,7 @@ _LIB_NAMES = {
 
 
 # Must equal geomseq_abi_version() in native/abi_version.cpp, which says when to bump it.
-ABI_VERSION = 3
+ABI_VERSION = 4
 
 
 def _check_abi_version(lib, dll_path):
@@ -128,13 +128,27 @@ def load_dll():
     lib.point_in_curve.argtypes = [
         ctypes.POINTER(ctypes.c_double),  # polylines (2*sum(vertex_counts))
         ctypes.POINTER(ctypes.c_int),     # vertex_counts (num_polylines)
-        ctypes.c_int,                     # num_polylines, 1 in stage 1
+        ctypes.c_int,                     # num_polylines, exactly 1
         ctypes.POINTER(ctypes.c_double),  # query_pts (2*num_query)
         ctypes.c_int,                     # num_query
         ctypes.c_double,                  # tol
         ctypes.POINTER(ctypes.c_int),     # out_relationship (num_query)
     ]
     lib.point_in_curve.restype = ctypes.c_int
+
+    # int point_in_curves(const double*, const int*, int, const double*, int, double, int*, int*)
+    # As above for any number of polylines, plus which one contains each point.
+    lib.point_in_curves.argtypes = [
+        ctypes.POINTER(ctypes.c_double),  # polylines (2*sum(vertex_counts))
+        ctypes.POINTER(ctypes.c_int),     # vertex_counts (num_polylines)
+        ctypes.c_int,                     # num_polylines, 1 or more
+        ctypes.POINTER(ctypes.c_double),  # query_pts (2*num_query)
+        ctypes.c_int,                     # num_query
+        ctypes.c_double,                  # tol
+        ctypes.POINTER(ctypes.c_int),     # out_relationship (num_query)
+        ctypes.POINTER(ctypes.c_int),     # out_index (num_query), -1 when outside all
+    ]
+    lib.point_in_curves.restype = ctypes.c_int
 
     _DLL = lib
     return lib

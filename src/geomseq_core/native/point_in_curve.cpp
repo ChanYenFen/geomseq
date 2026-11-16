@@ -5,9 +5,11 @@
 // query points into the working plane first (see design-notes.md, "Point in
 // curve, and where it cannot match Rhino's").
 //
-// Stage 1 accepts exactly one polyline. The signature already carries a
-// polyline count and a per-polyline vertex count so the multi-curve stage
-// needs no ABI change; it only has to decide how parities combine.
+// Two exports share the classification core, the way Grasshopper splits
+// Point In Curve from Point In Curves: point_in_curve takes exactly one
+// polyline and answers a relationship per point; point_in_curves takes any
+// number and also answers which polyline, first in input order to contain the
+// point, or -1.
 
 #include <cmath>
 #include <algorithm>
@@ -195,13 +197,98 @@ static double distance_to_polyline(const double* verts, int count, Point q) {
     return std::sqrt(best);
 }
 
+// One query point against one closed polyline.
+//
+// The bounding-box rejection comes first. dist_to_box is a lower bound on the
+// distance to every point of the polyline, so past span the point can be
+// neither coincident with the boundary nor inside it -- the interior lies
+// within the box too. Nothing is traded away: the answer is the one the full
+// scan would give.
+static int classify_one(const double* verts, int count, const Aabb& box,
+                        double span, Point p) {
+    if (dist_to_box(box, p) > span) {
+        return PIC_OUTSIDE;
+    }
+    if (distance_to_polyline(verts, count, p) <= span) {
+        return PIC_COINCIDENT;
+    }
+    return crossing_number_parity(verts, count, p);
+}
+
+// The polylines, validated and laid out for the query loop. Shared by both
+// exports so that they refuse the same inputs for the same reasons.
+struct Layout {
+    std::vector<const double*> verts;
+    std::vector<Aabb>          boxes;
+    double                     span;
+    int                        status;   // PIC_OK or PIC_WARN_FLAT_AREA
+};
+
+// Returns a negative PIC_* status when the input is refused, else fills `out`
+// and returns PIC_OK. `min_polylines` is the one place the two exports differ.
+static int prepare(const double* polylines, const int* vertex_counts,
+                   int num_polylines, int min_polylines,
+                   const double* query_pts, int num_query, double tol,
+                   Layout& out) {
+    if (num_polylines < min_polylines) {
+        return PIC_ERR_POLYLINE_COUNT;
+    }
+    if (!polylines || !vertex_counts) {
+        return PIC_ERR_BAD_ARGUMENT;
+    }
+    if (num_query < 0 || (num_query > 0 && !query_pts)) {
+        return PIC_ERR_BAD_ARGUMENT;
+    }
+    if (tol < 0.0) {
+        return PIC_ERR_NEGATIVE_TOL;
+    }
+
+    // A closed polygon needs three distinct corners plus the repeated first.
+    for (int c = 0; c < num_polylines; c++) {
+        if (vertex_counts[c] < 4) {
+            return PIC_ERR_TOO_FEW_VERTS;
+        }
+    }
+
+    out.verts.assign(num_polylines, nullptr);
+    out.boxes.assign(num_polylines, Aabb());
+
+    int cursor = 0;
+    for (int c = 0; c < num_polylines; c++) {
+        out.verts[c] = polylines + cursor * 2;
+        cursor      += vertex_counts[c];
+
+        if (!polyline_is_closed(out.verts[c], vertex_counts[c], tol)) {
+            return PIC_ERR_NOT_CLOSED;
+        }
+        out.boxes[c] = aabb_of(out.verts[c], vertex_counts[c]);
+    }
+
+    // The projection has collapsed when a polygon encloses no area worth
+    // speaking of: either flattened to a line (the curve's plane is near
+    // perpendicular to the working plane) or to a point. Reported, not
+    // refused -- the answers are still computed.
+    out.status = PIC_OK;
+    for (int c = 0; c < num_polylines; c++) {
+        double diag = box_diagonal(out.boxes[c]);
+        double area = std::fabs(double_signed_area(out.verts[c], vertex_counts[c])) * 0.5;
+        if (diag < EPS || area < AREA_WARN_RATIO * diag * diag) {
+            out.status = PIC_WARN_FLAT_AREA;
+            break;
+        }
+    }
+
+    out.span = (tol > EPS) ? tol : EPS;
+    return PIC_OK;
+}
+
 // ---------------------------------------------------------------------------
-// Exported entry point
+// Exported entry points
 // ---------------------------------------------------------------------------
 
 extern "C" {
 
-// Classifies each query point against the closed polylines.
+// Classifies each query point against one closed polyline.
 //
 // Inputs (read-only):
 //   polylines      : flat array, 2 doubles per vertex -> x,y. Every polyline's
@@ -209,7 +296,8 @@ extern "C" {
 //                    names them, each with its first vertex repeated as its
 //                    last. Length is 2 * sum(vertex_counts).
 //   vertex_counts  : num_polylines ints, vertices in each polyline
-//   num_polylines  : exactly 1; anything else is refused
+//   num_polylines  : exactly 1; anything else is refused. Several curves is
+//                    point_in_curves below, which also answers which one.
 //   query_pts      : flat array, 2 doubles per query point -> x,y
 //   num_query      : number of query points
 //   tol            : how close to the boundary counts as PIC_COINCIDENT, in
@@ -232,94 +320,83 @@ DLL_EXPORT int point_in_curve(
     double        tol,
     int*          out_relationship)
 {
-    // One curve, permanently. Several curves is a separate function with its
-    // own export, mirroring the split Grasshopper itself makes between Point
-    // In Curve and Point In Curves -- that one also reports which curve, which
-    // this signature has no output for.
     if (num_polylines != 1) {
         return PIC_ERR_POLYLINE_COUNT;
     }
-    if (!polylines || !vertex_counts || !out_relationship) {
+    if (!out_relationship) {
         return PIC_ERR_BAD_ARGUMENT;
     }
-    if (num_query < 0 || (num_query > 0 && !query_pts)) {
+
+    Layout L;
+    int err = prepare(polylines, vertex_counts, num_polylines, 1,
+                      query_pts, num_query, tol, L);
+    if (err < 0) {
+        return err;
+    }
+
+    for (int q = 0; q < num_query; q++) {
+        Point p = { query_pts[q * 2], query_pts[q * 2 + 1] };
+        out_relationship[q] = classify_one(L.verts[0], vertex_counts[0], L.boxes[0],
+                                           L.span, p);
+    }
+
+    return L.status;
+}
+
+// Classifies each query point against several closed polylines, and says
+// which one. Inputs are as for point_in_curve, except that num_polylines may
+// be any count of one or more.
+//
+// Each point is tested against the polylines in input order and stops at the
+// first that contains it, on the boundary or inside. That one's index is the
+// answer, and its relationship. A point no polyline contains is PIC_OUTSIDE
+// with index -1. Nested curves therefore answer for the outermost one listed
+// first, not the innermost -- the rule Grasshopper's own Point In Curves is
+// read to follow, and the cheapest one, since the loop can stop on a hit.
+//
+// Outputs (caller pre-allocates, we fill):
+//   out_relationship : num_query ints -> PIC_OUTSIDE / PIC_COINCIDENT / PIC_INSIDE
+//   out_index        : num_query ints -> the containing polyline, or -1
+//
+// Returns a PIC_* status. Below zero nothing was written.
+DLL_EXPORT int point_in_curves(
+    const double* polylines,
+    const int*    vertex_counts,
+    int           num_polylines,
+    const double* query_pts,
+    int           num_query,
+    double        tol,
+    int*          out_relationship,
+    int*          out_index)
+{
+    if (!out_relationship || !out_index) {
         return PIC_ERR_BAD_ARGUMENT;
     }
-    if (tol < 0.0) {
-        return PIC_ERR_NEGATIVE_TOL;
+
+    Layout L;
+    int err = prepare(polylines, vertex_counts, num_polylines, 1,
+                      query_pts, num_query, tol, L);
+    if (err < 0) {
+        return err;
     }
-
-    // A closed polygon needs three distinct corners plus the repeated first.
-    for (int c = 0; c < num_polylines; c++) {
-        if (vertex_counts[c] < 4) {
-            return PIC_ERR_TOO_FEW_VERTS;
-        }
-    }
-
-    std::vector<const double*> verts(num_polylines);
-    std::vector<Aabb>          boxes(num_polylines);
-
-    int cursor = 0;
-    for (int c = 0; c < num_polylines; c++) {
-        verts[c] = polylines + cursor * 2;
-        cursor  += vertex_counts[c];
-
-        if (!polyline_is_closed(verts[c], vertex_counts[c], tol)) {
-            return PIC_ERR_NOT_CLOSED;
-        }
-        boxes[c] = aabb_of(verts[c], vertex_counts[c]);
-    }
-
-    // The projection has collapsed when the polygon encloses no area worth
-    // speaking of: either flattened to a line (the curve's plane is near
-    // perpendicular to the working plane) or to a point. Reported, not
-    // refused -- the answers below are still computed.
-    int status = PIC_OK;
-    for (int c = 0; c < num_polylines; c++) {
-        double diag = box_diagonal(boxes[c]);
-        double area = std::fabs(double_signed_area(verts[c], vertex_counts[c])) * 0.5;
-        if (diag < EPS || area < AREA_WARN_RATIO * diag * diag) {
-            status = PIC_WARN_FLAT_AREA;
-            break;
-        }
-    }
-
-    const double span = (tol > EPS) ? tol : EPS;
 
     for (int q = 0; q < num_query; q++) {
         Point p = { query_pts[q * 2], query_pts[q * 2 + 1] };
 
-        // Bounding-box rejection. dist_to_box is a lower bound on the
-        // distance to every point of the polyline, so past span the point can
-        // be neither coincident with the boundary nor inside it -- the
-        // interior lies within the box too. Nothing is traded away here; the
-        // answer is the same one the full scan would give.
-        //
-        // Stage 2 note: with several polylines this test is per polyline, and
-        // a point outside all of their boxes is outside all of them.
-        bool outside_every_box = true;
+        out_relationship[q] = PIC_OUTSIDE;
+        out_index[q]        = -1;
+
         for (int c = 0; c < num_polylines; c++) {
-            if (dist_to_box(boxes[c], p) <= span) {
-                outside_every_box = false;
+            int r = classify_one(L.verts[c], vertex_counts[c], L.boxes[c], L.span, p);
+            if (r != PIC_OUTSIDE) {
+                out_relationship[q] = r;
+                out_index[q]        = c;
                 break;
             }
         }
-
-        if (outside_every_box) {
-            out_relationship[q] = PIC_OUTSIDE;
-            continue;
-        }
-
-        double d = distance_to_polyline(verts[0], vertex_counts[0], p);
-
-        if (d <= span) {
-            out_relationship[q] = PIC_COINCIDENT;
-        } else {
-            out_relationship[q] = crossing_number_parity(verts[0], vertex_counts[0], p);
-        }
     }
 
-    return status;
+    return L.status;
 }
 
 } // extern "C"

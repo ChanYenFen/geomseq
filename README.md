@@ -57,7 +57,8 @@ Two callers, developed and released on different schedules:
 | `redistribute_arc_lengths` | redistribute arc lengths to a density gradient (dense_center / dense_sides), preserving named corner positions | ✅ |
 | `build_turn_waypoints` | travel path between two segments: extends each end into the gap, then fillets both corners so no waypoint turns by more than `theta_max_deg` (**2D only** — the ABI takes x/y, no Z) | ✅ |
 | `shatter_at_crossings` | cuts segments where they meet and opens a gap of `gap_d` there, so paths no longer touch; covers both a crossing and a T-junction, within a `touch_tol` given in model units. Input order decides which of a meeting pair yields; segments overlapping along a line are left uncut (**2D only**, z interpolated along the segment) | ✅ |
-| `point_in_curve` | classifies query points against a closed polyline: outside / coincident / inside. For the common case of many query points coplanar with the curve, where it costs far less per point than Grasshopper's own Point In Curve — which stays the general one (**2D only** — the caller discretizes the curve and projects into the working plane) | 🚧 one closed curve |
+| `point_in_curve` | classifies query points against one closed polyline: outside / coincident / inside. For the common case of many query points coplanar with the curve, where it costs far less per point than Grasshopper's own Point In Curve — which stays the general one (**2D only** — the caller discretizes the curve and projects into the working plane) | ✅ |
+| `point_in_curves` | the same against several closed polylines, and which one: the first in input order to contain the point, or -1. Split from the singular the way Grasshopper splits Point In Curve from Point In Curves (**2D only**, as above) | ✅ |
 
 ## Layout
 
@@ -70,7 +71,7 @@ src/
 │   │   ├── redistribute_arc_lengths.cpp    # arc-length density redistribution (pure 1D, no kd-tree)
 │   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
 │   │   ├── shatter_at_crossings.cpp    # contact predicates + broad phase + shatter_at_crossings
-│   │   ├── point_in_curve.cpp          # point-in-polygon against a closed 2D polyline (classification core still stubbed)
+│   │   ├── point_in_curve.cpp          # point-in-polygon against closed 2D polylines: both exports, one core
 │   │   ├── abi_version.cpp             # geomseq_abi_version(): the number both wrappers check at load time
 │   │   ├── nearest_unused.hpp          # greedy's nearest-unplaced-point search, shared by both sorts
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)

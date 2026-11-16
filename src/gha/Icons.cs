@@ -20,6 +20,7 @@ internal static class Icons
     // the wiring can land before the drawing does. Dropping the PNG into Resources/
     // later is enough -- the csproj embeds that folder by wildcard.
     public static readonly Bitmap PointInCurve        = Load("point_in_curve.png");
+    public static readonly Bitmap PointInCurves       = Load("point_in_curves.png");
 
     private static Bitmap Load(string file)
     {

@@ -373,72 +373,17 @@ internal static class GeomSeqCore
         if (curve == null)
             throw new ArgumentNullException(nameof(curve));
 
-        // Checked here rather than left to the native guard: Curve.IsClosed is the
-        // authority, and it can answer for the curve rather than for its discretization.
-        if (!curve.IsClosed)
-            throw new ArgumentException("The curve must be closed for containment to mean anything.", nameof(curve));
+        CheckContainmentArgs(plane, tol, chordTol);
 
-        if (!plane.IsValid)
-            throw new ArgumentException("The plane is not valid.", nameof(plane));
+        var verts = new List<double>();
+        int[] counts = { FlattenBoundary(curve, plane, chordTol, verts) };
 
-        if (tol < 0.0)
-            throw new ArgumentOutOfRangeException(nameof(tol), tol, "tol must be 0 or more.");
-
-        if (chordTol <= 0.0)
-            throw new ArgumentOutOfRangeException(nameof(chordTol), chordTol, "chordTol must be greater than 0.");
-
-        Polyline boundary = Discretize(curve, chordTol);
-
-        // Sized for the closure fix-up below, which may add one vertex.
-        var verts = new double[2 * (boundary.Count + 1)];
-        int written = 0;
-        foreach (Point3d p in boundary)
-        {
-            if (!plane.RemapToPlaneSpace(p, out Point3d local))
-                throw new ArgumentException("The curve could not be mapped into the plane.", nameof(plane));
-            verts[written++] = local.X;
-            verts[written++] = local.Y;
-        }
-
-        // Guards the indexing in the fix-up as much as it rejects the input.
-        if (written < 6)
-            throw new ArgumentException(
-                $"The curve discretized to {written / 2} vertices, too few to enclose anything.",
-                nameof(curve));
-
-        // The ABI wants the first vertex repeated as the last. A closed curve's
-        // polyline normally arrives that way; appending costs one vertex where it
-        // does not, and the curve was already known to be closed above.
-        if (verts[0] != verts[written - 2] || verts[1] != verts[written - 1])
-        {
-            verts[written++] = verts[0];
-            verts[written++] = verts[1];
-        }
-
-        int vertexCount = written / 2;
-
-        // Three vertices that already close is a line out and back, enclosing
-        // nothing. Checked after the fix-up, so it catches that case rather than
-        // leaving it to the native guard.
-        if (vertexCount < 4)
-            throw new ArgumentException(
-                $"The curve discretized to {vertexCount} vertices, which enclose no area.", nameof(curve));
-
-        int n = queryPoints.Count;
-        var query = new double[2 * n];
-        for (int k = 0; k < n; k++)
-        {
-            if (!plane.RemapToPlaneSpace(queryPoints[k], out Point3d local))
-                throw new ArgumentException("A query point could not be mapped into the plane.", nameof(plane));
-            query[k * 2]     = local.X;
-            query[k * 2 + 1] = local.Y;
-        }
-
-        int[] counts       = { vertexCount };
-        var   relationship = new int[n];
+        double[] query = ProjectQuery(queryPoints, plane);
+        int      n     = queryPoints.Count;
+        var relationship = new int[n];
 
         int status;
-        fixed (double* vp = verts)
+        fixed (double* vp = verts.ToArray())
         fixed (int* cp = counts)
         fixed (double* qp = query)
         fixed (int* rp = relationship)
@@ -449,13 +394,152 @@ internal static class GeomSeqCore
         if (status < 0)
             throw new InvalidOperationException(StatusMessage(status));
 
-        // The flattened query points, read back out of the plane: the point the
-        // classification actually answered for, which is what Rhino's P' reports.
-        var projected = new Point3d[n];
-        for (int k = 0; k < n; k++)
-            projected[k] = plane.PointAt(query[k * 2], query[k * 2 + 1]);
+        return (relationship, ReadBack(query, plane), status == PicWarnFlatArea);
+    }
 
-        return (relationship, projected, status == PicWarnFlatArea);
+    /// <summary>
+    /// Classifies points against several closed curves, measured in <paramref name="plane"/>,
+    /// and says which curve contains each.
+    /// </summary>
+    /// <remarks>
+    /// Each point is tested against the curves in list order and stops at the first
+    /// that contains it, on the boundary or inside. Nested curves therefore answer
+    /// for whichever containing curve comes first in the list. Discretization and
+    /// projection are as for <see cref="PointInCurve"/>, once per curve.
+    /// </remarks>
+    /// <returns>
+    /// <c>relationship</c> and <c>projected</c> as for <see cref="PointInCurve"/>.
+    /// <c>index</c>: the containing curve's position in <paramref name="curves"/>, or -1
+    /// for a point none contains -- the <c>I</c> of Rhino's own Point In Curves.
+    /// <c>collapsed</c>: at least one curve enclosed almost no area once projected.
+    /// </returns>
+    public static unsafe (int[] relationship, int[] index, Point3d[] projected, bool collapsed) PointInCurves(
+        IReadOnlyList<Curve> curves, IReadOnlyList<Point3d> queryPoints, Plane plane,
+        double tol, double chordTol)
+    {
+        if (curves == null)
+            throw new ArgumentNullException(nameof(curves));
+        if (curves.Count == 0)
+            throw new ArgumentException("At least one curve is needed.", nameof(curves));
+
+        CheckContainmentArgs(plane, tol, chordTol);
+
+        var verts  = new List<double>();
+        var counts = new int[curves.Count];
+        for (int c = 0; c < curves.Count; c++)
+        {
+            if (curves[c] == null)
+                throw new ArgumentNullException(nameof(curves), $"Curve {c} is null.");
+            counts[c] = FlattenBoundary(curves[c], plane, chordTol, verts);
+        }
+
+        double[] query = ProjectQuery(queryPoints, plane);
+        int      n     = queryPoints.Count;
+        var relationship = new int[n];
+        var index        = new int[n];
+
+        int status;
+        fixed (double* vp = verts.ToArray())
+        fixed (int* cp = counts)
+        fixed (double* qp = query)
+        fixed (int* rp = relationship)
+        fixed (int* ip = index)
+        {
+            status = NativeMethods.PointInCurves(vp, cp, curves.Count, qp, n, tol, rp, ip);
+        }
+
+        if (status < 0)
+            throw new InvalidOperationException(StatusMessage(status));
+
+        return (relationship, index, ReadBack(query, plane), status == PicWarnFlatArea);
+    }
+
+    private static void CheckContainmentArgs(Plane plane, double tol, double chordTol)
+    {
+        if (!plane.IsValid)
+            throw new ArgumentException("The plane is not valid.", nameof(plane));
+
+        if (tol < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(tol), tol, "tol must be 0 or more.");
+
+        if (chordTol <= 0.0)
+            throw new ArgumentOutOfRangeException(nameof(chordTol), chordTol, "chordTol must be greater than 0.");
+    }
+
+    /// <summary>
+    /// Discretizes one closed curve, flattens it into the plane and appends its
+    /// vertices to <paramref name="into"/>, first repeated as last. Returns how many.
+    /// </summary>
+    private static int FlattenBoundary(Curve curve, Plane plane, double chordTol, List<double> into)
+    {
+        // Checked here rather than left to the native guard: Curve.IsClosed is the
+        // authority, and it can answer for the curve rather than for its discretization.
+        if (!curve.IsClosed)
+            throw new ArgumentException("The curve must be closed for containment to mean anything.", nameof(curve));
+
+        Polyline boundary = Discretize(curve, chordTol);
+
+        int start = into.Count;
+        foreach (Point3d p in boundary)
+        {
+            if (!plane.RemapToPlaneSpace(p, out Point3d local))
+                throw new ArgumentException("The curve could not be mapped into the plane.", nameof(plane));
+            into.Add(local.X);
+            into.Add(local.Y);
+        }
+
+        int written = into.Count - start;
+
+        // Guards the indexing in the fix-up as much as it rejects the input.
+        if (written < 6)
+            throw new ArgumentException(
+                $"The curve discretized to {written / 2} vertices, too few to enclose anything.",
+                nameof(curve));
+
+        // The ABI wants the first vertex repeated as the last. A closed curve's
+        // polyline normally arrives that way; appending costs one vertex where it
+        // does not, and the curve was already known to be closed above.
+        double x0 = into[start], y0 = into[start + 1];
+        if (x0 != into[into.Count - 2] || y0 != into[into.Count - 1])
+        {
+            into.Add(x0);
+            into.Add(y0);
+        }
+
+        int vertexCount = (into.Count - start) / 2;
+
+        // Three vertices that already close is a line out and back, enclosing
+        // nothing. Checked after the fix-up, so it catches that case rather than
+        // leaving it to the native guard.
+        if (vertexCount < 4)
+            throw new ArgumentException(
+                $"The curve discretized to {vertexCount} vertices, which enclose no area.", nameof(curve));
+
+        return vertexCount;
+    }
+
+    private static double[] ProjectQuery(IReadOnlyList<Point3d> queryPoints, Plane plane)
+    {
+        int n = queryPoints.Count;
+        var query = new double[2 * n];
+        for (int k = 0; k < n; k++)
+        {
+            if (!plane.RemapToPlaneSpace(queryPoints[k], out Point3d local))
+                throw new ArgumentException("A query point could not be mapped into the plane.", nameof(plane));
+            query[k * 2]     = local.X;
+            query[k * 2 + 1] = local.Y;
+        }
+        return query;
+    }
+
+    // The flattened query points, read back out of the plane: the point the
+    // classification actually answered for, which is what Rhino's P' reports.
+    private static Point3d[] ReadBack(double[] query, Plane plane)
+    {
+        var projected = new Point3d[query.Length / 2];
+        for (int k = 0; k < projected.Length; k++)
+            projected[k] = plane.PointAt(query[k * 2], query[k * 2 + 1]);
+        return projected;
     }
 
     /// <summary>Flattens a curve to a polyline whose deviation from it is bounded.</summary>

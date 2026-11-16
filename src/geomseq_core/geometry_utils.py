@@ -320,7 +320,7 @@ PIC_COINCIDENT = 1
 PIC_INSIDE     = 2
 
 _PIC_ERRORS = {
-    PIC_ERR_POLYLINE_COUNT: "point_in_curve takes exactly one polyline in this stage",
+    PIC_ERR_POLYLINE_COUNT: "point_in_curve takes exactly one polyline; point_in_curves takes one or more",
     PIC_ERR_TOO_FEW_VERTS:  "a polyline needs at least 4 vertices (3 corners plus the repeated first)",
     PIC_ERR_NOT_CLOSED:     "a polyline is not closed: its last vertex is not its first within tol",
     PIC_ERR_BAD_ARGUMENT:   "point_in_curve got a null pointer or a negative count",
@@ -328,22 +328,8 @@ _PIC_ERRORS = {
 }
 
 
-def point_in_curve_native(polylines, query_pts, tol=0.0):
-    """Classify 2D query points against closed 2D polylines.
-
-    Takes geometry already flattened into the plane the containment is
-    measured in: only x and y are read from each vertex and query point, and
-    the caller is responsible for the projection. `polylines` is a sequence of
-    polylines, each a sequence of vertices with its first repeated as its
-    last; this stage accepts exactly one. `tol` is how close to the boundary
-    counts as PIC_COINCIDENT, in model units, and 0 means exact only.
-
-    Returns `(relationship, status)`. `relationship` is one PIC_OUTSIDE /
-    PIC_COINCIDENT / PIC_INSIDE per query point. `status` is PIC_OK, or
-    PIC_WARN_FLAT_AREA when the projection collapsed and the caller should
-    say so.
-
-    Raises ValueError for the negative statuses, where nothing was written."""
+def _pic_marshal(polylines, query_pts, tol):
+    """The ctypes arrays both point-in-curve wrappers hand to the native side."""
     if tol < 0:
         raise ValueError(f"tol must be >= 0, got {tol}")
 
@@ -362,20 +348,77 @@ def point_in_curve_native(polylines, query_pts, tol=0.0):
         flat_q.append(float(q[0]))
         flat_q.append(float(q[1]))
 
-    lib = native_bridge.load_dll()
-
     poly_ptr   = (ctypes.c_double * len(flat))(*flat) if flat else None
     counts_ptr = (ctypes.c_int * num_polylines)(*counts) if counts else None
     query_ptr  = (ctypes.c_double * len(flat_q))(*flat_q) if flat_q else None
 
-    out_relationship = (ctypes.c_int * n_query)() if n_query else (ctypes.c_int * 1)()
+    return poly_ptr, counts_ptr, num_polylines, query_ptr, n_query
+
+
+def _pic_raise(name, status):
+    raise ValueError("%s (%s status %d)"
+                     % (_PIC_ERRORS.get(status, name + " refused the input"), name, status))
+
+
+def point_in_curve_native(polylines, query_pts, tol=0.0):
+    """Classify 2D query points against one closed 2D polyline.
+
+    Takes geometry already flattened into the plane the containment is
+    measured in: only x and y are read from each vertex and query point, and
+    the caller is responsible for the projection. `polylines` is a sequence of
+    polylines, each a sequence of vertices with its first repeated as its
+    last, and must hold exactly one -- several is `point_in_curves_native`.
+    `tol` is how close to the boundary counts as PIC_COINCIDENT, in model
+    units, and 0 means exact only.
+
+    Returns `(relationship, status)`. `relationship` is one PIC_OUTSIDE /
+    PIC_COINCIDENT / PIC_INSIDE per query point. `status` is PIC_OK, or
+    PIC_WARN_FLAT_AREA when the projection collapsed and the caller should
+    say so.
+
+    Raises ValueError for the negative statuses, where nothing was written."""
+    poly_ptr, counts_ptr, num_polylines, query_ptr, n_query = \
+        _pic_marshal(polylines, query_pts, tol)
+
+    lib = native_bridge.load_dll()
+    out_relationship = (ctypes.c_int * max(n_query, 1))()
 
     status = lib.point_in_curve(poly_ptr, counts_ptr, num_polylines,
                                 query_ptr, n_query, ctypes.c_double(tol),
                                 out_relationship)
-
     if status < 0:
-        raise ValueError("%s (point_in_curve status %d)"
-                         % (_PIC_ERRORS.get(status, "point_in_curve refused the input"), status))
+        _pic_raise("point_in_curve", status)
 
     return [out_relationship[i] for i in range(n_query)], status
+
+
+def point_in_curves_native(polylines, query_pts, tol=0.0):
+    """Classify 2D query points against several closed 2D polylines, and say
+    which one contains each.
+
+    Inputs are as for `point_in_curve_native`, with any number of polylines
+    from one up. Each point is tested against them in order and stops at the
+    first that contains it, on the boundary or inside; nested curves therefore
+    answer for whichever containing curve is listed first.
+
+    Returns `(relationship, index, status)`. `index` is the containing
+    polyline's position in `polylines`, or -1 for a point none contains, which
+    is always PIC_OUTSIDE.
+
+    Raises ValueError for the negative statuses, where nothing was written."""
+    poly_ptr, counts_ptr, num_polylines, query_ptr, n_query = \
+        _pic_marshal(polylines, query_pts, tol)
+
+    lib = native_bridge.load_dll()
+    out_relationship = (ctypes.c_int * max(n_query, 1))()
+    out_index        = (ctypes.c_int * max(n_query, 1))()
+
+    status = lib.point_in_curves(poly_ptr, counts_ptr, num_polylines,
+                                 query_ptr, n_query, ctypes.c_double(tol),
+                                 out_relationship, out_index)
+    if status < 0:
+        _pic_raise("point_in_curves", status)
+
+    return ([out_relationship[i] for i in range(n_query)],
+            [out_index[i] for i in range(n_query)],
+            status)

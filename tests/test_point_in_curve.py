@@ -56,8 +56,8 @@ def test_negative_tol_is_refused():
         point_in_curve_native([SQUARE], [(0.5, 0.5)], tol=-1.0)
 
 
-def test_two_polylines_are_refused_in_this_stage():
-    """The ABI already carries a count; the implementation does not yet."""
+def test_two_polylines_are_refused():
+    """Several curves is point_in_curves, which also answers which one."""
     with pytest.raises(ValueError) as e:
         point_in_curve_native([SQUARE, SQUARE], [(0.5, 0.5)], tol=TOL)
     assert "one polyline" in str(e.value)

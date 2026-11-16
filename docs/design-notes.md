@@ -303,11 +303,22 @@ same semantics inside that narrower case, at a far lower cost per query point.
 This takes one closed curve and always will. Several curves is a *separate*
 function, the way Grasshopper splits Point In Curve from Point In Curves, and
 not a restriction to be lifted here: that one also reports which curve contains
-each point, and this export has no output for it. So it gets its own export, its
-own component and its own ABI bump, and `point_in_curve` refuses a polyline
-count other than 1 permanently rather than pretending the generality is there.
-Nothing about nested curves — how parities combine, which index wins — is owed
-by this function.
+each point, and this export has no output for it. So it got its own export,
+`point_in_curves`, its own component and ABI 4, and `point_in_curve` refuses a
+polyline count other than 1 permanently rather than pretending the generality
+is there.
+
+**`point_in_curves` stops at the first containing curve in input order.** The
+two exports share one classification core and one validation path; the plural
+adds a loop over the polylines per point and an index output. A point several
+curves contain — nested curves, or two sharing an edge — answers for whichever
+is listed first, on the boundary or inside, and the loop stops there. That is
+the cheapest rule, since a hit ends the scan, and the one Grasshopper's own
+component is read to follow ("the sequence number of the curve enclosing the
+point"); it is not yet checked against Rhino on a nested pair, which is in
+*Still open*. Nothing combines parities across curves: a point in the hole of a
+donut listed outer-first is inside the outer, index 0, exactly as Rhino's
+answers per curve.
 
 **The curve never crosses the boundary.** `point_in_curve` takes 2D vertices and
 2D query points, nothing else; the C# layer discretizes the curve and projects
@@ -652,6 +663,15 @@ groups. The numbers exist; the reading of them does not.
   That gap is what the index would close, so it is on record before the index
   exists rather than after.
 
+- **`point_in_curves`' index for a point several curves contain is unverified
+  against Rhino's.** The relationship is settled: Rhino's component treats
+  every closed curve as its own test and reports inside when any one contains
+  the point — no hole semantics, nothing combined across curves — which is what
+  this does. What remains is only `I` on an overlap: this answers the first
+  containing curve in list order; whether Rhino picks the first listed or
+  another has not been observed. One donut in Grasshopper, outer at index 0 and
+  hole at 1 with a point in the hole, both components wired, settles it. If
+  Rhino answers the hole, the fix is to let the loop run on instead of break.
 - **`point_in_curve` is bridge-bound by work, not by n** — the question was put
   as "at small n" and that was the wrong variable. The bridge is a flat 0.45 µs
   per query point (0.45 ms at n=1,000, 29.0 ms at 64,000) and does not move with

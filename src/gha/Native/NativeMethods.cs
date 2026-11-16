@@ -95,9 +95,23 @@ internal static unsafe class NativeMethods
     internal static extern int PointInCurve(
         double* polylines,        // 2 doubles per vertex, polylines laid end to end
         int*    vertexCounts,     // numPolylines: vertices in each, first repeated as last
-        int     numPolylines,     // this stage refuses anything but 1
+        int     numPolylines,     // exactly 1; several is PointInCurves
         double* queryPts,         // 2n: x,y per query point
         int     numQuery,
         double  tol,              // model units; within this of the boundary is coincident
         int*    outRelationship); // n: 0 outside, 1 coincident, 2 inside
+
+    // As above for one or more polylines, and also which one: the first in
+    // input order to contain the point, or -1.
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "point_in_curves",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int PointInCurves(
+        double* polylines,
+        int*    vertexCounts,
+        int     numPolylines,     // 1 or more
+        double* queryPts,
+        int     numQuery,
+        double  tol,
+        int*    outRelationship,  // n: 0 outside, 1 coincident, 2 inside
+        int*    outIndex);        // n: containing polyline, or -1
 }

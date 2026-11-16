@@ -28,6 +28,7 @@ geometry instead of changing it.
 | Sample Curve Points (`SampleCrv`) | Division | `C` one curve per branch of `S` · `S` arc-length positions | `P` points on each curve |
 | Shatter Crossings (`ShatterX`) | Division | `C` polylines, one branch at a time · `D` gap · `T` touch tolerance (default 0, exact only) · `X` also cut self-crossings (default false) · `P` plane (default: world XY) | `S` surviving pieces · `N` pieces per input curve |
 | Point In Curve (`PtInCrv`) | Analysis | `C` one closed curve · `P` points · `Pl` plane (default: world XY) · `T` boundary tolerance (default 0, exact only) · `Ct` chord tolerance (default 0, takes the document's) | `R` 0 outside / 1 on the boundary / 2 inside · `P'` each point dropped onto the plane, as Rhino's own `P'` |
+| Point In Curves (`PtInCrvs`) | Analysis | `C` closed curves · `P` points · `Pl` plane · `T` boundary tolerance · `Ct` chord tolerance, all as above | `R` as above · `I` index in `C` of the first curve containing the point, or -1 · `P'` as above |
 | Sort Curves (`SortCrv`) | Sequence | `C` curves · `S` start (optional, default: origin) · `T` output travel (default false) · `F` allow reversal (default true; false keeps every curve's direction and skips 2-opt) | `C` sorted curves, reversals applied · `i` input indices · `R` reversed · `D` travel per branch · `T` travel lines (only when input `T` is true) |
 | Sort Points (`SortPt`) | Sequence | `P` points · `S` start (optional, default: origin) · `Ct` continuous (default true; each branch starts where the last ended) | `P` sorted points · `i` input indices · `D` travel per branch |
 | Build Turn Waypoints (`Turn`) | Travel | `P` points, one branch per turn · `A` max angle in degrees (default 30) · `St` fillet step (> 0) · `E` extend past each end · `Pl` plane (default: world XY) | `W` waypoints through the turn |
@@ -125,6 +126,7 @@ four modules ship here" while seven did, which is what a second copy of a todo
 list does.
 
 One thing that is only true of the package, so it belongs here: every component
-but **Point In Curve** has artwork. That one draws Grasshopper's default icon
-until `point_in_curve.png` lands in `Resources/`, which is all it takes — the
-csproj embeds that folder by wildcard.
+but **Point In Curve** and **Point In Curves** has artwork. Those two draw
+Grasshopper's default icon until `point_in_curve.png` and `point_in_curves.png`
+land in `Resources/`, which is all it takes — the csproj embeds that folder by
+wildcard.

@@ -18,8 +18,9 @@ extern "C" {
 // 2: point_in_curve added.
 // 3: point_in_curve lost its out_projected argument. The caller already holds
 //    that point -- it projects into the plane before calling.
+// 4: point_in_curves added.
 DLL_EXPORT int geomseq_abi_version() {
-    return 3;
+    return 4;
 }
 
 } // extern "C"
