@@ -127,8 +127,7 @@ four modules ship here" while seven did, which is what a second copy of a todo
 list does.
 
 One thing that is only true of the package, so it belongs here: every component
-but **Point In Curve**, **Point In Curves** and **Build Waypoints** has
-artwork. Those three draw Grasshopper's default icon until
-`point_in_curve.png`, `point_in_curves.png` and `build_waypoints.png` land in
-`Resources/`, which is all it takes — the csproj embeds that folder by
+has artwork. A new one may ship without — `Icons.Load` returns null for a
+missing PNG and Grasshopper draws its default icon — and dropping the PNG into
+`Resources/` later is all it takes, since the csproj embeds that folder by
 wildcard.

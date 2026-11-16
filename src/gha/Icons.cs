@@ -16,9 +16,6 @@ internal static class Icons
     public static readonly Bitmap BuildTurnWaypoints  = Load("build_turn_waypoints.png");
     public static readonly Bitmap ShatterCrossings    = Load("shatter_crossings.png");
 
-    // No artwork yet: Load returns null and Grasshopper draws its default icon, so
-    // the wiring can land before the drawing does. Dropping the PNG into Resources/
-    // later is enough -- the csproj embeds that folder by wildcard.
     public static readonly Bitmap PointInCurve        = Load("point_in_curve.png");
     public static readonly Bitmap PointInCurves       = Load("point_in_curves.png");
     public static readonly Bitmap BuildWaypoints      = Load("build_waypoints.png");
