@@ -363,8 +363,8 @@ last curve only. Graft `C` and the two line up branch for branch — do that in
 any conformance comparison.
 
 **No per-curve plane.** Rhino's component detects a plane per curve. This one
-takes an optional `Plane` input and defaults to world XY, because the
-multi-curve stage has to measure every curve in one plane for containment
+takes an optional `Plane` input and defaults to world XY, because
+`point_in_curves` has to measure every curve in one plane for containment
 between them to mean anything, and a per-curve plane would make that incoherent.
 
 **Where the answers will differ.** Two gaps, both known and neither fixable
@@ -407,22 +407,27 @@ The boundary is decided before the parity, by `nearest_on_polyline` against
 `tol`, so a point lying *on* an edge never reaches the crossing count and those
 strict comparisons are never asked to settle it.
 
-**Current state.** Stage 1 ships, component included, and
-`tests/test_point_in_curve.py` passes: validation, the box rejection, the
-boundary within `tol`, a ray through a vertex, and a concave shape a convex
-test would get wrong. What is outstanding is in *Still open* below, not here —
-this section says how the thing works, and a second copy of the todo list is
-what let `src/gha/README.md` claim two shipped components while seven did.
+**Current state.** Both exports ship with their components, checked side by
+side against Rhino's pair on 2026-11-16, and their tests pass —
+`test_point_in_curve.py` for the core (validation, the box rejection, the
+boundary within the band, a ray through a vertex, a concave shape) and
+`test_point_in_curves.py` for what the plural adds (the index, input order,
+nesting, a shared edge). What is outstanding is in *Still open* below, not
+here — this section says how the thing works, and a second copy of the todo
+list is what let `src/gha/README.md` claim two shipped components while seven
+did.
 
 **What the speed actually comes from today, which is not the algorithm.** The
 win over Rhino's component is that the plane transform happens once for the
 whole list rather than per test, and that no per-curve plane is detected. The
 classification itself is brute force: every query point inside the bounding box
 scans all V edges twice, once in `distance_to_polyline` and once in
-`crossing_number_parity`, so the cost is O(n·V). At V=1,000 and n=10,000 that
-is 20M edge visits, and raising the chord tolerance to get a more faithful
-boundary raises V, which makes it worse. Nothing here is measured yet; see
-*Still open*.
+`crossing_number_parity`, so the cost is O(n·V) — measured as exactly that in
+`20261116-point_in_curve-heavy` (linear in both axes; 35.8 ms natively at
+n=8,000 against V=1,000), with the full reading in `docs/benchmarks.md`.
+Raising the chord tolerance to get a more faithful boundary raises V, which
+makes it worse. The y-interval edge index that would cut the scan is in *Still
+open*, with this baseline as what it will be read against.
 
 ### Why results are only quoted from committed runs
 

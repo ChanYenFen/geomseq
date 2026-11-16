@@ -21,6 +21,7 @@ internal static class Icons
     // later is enough -- the csproj embeds that folder by wildcard.
     public static readonly Bitmap PointInCurve        = Load("point_in_curve.png");
     public static readonly Bitmap PointInCurves       = Load("point_in_curves.png");
+    public static readonly Bitmap BuildWaypoints      = Load("build_waypoints.png");
 
     private static Bitmap Load(string file)
     {

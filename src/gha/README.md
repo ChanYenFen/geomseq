@@ -31,6 +31,7 @@ geometry instead of changing it.
 | Point In Curves (`PtInCrvs`) | Analysis | `C` closed curves · `P` points · `Pl` plane · `T` boundary tolerance · `Ct` chord tolerance, all as above | `R` as above · `I` index in `C` of the first curve containing the point, or -1 · `P'` as above |
 | Sort Curves (`SortCrv`) | Sequence | `C` curves · `S` start (optional, default: origin) · `T` output travel (default false) · `F` allow reversal (default true; false keeps every curve's direction and skips 2-opt) | `C` sorted curves, reversals applied · `i` input indices · `R` reversed · `D` travel per branch · `T` travel lines (only when input `T` is true) |
 | Sort Points (`SortPt`) | Sequence | `P` points · `S` start (optional, default: origin) · `Ct` continuous (default true; each branch starts where the last ended) | `P` sorted points · `i` input indices · `D` travel per branch |
+| Build Waypoints (`Wp`) | Travel | `C` curves in travel order | `W` two points per move — the end of one curve, the start of the next — one branch per move, branch k leaving curve k |
 | Build Turn Waypoints (`Turn`) | Travel | `P` points, one branch per turn · `A` max angle in degrees (default 30) · `St` fillet step (> 0) · `E` extend past each end · `Pl` plane (default: world XY) | `W` waypoints through the turn |
 
 On the two sorts, `D` is per branch and includes the move *into* that branch —
@@ -126,7 +127,8 @@ four modules ship here" while seven did, which is what a second copy of a todo
 list does.
 
 One thing that is only true of the package, so it belongs here: every component
-but **Point In Curve** and **Point In Curves** has artwork. Those two draw
-Grasshopper's default icon until `point_in_curve.png` and `point_in_curves.png`
-land in `Resources/`, which is all it takes — the csproj embeds that folder by
+but **Point In Curve**, **Point In Curves** and **Build Waypoints** has
+artwork. Those three draw Grasshopper's default icon until
+`point_in_curve.png`, `point_in_curves.png` and `build_waypoints.png` land in
+`Resources/`, which is all it takes — the csproj embeds that folder by
 wildcard.
