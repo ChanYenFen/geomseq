@@ -376,7 +376,8 @@ internal static class GeomSeqCore
         CheckContainmentArgs(plane, tol, chordTol);
 
         var verts = new List<double>();
-        int[] counts = { FlattenBoundary(curve, plane, chordTol, verts) };
+        int[] counts = { FlattenBoundary(curve, plane, chordTol, verts, out bool discretized) };
+        double span = EffectiveTol(tol, chordTol, discretized);
 
         double[] query = ProjectQuery(queryPoints, plane);
         int      n     = queryPoints.Count;
@@ -388,7 +389,7 @@ internal static class GeomSeqCore
         fixed (double* qp = query)
         fixed (int* rp = relationship)
         {
-            status = NativeMethods.PointInCurve(vp, cp, 1, qp, n, tol, rp);
+            status = NativeMethods.PointInCurve(vp, cp, 1, qp, n, span, rp);
         }
 
         if (status < 0)
@@ -426,12 +427,15 @@ internal static class GeomSeqCore
 
         var verts  = new List<double>();
         var counts = new int[curves.Count];
+        bool anyDiscretized = false;
         for (int c = 0; c < curves.Count; c++)
         {
             if (curves[c] == null)
                 throw new ArgumentNullException(nameof(curves), $"Curve {c} is null.");
-            counts[c] = FlattenBoundary(curves[c], plane, chordTol, verts);
+            counts[c] = FlattenBoundary(curves[c], plane, chordTol, verts, out bool discretized);
+            anyDiscretized |= discretized;
         }
+        double span = EffectiveTol(tol, chordTol, anyDiscretized);
 
         double[] query = ProjectQuery(queryPoints, plane);
         int      n     = queryPoints.Count;
@@ -445,7 +449,7 @@ internal static class GeomSeqCore
         fixed (int* rp = relationship)
         fixed (int* ip = index)
         {
-            status = NativeMethods.PointInCurves(vp, cp, curves.Count, qp, n, tol, rp, ip);
+            status = NativeMethods.PointInCurves(vp, cp, curves.Count, qp, n, span, rp, ip);
         }
 
         if (status < 0)
@@ -467,17 +471,30 @@ internal static class GeomSeqCore
     }
 
     /// <summary>
-    /// Discretizes one closed curve, flattens it into the plane and appends its
-    /// vertices to <paramref name="into"/>, first repeated as last. Returns how many.
+    /// The band within which a point counts as on the boundary. A discretized
+    /// boundary is only known to within <paramref name="chordTol"/> of the real one,
+    /// so a point nearer than that cannot honestly be called inside or outside --
+    /// a point exactly on a circle sits just outside the polygon inscribed in it.
+    /// The band is therefore never narrower than the discretization error. A curve
+    /// that was already a polyline has exact vertices and no such floor.
     /// </summary>
-    private static int FlattenBoundary(Curve curve, Plane plane, double chordTol, List<double> into)
+    private static double EffectiveTol(double tol, double chordTol, bool discretized)
+        => discretized ? Math.Max(tol, chordTol) : tol;
+
+    /// <summary>
+    /// Discretizes one closed curve, flattens it into the plane and appends its
+    /// vertices to <paramref name="into"/>, first repeated as last. Returns how many;
+    /// <paramref name="discretized"/> says whether the vertices are approximate.
+    /// </summary>
+    private static int FlattenBoundary(Curve curve, Plane plane, double chordTol, List<double> into,
+                                       out bool discretized)
     {
         // Checked here rather than left to the native guard: Curve.IsClosed is the
         // authority, and it can answer for the curve rather than for its discretization.
         if (!curve.IsClosed)
             throw new ArgumentException("The curve must be closed for containment to mean anything.", nameof(curve));
 
-        Polyline boundary = Discretize(curve, chordTol);
+        Polyline boundary = Discretize(curve, chordTol, out discretized);
 
         int start = into.Count;
         foreach (Point3d p in boundary)
@@ -548,12 +565,16 @@ internal static class GeomSeqCore
     /// nothing could be claimed about a classification near the boundary. A chord
     /// height bounds it directly.
     /// </remarks>
-    private static Polyline Discretize(Curve curve, double chordTol)
+    private static Polyline Discretize(Curve curve, double chordTol, out bool discretized)
     {
         // Already a polyline: its vertices are exact, so there is no error to bound.
         if (curve.TryGetPolyline(out Polyline exact))
+        {
+            discretized = false;
             return exact;
+        }
 
+        discretized = true;
         // The zeros switch off every constraint but the chord height.
         PolylineCurve? pc = curve.ToPolyline(0, 0, 0, 0, 0, chordTol, 0, 0, true);
         Polyline? pl = pc?.ToPolyline();

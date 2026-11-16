@@ -313,12 +313,12 @@ two exports share one classification core and one validation path; the plural
 adds a loop over the polylines per point and an index output. A point several
 curves contain — nested curves, or two sharing an edge — answers for whichever
 is listed first, on the boundary or inside, and the loop stops there. That is
-the cheapest rule, since a hit ends the scan, and the one Grasshopper's own
-component is read to follow ("the sequence number of the curve enclosing the
-point"); it is not yet checked against Rhino on a nested pair, which is in
-*Still open*. Nothing combines parities across curves: a point in the hole of a
-donut listed outer-first is inside the outer, index 0, exactly as Rhino's
-answers per curve.
+the cheapest rule, since a hit ends the scan, and it is Rhino's: checked
+side by side on 2026-11-16 with a donut, outer at index 0 and hole at 1. A
+point in the hole is inside with index 0 from both components; a point in the
+ring, inside, index 0; a point on the outer, coincident, from both. Nothing
+combines parities across curves — Rhino treats every closed curve as its own
+test and answers inside when any one contains the point, and so does this.
 
 **The curve never crosses the boundary.** `point_in_curve` takes 2D vertices and
 2D query points, nothing else; the C# layer discretizes the curve and projects
@@ -371,11 +371,20 @@ between them to mean anything, and a per-curve plane would make that incoherent.
 within this design:
 
 - *Coincident.* Rhino decides it analytically against the NURBS; here it is
-  "within `tol` of the discretized polyline". Inside and outside should agree
-  everywhere else, so the disagreements are expected to be points lying nearer
-  the true boundary than the discretization error — which is what the
-  conformance test measures, recording each disagreement's distance to the
-  boundary rather than a bare pass rate.
+  "within the band of the discretized polyline". **The band is never narrower
+  than the chord tolerance** for a curve that had to be flattened. That floor
+  was added on 2026-11-16 after the first side-by-side in Rhino: a point placed
+  exactly on a circle came back *outside* with `T` at its default of 0, because
+  the arc bulges outward from the chord it was flattened to, and a 1e-9 band
+  around the chord does not reach it. The polygon is only known to within `Ct`
+  of the real boundary, so a point nearer than that cannot honestly be called
+  inside or outside, and calling it coincident is the one answer that is true.
+  A curve that is already a polyline has exact vertices and keeps `T` as given.
+  Past the band, inside and outside should agree with Rhino everywhere, so the
+  disagreements are expected to be points lying nearer the true boundary than
+  the discretization error — which is what the conformance test measures,
+  recording each disagreement's distance to the boundary rather than a bare
+  pass rate.
 - *Per-curve planes*, as above.
 
 **A collapsed projection is reported, not refused.** When the curve's plane is
@@ -663,15 +672,6 @@ groups. The numbers exist; the reading of them does not.
   That gap is what the index would close, so it is on record before the index
   exists rather than after.
 
-- **`point_in_curves`' index for a point several curves contain is unverified
-  against Rhino's.** The relationship is settled: Rhino's component treats
-  every closed curve as its own test and reports inside when any one contains
-  the point — no hole semantics, nothing combined across curves — which is what
-  this does. What remains is only `I` on an overlap: this answers the first
-  containing curve in list order; whether Rhino picks the first listed or
-  another has not been observed. One donut in Grasshopper, outer at index 0 and
-  hole at 1 with a point in the hole, both components wired, settles it. If
-  Rhino answers the hole, the fix is to let the loop run on instead of break.
 - **`point_in_curve` is bridge-bound by work, not by n** — the question was put
   as "at small n" and that was the wrong variable. The bridge is a flat 0.45 µs
   per query point (0.45 ms at n=1,000, 29.0 ms at 64,000) and does not move with

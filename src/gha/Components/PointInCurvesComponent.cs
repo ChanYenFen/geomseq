@@ -48,7 +48,9 @@ public sealed class PointInCurvesComponent : GH_Component
             "Plane the containment is measured in. Points are flattened onto it, so height above it is ignored.",
             GH_ParamAccess.item, Plane.WorldXY);
         p.AddNumberParameter("Tolerance", "T",
-            "How close to a boundary counts as on it, in model units. 0 means exact only.",
+            "How close to a boundary counts as on it, in model units. Never narrower than " +
+            "Ct when any curve had to be flattened: nearer than that, inside and outside " +
+            "cannot be told apart. 0 means exact only, for curves that are already polylines.",
             GH_ParamAccess.item, 0.0);
         p.AddNumberParameter("Chord Tolerance", "Ct",
             "How far a curve may be straightened when it is flattened to a polyline. " +
