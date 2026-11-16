@@ -417,17 +417,56 @@ here — this section says how the thing works, and a second copy of the todo
 list is what let `src/gha/README.md` claim two shipped components while seven
 did.
 
-**What the speed actually comes from today, which is not the algorithm.** The
-win over Rhino's component is that the plane transform happens once for the
-whole list rather than per test, and that no per-curve plane is detected. The
-classification itself is brute force: every query point inside the bounding box
-scans all V edges twice, once in `distance_to_polyline` and once in
-`crossing_number_parity`, so the cost is O(n·V) — measured as exactly that in
-`20261116-point_in_curve-heavy` (linear in both axes; 35.8 ms natively at
-n=8,000 against V=1,000), with the full reading in `docs/benchmarks.md`.
-Raising the chord tolerance to get a more faithful boundary raises V, which
-makes it worse. The y-interval edge index that would cut the scan is in *Still
-open*, with this baseline as what it will be read against.
+**Where the speed comes from.** Two things, and the second arrived a few hours
+after the first was measured. The plane transform happens once for the whole
+list rather than per test, and no per-curve plane is detected — that was the
+whole claim up to `20261116-point_in_curve-heavy`, where the classification
+itself was brute force: every query point inside the bounding box scanned all
+V edges twice, O(n·V), 35.8 ms natively at n=8,000 against V=1,000. The sweep
+below replaced that the same day; `20261116-point_in_curve-yindex-heavy` is
+the reading after it, 0.72 ms for the same row.
+
+### Why the point-in-curve scan is swept in y
+
+Both per-edge tests only ever care about edges near the query's height. The
+ray crosses an edge only if the edge's y-span contains `q.y`; an edge within
+`span` of `q` has `|dy| <= span`, so its y-span widened by `span` contains
+`q.y`. The widened condition covers both, so one active set serves both scans:
+query points are sorted by y, edges enter the set at `ymin - span` and leave
+past `ymax + span`, and each query runs the unchanged per-edge tests over the
+set alone. An edge never in the set could not have crossed the ray or come
+within the band, so the answer is the every-edge scan's, edge for edge — this
+is *Pruning must be provable*, not a heuristic. The coincident test also stops
+at the first edge within the band, because it answers yes or no, not a
+distance.
+
+A sweep rather than an interval tree or a y-bucketed grid for the reason
+shatter's broad phase is one: it is the idiom already in the repo, it has no
+tuning constant, and a grid's memory is V times the bins for an edge that
+spans them all — exactly the comb's edges.
+
+**Verified, not argued.** `test_point_in_curve_pruning.py` holds a plain
+Python scan of every edge, with the same per-edge arithmetic, and compares it
+with the native result over inputs built to crowd the places a wrongly
+skipped edge would show: points on edges, just inside and just outside the
+band in x and in y, level with a vertex and a band above and below it, a
+circle, a star, a comb, a tall thin box, four tolerances. With the sweep's
+exit height narrowed instead of widened — edges leaving the set while still
+within the band of points below them — 20 of 21 cases failed; restored, all
+pass. The plural is checked against the singular curve by curve on
+overlapping shapes, since it runs the same sweep per curve over the points
+earlier curves have not claimed, which is both the first-hit rule and the
+early stop.
+
+**What it bought, and what it did not.** On the circle, 50× at V=1,000 and
+412× at V=16,000, because the active set is 2 whatever V is; through Python
+the call is now bridge-bound, 0.72 ms of native work under 3.5 ms of
+marshaling. On the comb, 1.4×: every tooth spans the one band, so most of V is
+active at every query and the sweep has little to skip. That is why the shape
+axis was in the baseline before the sweep existed — the number says what the
+sweep did, not what the shape always was. A wider `tol` widens every edge's
+window and so the active set: `tol = 100` on a circle of radius 400 costs 2.1×
+the `tol = 0` row through Python, where before the sweep it cost nothing.
 
 ### Why results are only quoted from committed runs
 
@@ -660,22 +699,13 @@ groups. The numbers exist; the reading of them does not.
   row because the bridge used to be under 0.1%; that reason expired with the
   pair loop. Add the row before optimising either side.
 
-- **`point_in_curve` has no edge index, and that is where its next speed-up
-  is.** Every query point inside the bounding box scans all V edges twice, so
-  the cost is O(n·V) and grows with the chord tolerance that makes the boundary
-  faithful. Both scans can be pruned provably rather than approximately: the
-  crossing count only needs edges whose y-span contains the query's y, which is
-  an interval index on y; the nearest-distance scan only needs edges that could
-  beat the best distance found so far, which is a radius query. Neither trades
-  an answer for speed, so both are admissible under *Pruning must be provable*.
-  **Measured as of `20261116-point_in_curve-heavy`**, which is the baseline the
-  index will be read against: the cost is the product n·V, linear in both
-  (n^1.00 over 1k–64k points, V^0.98 natively over 100–16k vertices). The
-  shape axis is in that run for this reason — a comb whose teeth share one band
-  costs 1.08× the circle at equal n and V under MSVC and 1.26× under g++,
-  because the y-span test succeeds for most of its edges and 2 of the circle's.
-  That gap is what the index would close, so it is on record before the index
-  exists rather than after.
+- **`point_in_curve` is swept in y now, and the sawtooth is what is left.**
+  Done the same day the baseline was taken; see *Why the point-in-curve scan is
+  swept in y* and `docs/benchmarks.md`. What remains open is the shape the
+  sweep cannot help: a comb whose teeth all share one band keeps most of V
+  active at once and gained only 1.4×, against 50× for the circle. An index on
+  x as well — a grid, or sorting the active set — would cut it, but no real
+  job has produced that shape yet, so nothing is owed until one does.
 
 - **`point_in_curve` is bridge-bound by work, not by n** — the question was put
   as "at small n" and that was the wrong variable. The bridge is a flat 0.45 µs

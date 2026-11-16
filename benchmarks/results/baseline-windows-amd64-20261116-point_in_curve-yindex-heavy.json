@@ -1,0 +1,505 @@
+{
+  "env": {
+    "timestamp": "2026-11-16T11:56:24",
+    "system": "Windows",
+    "release": "10",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+    "toolchain_expected": "MSVC",
+    "python": "3.10.6",
+    "binary": {
+      "name": "geomseq_core.dll",
+      "present": true,
+      "size_bytes": 279040,
+      "sha256_prefix": "fd1b56857adbd1cd",
+      "mtime": "2026-11-16T11:54:37"
+    }
+  },
+  "heavy": true,
+  "records": [
+    {
+      "group": "point_in_curve",
+      "name": "n1000",
+      "axis": {
+        "n": 1000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 1000,
+        "outside": 197,
+        "coincident": 0,
+        "inside": 803,
+        "status": 0
+      },
+      "best_seconds": 0.0008645001798868179,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n2000",
+      "axis": {
+        "n": 2000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 2000,
+        "outside": 390,
+        "coincident": 0,
+        "inside": 1610,
+        "status": 0
+      },
+      "best_seconds": 0.001387299969792366,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n4000",
+      "axis": {
+        "n": 4000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 4000,
+        "outside": 841,
+        "coincident": 0,
+        "inside": 3159,
+        "status": 0
+      },
+      "best_seconds": 0.002374300267547369,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n8000",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.004348999820649624,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n16000",
+      "axis": {
+        "n": 16000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 16000,
+        "outside": 3362,
+        "coincident": 0,
+        "inside": 12638,
+        "status": 0
+      },
+      "best_seconds": 0.008827200159430504,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n32000",
+      "axis": {
+        "n": 32000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 32000,
+        "outside": 6745,
+        "coincident": 0,
+        "inside": 25255,
+        "status": 0
+      },
+      "best_seconds": 0.01746560027822852,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n64000",
+      "axis": {
+        "n": 64000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 64000,
+        "outside": 13559,
+        "coincident": 0,
+        "inside": 50441,
+        "status": 0
+      },
+      "best_seconds": 0.037029100116342306,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v100",
+      "axis": {
+        "n": 8000,
+        "v": 100,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 7995,
+        "outside": 1679,
+        "coincident": 0,
+        "inside": 6321,
+        "status": 0
+      },
+      "best_seconds": 0.003937500063329935,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v250",
+      "axis": {
+        "n": 8000,
+        "v": 250,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 7997,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.003853399772197008,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v1000",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.00430870009586215,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v4000",
+      "axis": {
+        "n": 8000,
+        "v": 4000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.005695600062608719,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v16000",
+      "axis": {
+        "n": 8000,
+        "v": 16000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.010743000078946352,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "where_uniform",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.004264199640601873,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "where_spread",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "spread",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 872,
+        "outside": 7305,
+        "coincident": 0,
+        "inside": 695,
+        "status": 0
+      },
+      "best_seconds": 0.003690099809318781,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "where_inside",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "inside",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 0,
+        "coincident": 0,
+        "inside": 8000,
+        "status": 0
+      },
+      "best_seconds": 0.004366299603134394,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "where_outside",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "outside",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 0,
+        "outside": 8000,
+        "coincident": 0,
+        "inside": 0,
+        "status": 0
+      },
+      "best_seconds": 0.0036328001879155636,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "shape_circle",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.004532099701464176,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "shape_comb",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "comb",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1998,
+        "coincident": 0,
+        "inside": 6002,
+        "status": 0
+      },
+      "best_seconds": 0.030933700036257505,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "tol0",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.00439219968393445,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "tol1",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 1.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1643,
+        "coincident": 65,
+        "inside": 6292,
+        "status": 0
+      },
+      "best_seconds": 0.004765199963003397,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "tol10",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 10.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1412,
+        "coincident": 562,
+        "inside": 6026,
+        "status": 0
+      },
+      "best_seconds": 0.005632000043988228,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "tol100",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 100.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 223,
+        "coincident": 4228,
+        "inside": 3549,
+        "status": 0
+      },
+      "best_seconds": 0.00900670001283288,
+      "reps": 5
+    }
+  ]
+}

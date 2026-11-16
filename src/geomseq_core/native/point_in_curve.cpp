@@ -121,98 +121,143 @@ static bool polyline_is_closed(const double* verts, int count, double tol) {
 // The classification core
 // ---------------------------------------------------------------------------
 
-// Parity of the crossings a ray from q makes with the closed polyline:
-// PIC_INSIDE for odd, PIC_OUTSIDE for even. The ray runs in +x, so only an
-// edge spanning q's y matters, and the crossing is where that edge meets the
-// horizontal line through q.
+// Does the +x ray from q cross edge a-b? Only an edge spanning q's y can, and
+// the crossing is where that edge meets the horizontal line through q.
 //
-// verts holds `count` vertices, 2 doubles each, first repeated as last. The
-// caller has already handled the boundary through nearest_on_polyline, so a
-// point *on* an edge never reaches here and the strict comparisons below are
-// not being asked to decide it.
-//
-// The span test is half open -- `(y0 > q.y) != (y1 > q.y)` -- which is what
+// The span test is half open -- `(a.y > q.y) != (b.y > q.y)` -- which is what
 // keeps a ray passing exactly through a vertex honest. At such a vertex two
-// edges meet, and a test for "q.y lies between y0 and y1 inclusive" counts
+// edges meet, and a test for "q.y lies between the ends inclusive" counts
 // both, flipping the parity twice and reporting an interior point as outside.
 // Written this way, the vertex belongs to whichever edge has it as its lower
 // end, so exactly one of the two counts. Do not relax either comparison to
-// >=.
-static int crossing_number_parity(const double* verts, int count, Point q) {
-    int crossings = 0;
+// >=. A point *on* an edge never reaches the parity: the coincident test
+// decides it first, so these strict comparisons are never asked to.
+static bool ray_crosses_edge(Point a, Point b, Point q) {
+    if ((a.y > q.y) == (b.y > q.y)) {
+        return false;
+    }
+    // b.y != a.y is guaranteed: the two differ in which side of q.y they
+    // fall on, so the division is safe.
+    double t  = (q.y - a.y) / (b.y - a.y);
+    double xi = a.x + t * (b.x - a.x);
+    return xi > q.x;
+}
 
-    for (int k = 0; k + 1 < count; k++) {
-        double x0 = verts[k * 2],       y0 = verts[k * 2 + 1];
-        double x1 = verts[(k + 1) * 2], y1 = verts[(k + 1) * 2 + 1];
+// Squared distance from q to edge a-b. Where q projects onto the edge,
+// clamped to it: past an end the nearest point of the edge is that end. A
+// repeated vertex leaves len2 at zero and collapses to a.
+static double dist2_to_edge(Point a, Point b, Point q) {
+    double dx   = b.x - a.x;
+    double dy   = b.y - a.y;
+    double len2 = dx * dx + dy * dy;
 
-        if ((y0 > q.y) != (y1 > q.y)) {
-            // y1 != y0 is guaranteed: the two differ in which side of q.y
-            // they fall on, so the division is safe.
-            double t  = (q.y - y0) / (y1 - y0);
-            double xi = x0 + t * (x1 - x0);
-            if (xi > q.x) {
+    double t = 0.0;
+    if (len2 > 0.0) {
+        t = ((q.x - a.x) * dx + (q.y - a.y) * dy) / len2;
+        t = (t < 0.0) ? 0.0 : (t > 1.0 ? 1.0 : t);
+    }
+
+    double ex = q.x - (a.x + t * dx);
+    double ey = q.y - (a.y + t * dy);
+    return ex * ex + ey * ey;
+}
+
+// Classifies the query points named in `which` against one closed polyline,
+// writing out_rel[q] for each. Points not named are left alone.
+//
+// Pruned twice, both provably -- the answer is the one a scan of every edge
+// would give, not an approximation of it:
+//
+// 1. The bounding box. dist_to_box is a lower bound on the distance to every
+//    point of the polyline, so a query past `span` from the box is neither on
+//    the boundary nor inside it; the interior lies within the box too.
+//
+// 2. A sweep in y over the points that survive. Both scans only ever need
+//    edges near the query's height: the ray crosses an edge only if the edge's
+//    y-span contains q.y, and an edge within `span` of q has |dy| <= span, so
+//    its y-span widened by `span` contains q.y. The widened condition covers
+//    both, so one active set serves both scans. Edges enter when the sweep
+//    reaches ymin - span and leave past ymax + span; an edge never in the set
+//    could not have crossed the ray or come within the band. Each edge in the
+//    set is still put through the same per-edge tests as before, so the
+//    result is identical edge for edge, and the saving is the edges never
+//    looked at: 2 of V on a convex curve, most of V on a sawtooth whose teeth
+//    share one band (see docs/benchmarks.md, "point_in_curve").
+//
+// The coincident test stops at the first edge within the band: it answers a
+// yes/no, not a distance, so the rest of the set cannot change it.
+static void classify_many(const double* verts, int count, const Aabb& box, double span,
+                          const double* query_pts, const std::vector<int>& which,
+                          int* out_rel) {
+    // Survivors of the box, to be swept in y order. Original index kept.
+    std::vector<int> order;
+    order.reserve(which.size());
+    for (int q : which) {
+        Point p = { query_pts[q * 2], query_pts[q * 2 + 1] };
+        if (dist_to_box(box, p) > span) {
+            out_rel[q] = PIC_OUTSIDE;
+        } else {
+            order.push_back(q);
+        }
+    }
+    if (order.empty()) {
+        return;
+    }
+    std::sort(order.begin(), order.end(), [&](int a, int b) {
+        return query_pts[a * 2 + 1] < query_pts[b * 2 + 1];
+    });
+
+    // Edges by entry height. Exit heights are read as the sweep goes.
+    const int num_edges = count - 1;
+    std::vector<int> entry(num_edges);
+    std::vector<double> enter_y(num_edges), leave_y(num_edges);
+    for (int k = 0; k < num_edges; k++) {
+        double y0 = verts[k * 2 + 1], y1 = verts[(k + 1) * 2 + 1];
+        enter_y[k] = std::min(y0, y1) - span;
+        leave_y[k] = std::max(y0, y1) + span;
+        entry[k]   = k;
+    }
+    std::sort(entry.begin(), entry.end(), [&](int a, int b) {
+        return enter_y[a] < enter_y[b];
+    });
+
+    const double span2 = span * span;
+    std::vector<int> active;
+    size_t next_entry = 0;
+
+    for (int q : order) {
+        Point p = { query_pts[q * 2], query_pts[q * 2 + 1] };
+
+        while (next_entry < entry.size() && enter_y[entry[next_entry]] <= p.y) {
+            active.push_back(entry[next_entry++]);
+        }
+
+        // Expired edges are dropped as they are met. An early exit on a
+        // coincident hit may leave some behind; the next query drops them.
+        int  crossings  = 0;
+        bool coincident = false;
+        for (size_t i = 0; i < active.size(); ) {
+            int k = active[i];
+            if (leave_y[k] < p.y) {
+                active[i] = active.back();
+                active.pop_back();
+                continue;
+            }
+            Point a = { verts[k * 2],       verts[k * 2 + 1] };
+            Point b = { verts[(k + 1) * 2], verts[(k + 1) * 2 + 1] };
+            if (dist2_to_edge(a, b, p) <= span2) {
+                coincident = true;
+                break;
+            }
+            if (ray_crosses_edge(a, b, p)) {
                 crossings++;
             }
-        }
-    }
-
-    return (crossings & 1) ? PIC_INSIDE : PIC_OUTSIDE;
-}
-
-// Distance from q to the closed polyline: the smallest distance to any of its
-// edges. Used for the coincident test, which is why it returns the distance
-// rather than answering "within tol" -- the threshold belongs to the caller.
-//
-// Distances are compared squared and the root is taken once, at the end.
-static double distance_to_polyline(const double* verts, int count, Point q) {
-    double best = HUGE_VAL;
-
-    for (int k = 0; k + 1 < count; k++) {
-        Point a = { verts[k * 2],       verts[k * 2 + 1] };
-        Point b = { verts[(k + 1) * 2], verts[(k + 1) * 2 + 1] };
-
-        double dx   = b.x - a.x;
-        double dy   = b.y - a.y;
-        double len2 = dx * dx + dy * dy;
-
-        // Where q projects onto the edge, clamped to it: past an end the
-        // nearest point of the edge is that end. A repeated vertex leaves
-        // len2 at zero and collapses to a.
-        double t = 0.0;
-        if (len2 > 0.0) {
-            t = ((q.x - a.x) * dx + (q.y - a.y) * dy) / len2;
-            t = (t < 0.0) ? 0.0 : (t > 1.0 ? 1.0 : t);
+            i++;
         }
 
-        Point  c  = { a.x + t * dx, a.y + t * dy };
-        double ex = q.x - c.x;
-        double ey = q.y - c.y;
-        double d2 = ex * ex + ey * ey;
-
-        if (d2 < best) {
-            best = d2;
-        }
+        out_rel[q] = coincident ? PIC_COINCIDENT
+                   : (crossings & 1) ? PIC_INSIDE : PIC_OUTSIDE;
     }
-
-    return std::sqrt(best);
-}
-
-// One query point against one closed polyline.
-//
-// The bounding-box rejection comes first. dist_to_box is a lower bound on the
-// distance to every point of the polyline, so past span the point can be
-// neither coincident with the boundary nor inside it -- the interior lies
-// within the box too. Nothing is traded away: the answer is the one the full
-// scan would give.
-static int classify_one(const double* verts, int count, const Aabb& box,
-                        double span, Point p) {
-    if (dist_to_box(box, p) > span) {
-        return PIC_OUTSIDE;
-    }
-    if (distance_to_polyline(verts, count, p) <= span) {
-        return PIC_COINCIDENT;
-    }
-    return crossing_number_parity(verts, count, p);
 }
 
 // The polylines, validated and laid out for the query loop. Shared by both
@@ -334,11 +379,12 @@ DLL_EXPORT int point_in_curve(
         return err;
     }
 
+    std::vector<int> all(num_query);
     for (int q = 0; q < num_query; q++) {
-        Point p = { query_pts[q * 2], query_pts[q * 2 + 1] };
-        out_relationship[q] = classify_one(L.verts[0], vertex_counts[0], L.boxes[0],
-                                           L.span, p);
+        all[q] = q;
     }
+    classify_many(L.verts[0], vertex_counts[0], L.boxes[0], L.span,
+                  query_pts, all, out_relationship);
 
     return L.status;
 }
@@ -380,20 +426,31 @@ DLL_EXPORT int point_in_curves(
         return err;
     }
 
+    // Polyline by polyline, each one only asked about the points nothing
+    // earlier has claimed: that is the first-hit rule, and it is also where
+    // the early stop lives -- a point decided by curve 0 costs nothing on the
+    // rest.
+    std::vector<int> undecided(num_query);
     for (int q = 0; q < num_query; q++) {
-        Point p = { query_pts[q * 2], query_pts[q * 2 + 1] };
-
+        undecided[q]        = q;
         out_relationship[q] = PIC_OUTSIDE;
         out_index[q]        = -1;
+    }
 
-        for (int c = 0; c < num_polylines; c++) {
-            int r = classify_one(L.verts[c], vertex_counts[c], L.boxes[c], L.span, p);
-            if (r != PIC_OUTSIDE) {
-                out_relationship[q] = r;
-                out_index[q]        = c;
-                break;
+    for (int c = 0; c < num_polylines && !undecided.empty(); c++) {
+        classify_many(L.verts[c], vertex_counts[c], L.boxes[c], L.span,
+                      query_pts, undecided, out_relationship);
+
+        std::vector<int> still;
+        still.reserve(undecided.size());
+        for (int q : undecided) {
+            if (out_relationship[q] != PIC_OUTSIDE) {
+                out_index[q] = c;
+            } else {
+                still.push_back(q);
             }
         }
+        undecided.swap(still);
     }
 
     return L.status;

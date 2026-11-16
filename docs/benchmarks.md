@@ -33,7 +33,7 @@ use 20, which adds tens of milliseconds at these sizes.
 | `shatter_at_crossings` | 16,000 segments | 42.3 ms | probably the Python bridge — no native measurement yet | `20261102-shatter-sweep-heavy` |
 | `redistribute_arc_lengths` | 3,657 output points | 124.3 µs | 87% bridge, 13% algorithm | `comparison.md` |
 | `build_turn_waypoints` | 182 waypoints | 41.45 µs | 98% bridge | `comparison.md` |
-| `point_in_curve` | 16,000 points, 1,000-vertex curve | 79.8 ms | 9% bridge — but 98% of it when the bounding box answers every point | `20261116-point_in_curve-heavy` |
+| `point_in_curve` | 16,000 points, 1,000-vertex curve | 8.8 ms | ~84% bridge since the y sweep; was 79.8 ms and 9% bridge before it | `20261116-point_in_curve-yindex-heavy` |
 
 Source files are `benchmarks/results/baseline-windows-amd64-<source>.md`, or
 the file named.
@@ -58,7 +58,7 @@ how it behaved over that range on uniform data, not a complexity class.
 | `shatter_at_crossings` | n^1.09 | 500–16k | O(n²) | bounding boxes that overlap without touching: long segments, dense clusters. On a cross-hatch the output itself is O(n²), so nothing can do better | O(n + k), k = contacts — O(n²) on a cross-hatch |
 | `redistribute_arc_lengths` | linear in output, 4.6 ns per point natively | 102–3,657 out | O(n_out + corners) | — input length does not reach the native side at all | O(n_out) |
 | `build_turn_waypoints` | linear in waypoints, 4.5 ns each natively | 2–182 | O(waypoints) | small `theta_max_deg` on a sharp turn — the count is turn angle over the cap | O(waypoints) |
-| `point_in_curve` | n^1.00 in query points, V^0.98 natively in curve vertices | 1k–64k points, 100–16k vertices | O(n·V) | every query point inside the curve's bounding box, which is what any point list covering the curve gives | O(n + V) |
+| `point_in_curve` | n^1.02 in query points; V^0.26 natively in curve vertices on a convex curve | 1k–64k points, 100–16k vertices | O(n·V) | a curve whose edges share one y band — a sawtooth — keeps most of V active at every query; a convex curve keeps 2 | O(n + V) |
 
 **Other input shapes**, for the sorts — the same baseline also runs the
 synthetic fixtures. The hardest clustering measured costs up to 16% more than
@@ -373,50 +373,55 @@ Polylines — `self_x` off then on — went from 49.8 and 51.2 ms to 7.5 and 8.3
 - **Clustered input**, as for every other group. Overlap between boxes is
   exactly what clustering raises.
 
-## `point_in_curve` — the cost is n × V, and the box decides which n
+## `point_in_curve` — before and after the y sweep
 
-Recorded before the edge index is written, which is the point of it: today's
-claim is only that the plane transform happens once per call, not that the
-classification is cheap. Source `20261116-point_in_curve-heavy`, with
-`comparison.md` for the native column.
+Two runs the same day: `20261116-point_in_curve-heavy` with every scanned
+point reading all V edges twice, and `20261116-point_in_curve-yindex-heavy`
+after the sweep that hands each query only the edges near its height
+(design-notes, *Why the point-in-curve scan is swept in y*). `comparison.md`
+has the native column for the second; the first's is quoted below from its own
+run.
 
-**Both axes are linear, so the cost is the product.** 5.0 ms at 1,000 query
-points against a 1,000-vertex curve, 317.9 ms at 64,000 (n^1.00); 7.0 ms at 100
-vertices, 599.2 ms at 16,000 at a fixed 8,000 points (V^0.98 natively). Every
-query point that reaches the scan reads all V edges twice — once for the
-nearest distance, once for the crossing count.
+**What the sweep did, by shape.** Native, 8,000 query points over the bounding
+box:
 
-**Which points reach it is the whole story.** The bounding-box rejection
-answers a point outside the box without reading an edge, and that is worth
-553×: 64.7 µs natively where every point is past the box, against 35.8 ms where
-none is. The query placement therefore moves the time more than anything else
-on the input:
-
-| query points | scanned of 8,000 | native | python | native % |
+| | V | before | after | gain |
 |---|---|---|---|---|
-| over the bounding box | 8,000 | 35.8 ms | 39.2 ms | 91.3% |
-| over a square 3× as wide | 872 | 4.19 ms | 7.91 ms | 53.0% |
-| all interior | 8,000 | 37.2 ms | 40.7 ms | 91.6% |
-| all past the box | 0 | 0.065 ms | 3.59 ms | 1.8% |
+| circle | 1,000 | 35.8 ms | 0.72 ms | 50× |
+| circle | 16,000 | 588 ms | 1.43 ms | 412× |
+| circle, 64,000 points | 1,000 | 289 ms | 7.0 ms | 41× |
+| comb | 1,000 | 38.7 ms | 27.2 ms | 1.4× |
 
-`scanned` is recorded per row because the output cannot be read for it: a point
-the box rejected and a point scanned and found outside both come back
-`PIC_OUTSIDE`.
+The circle's active set is 2 edges whatever V is, so V almost stops mattering:
+V^0.98 before, V^0.26 after over 100–16,000. The comb's teeth all span one
+band, so most of V is active at every query and the sweep has little to skip.
+That is the row the shape axis was put in the baseline for — recorded before
+the sweep, it says what the sweep did rather than what the shape always cost.
 
-**The bridge is a flat 0.45 µs per query point** — 0.45 ms at n=1,000, 3.42 ms
-at 8,000, 29.0 ms at 64,000, and unchanged by V. So whether this function is
-bridge-bound does not depend on n, which is how the question was first put: it
-depends on `scanned × V`. At 8,000 points past the box the algorithm is 1.8% of
-the call; at 8,000 points against a 16,000-vertex curve it is 98.1%.
+**Through Python the call is now bridge-bound on a convex curve.** The bridge
+is a flat ~0.45 µs per query point either side of the sweep (3.4–3.6 ms at
+8,000), and it used to sit under 36 ms of work; now it sits over 0.7 ms:
 
-**`tol` costs nothing by itself.** 39.2 ms at 0 against 35.6 ms at 100, with
-coincident rising from 0 to 4,228 of 8,000 — it moves points between the
-answers, and widens the band the box lets through, but never changes how many
-edges a scanned point reads.
+| query points, 8,000, V=1,000 | scanned | native | python | native % |
+|---|---|---|---|---|
+| over the bounding box | 8,000 | 0.71 ms | 4.24 ms | 16.6% |
+| over a square 3× as wide | 872 | 0.16 ms | 3.77 ms | 4.2% |
+| all interior | 8,000 | 0.68 ms | 4.38 ms | 15.5% |
+| all past the box | 0 | 0.045 ms | 3.44 ms | 1.3% |
 
-**Curve shape is recorded now, not later.** A comb whose teeth all span one
-band costs 38.7 ms against the circle's 35.8 at the same n and V, because the
-crossing count's y-span test succeeds for most of its edges and for only 2 of
-the circle's. Under g++ the same gap is 1.26× rather than 1.08×. This is the
-column an edge index would move, so it is on record before the index exists —
-otherwise the index could be credited with a difference that was the shape's.
+Before the sweep the same four rows read 91 / 53 / 92 / 2% native. The
+bounding-box rejection still answers a point past the box without reading an
+edge, at 553× before and 16× after — the sweep closed most of the gap it used
+to make. `scanned` stays recorded per row because the output cannot be read
+for it: a point the box rejected and a point scanned and found outside both
+come back `PIC_OUTSIDE`.
+
+**`tol` now costs something, where before it cost nothing.** Every edge's
+window in the sweep is widened by the band, so a wide band keeps more edges
+active: 4.4 ms at `tol = 0` against 9.0 ms at 100 through Python, on a circle
+of radius 400. Before the sweep the two rows were level (39.2 against
+35.6 ms), because every edge was read either way. The band still never changes
+an answer's correctness, only which edges have to be looked at to give it.
+
+**n stays linear**, 0.86 ms at 1,000 points to 37.0 ms at 64,000 through
+Python (n^1.02), and that line is now mostly the bridge.

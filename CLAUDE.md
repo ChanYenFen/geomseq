@@ -43,6 +43,8 @@ changing what a rule protects.
   the guard test must fail when the pruning is deliberately broken. Greedy:
   every step takes a brute-force nearest, and output identical to the old DLL
   (keep `nearest_unused.hpp` walking nanoflann's order, or ties change).
+  Point in curve: identical to the every-edge scan in
+  `test_point_in_curve_pruning.py`, same guard rule.
 - **Shatter's broad phase is sweep and prune, not Bentley–Ottmann**, because the
   function accepts touches within `touch_tol` and multi-line junctions.
   *(Why shatter's broad phase is sweep and prune)*
