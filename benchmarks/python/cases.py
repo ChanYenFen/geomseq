@@ -9,8 +9,12 @@ import os
 import random
 
 from geomseq_core.geometry_utils import (
+    PIC_COINCIDENT,
+    PIC_INSIDE,
+    PIC_OUTSIDE,
     SHATTER_FIRST_GUESS,
     build_turn_waypoints_native,
+    point_in_curve_native,
     redistribute_arc_lengths_native,
     shatter_at_crossings_native,
     sort_curves_native,
@@ -138,6 +142,88 @@ def spread_corners(n_arc_lengths, count):
         return None
     step = (n_arc_lengths - 2) / float(count)
     return [int(1 + i * step) for i in range(count)]
+
+
+PIC_R = EXTENT * 0.4            # the curve is inscribed in the EXTENT square
+PIC_CX = PIC_CY = EXTENT / 2.0
+
+
+def make_closed_curve(v, shape="circle"):
+    """A simple closed polyline of `v` vertices, first repeated as last.
+
+    `shape` is an axis rather than a constant because it is what decides how
+    much a y-interval index could ever buy. The crossing count only needs edges
+    whose y-span contains the query's y, so what matters is how many edges share
+    a height:
+
+      circle -- convex, so a horizontal ray meets exactly 2 edges whatever v is,
+                and an index would skip almost everything
+      comb   -- a sawtooth whose teeth all span the same band, so a ray through
+                that band meets a large fraction of the edges and an index can
+                skip little
+
+    Both are simple: the comb's teeth advance monotonically in x, and it closes
+    along the bottom."""
+    if shape == "circle":
+        n = v - 1
+        pts = [(PIC_CX + PIC_R * math.cos(2.0 * math.pi * k / n),
+                PIC_CY + PIC_R * math.sin(2.0 * math.pi * k / n))
+               for k in range(n)]
+    elif shape == "comb":
+        teeth = v - 3
+        pts = [(PIC_CX - PIC_R + 2.0 * PIC_R * k / (teeth - 1),
+                PIC_CY + (PIC_R if k % 2 else 0.0))
+               for k in range(teeth)]
+        pts.append((PIC_CX + PIC_R, PIC_CY - PIC_R))
+        pts.append((PIC_CX - PIC_R, PIC_CY - PIC_R))
+    else:
+        raise ValueError("unknown shape %r" % shape)
+    return pts + [pts[0]]
+
+
+def make_query_points(n, where="uniform", seed=2):
+    """`n` query points, placed by `where`.
+
+    This is the axis that decides how many points the bounding-box rejection
+    answers outright, which is the difference between timing the scan and timing
+    the box:
+
+      uniform -- over the curve's bounding square. The control, and note what it
+                 is *not*: every point is inside the box, so the rejection never
+                 fires and this row sits at the same cost as `inside`. That is a
+                 property of the placement, not of the function.
+      spread  -- over a square three times as wide, which is what a real job
+                 looks like: one curve somewhere on a sheet of points. This is
+                 the mixed row, and the only one where `scanned` lands strictly
+                 between 0 and n.
+      inside  -- all within the curve, so every one pays both scans
+      outside -- all past the box, so the box answers every one and no edge is read
+
+    `inside` sits in the lower half, which is interior to both shapes: inside the
+    circle (0.8 R from its centre at worst) and inside the comb's solid base."""
+    rng = random.Random(seed)
+    if where in ("uniform", "spread"):
+        r = PIC_R if where == "uniform" else 3.0 * PIC_R
+        return [(rng.uniform(PIC_CX - r, PIC_CX + r),
+                 rng.uniform(PIC_CY - r, PIC_CY + r)) for _ in range(n)]
+    if where == "inside":
+        out = []
+        while len(out) < n:
+            dx = rng.uniform(-0.3, 0.3) * PIC_R
+            dy = rng.uniform(-0.3, 0.3) * PIC_R
+            if dx * dx + dy * dy <= (0.3 * PIC_R) ** 2:
+                out.append((PIC_CX + dx, PIC_CY - 0.5 * PIC_R + dy))
+        return out
+    if where == "outside":
+        # Past 1.414 R nothing can still be in the box, so 2-4 R clears it by a
+        # margin no tol on the sweep below can close.
+        out = []
+        for _ in range(n):
+            a = rng.uniform(0.0, 2.0 * math.pi)
+            d = rng.uniform(2.0, 4.0) * PIC_R
+            out.append((PIC_CX + d * math.cos(a), PIC_CY + d * math.sin(a)))
+        return out
+    raise ValueError("unknown where %r" % where)
 
 
 # --------------------------------------------------------------------------
@@ -762,10 +848,118 @@ def _shatter_cases():
     return cases
 
 
+# --- point_in_curve --------------------------------------------------------
+# No row of this group existed before 2026-11-16, so the only claim the function
+# had made was "the plane transform happens once per call", never that the
+# classification itself was cheap. These are the rows the edge index will be
+# measured against, which is why they are recorded before it is written.
+
+PIC_EPS = 1e-9          # the native side's floor on tol; mirrored for `scanned`
+PIC_SIZES = [1000, 2000, 4000, 8000, 16000, 32000, 64000]
+PIC_N = 8000            # query points, when n is not the axis
+PIC_V = 1000            # curve vertices, when V is not the axis
+
+
+def _pic_call(payload):
+    verts, query, tol = payload
+    return point_in_curve_native([verts], query, tol=tol)
+
+
+def _observe_point_in_curve(payload):
+    """Time alone cannot read these rows. A point the bounding box rejects comes
+    back PIC_OUTSIDE without an edge ever being read, and so does a point that
+    was scanned and found outside -- the output cannot tell them apart, and the
+    cost is proportional to the second kind. `scanned` is that count, recomputed
+    here from the box rather than taken from the output.
+
+    The histogram is a cost term too, not a description: a scanned point always
+    pays distance_to_polyline, and pays the crossing count on top of it only
+    when it is not coincident."""
+    verts, query, tol = payload
+    rel, status = _pic_call(payload)
+
+    xs = [p[0] for p in verts]
+    ys = [p[1] for p in verts]
+    lo_x, hi_x, lo_y, hi_y = min(xs), max(xs), min(ys), max(ys)
+    span = tol if tol > PIC_EPS else PIC_EPS
+
+    scanned = 0
+    for qx, qy in query:
+        dx = max(lo_x - qx, 0.0, qx - hi_x)
+        dy = max(lo_y - qy, 0.0, qy - hi_y)
+        if math.hypot(dx, dy) <= span:
+            scanned += 1
+
+    return dict(scanned=scanned,
+                outside=sum(1 for r in rel if r == PIC_OUTSIDE),
+                coincident=sum(1 for r in rel if r == PIC_COINCIDENT),
+                inside=sum(1 for r in rel if r == PIC_INSIDE),
+                status=status)
+
+
+def _pic_case(name, n, v, shape, where, tol, heavy=False):
+    return Case(
+        "point_in_curve", name,
+        setup=lambda: (make_closed_curve(v, shape),
+                       make_query_points(n, where), tol),
+        run=_pic_call, observe=_observe_point_in_curve,
+        axis=dict(n=n, v=v, shape=shape, where=where, tol=tol),
+        heavy=heavy,
+    )
+
+
+def _point_in_curve_cases():
+    cases = []
+
+    # 1. n, with V and the placement fixed. Linear is the expectation; the row
+    #    that matters is the smallest one, read against the native harness,
+    #    because the wrapper rebuilds both arrays per call and at a short query
+    #    list against a dense curve that marshaling could outweigh the work.
+    for n in PIC_SIZES:
+        cases.append(_pic_case("n%d" % n, n, PIC_V, "circle", "uniform", 0.0,
+                               heavy=(n > 16000)))
+
+    # 2. V, with n fixed -- the axis the edge index attacks. Today every scanned
+    #    point reads all V edges twice, so this is expected to be linear in V as
+    #    well, and that product is the whole case for an index.
+    for v in [100, 250, 1000, 4000, 16000]:
+        cases.append(_pic_case("v%d" % v, PIC_N, v, "circle", "uniform", 0.0,
+                               heavy=(v > 4000)))
+
+    # 3. where the query points fall -- the axis that isolates the bounding-box
+    #    rejection. `outside` is the floor, where the box answers everything and
+    #    no edge is read; `inside` the ceiling. `uniform` is the control but sits
+    #    at the ceiling too, because it is drawn over the box and so never gives
+    #    the rejection anything to do; `spread` is the mixed row and the one a
+    #    real job resembles. Read these four against `scanned`, not against each
+    #    other: it is the count the cost tracks.
+    for where in ["uniform", "spread", "inside", "outside"]:
+        cases.append(_pic_case("where_%s" % where, PIC_N, PIC_V,
+                               "circle", where, 0.0))
+
+    # 4. shape, with n, V and placement fixed. Recorded now because the index's
+    #    benefit is V over the active set size: the circle's is 2 at every V and
+    #    the comb's is a large fraction of V, so this axis is the difference
+    #    between "the index helped" and "that shape was always cheaper". Added
+    #    with the index instead, the two could not be told apart.
+    for shape in ["circle", "comb"]:
+        cases.append(_pic_case("shape_%s" % shape, PIC_N, PIC_V,
+                               shape, "uniform", 0.0))
+
+    # 5. tol. It cannot change how many edges a scanned point reads, only how
+    #    many points the box lets through and how many land on the boundary
+    #    rather than in it -- recorded to confirm that rather than assume it.
+    for tol in [0.0, 1.0, 10.0, 100.0]:
+        cases.append(_pic_case("tol%g" % tol, PIC_N, PIC_V,
+                               "circle", "uniform", tol))
+
+    return cases
+
+
 GROUPS = ["sort_points", "sort_curves", "sort_curves_convergence",
           "sort_curves_prune_check", "sort_points_convergence",
           "sort_points_prune_check", "redistribute_arc_lengths",
-          "build_turn_waypoints", "shatter_at_crossings"]
+          "build_turn_waypoints", "shatter_at_crossings", "point_in_curve"]
 
 
 def all_cases():
@@ -773,4 +967,4 @@ def all_cases():
             + _convergence_cases() + _prune_check_cases()
             + _points_convergence_cases() + _points_prune_check_cases()
             + _redistribute_cases() + _turn_cases()
-            + _shatter_cases())
+            + _shatter_cases() + _point_in_curve_cases())

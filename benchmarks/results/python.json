@@ -1,6 +1,6 @@
 {
   "env": {
-    "timestamp": "2026-09-03T15:59:38",
+    "timestamp": "2026-11-16T09:44:44",
     "system": "Windows",
     "release": "10",
     "machine": "AMD64",
@@ -10,12 +10,12 @@
     "binary": {
       "name": "geomseq_core.dll",
       "present": true,
-      "size_bytes": 259072,
-      "sha256_prefix": "fd6ad632ec57ae5e",
-      "mtime": "2026-09-03T14:18:23"
+      "size_bytes": 267264,
+      "sha256_prefix": "a168d6ca0191d2cb",
+      "mtime": "2026-11-16T08:25:00"
     }
   },
-  "heavy": false,
+  "heavy": true,
   "records": [
     {
       "group": "redistribute_arc_lengths",
@@ -31,7 +31,7 @@
       "observed": {
         "out_n": 367
       },
-      "best_seconds": 1.6300007700920105e-05,
+      "best_seconds": 1.3400334864854813e-05,
       "reps": 5
     },
     {
@@ -48,7 +48,7 @@
       "observed": {
         "out_n": 367
       },
-      "best_seconds": 1.6899779438972473e-05,
+      "best_seconds": 1.400010660290718e-05,
       "reps": 5
     },
     {
@@ -65,7 +65,7 @@
       "observed": {
         "out_n": 367
       },
-      "best_seconds": 1.8999911844730377e-05,
+      "best_seconds": 1.530023291707039e-05,
       "reps": 5
     },
     {
@@ -82,7 +82,7 @@
       "observed": {
         "out_n": 367
       },
-      "best_seconds": 5.9999991208314896e-05,
+      "best_seconds": 3.969995304942131e-05,
       "reps": 5
     },
     {
@@ -99,7 +99,7 @@
       "observed": {
         "out_n": 102
       },
-      "best_seconds": 3.1299889087677e-05,
+      "best_seconds": 7.699709385633469e-06,
       "reps": 5
     },
     {
@@ -116,7 +116,7 @@
       "observed": {
         "out_n": 367
       },
-      "best_seconds": 1.6800127923488617e-05,
+      "best_seconds": 1.5399884432554245e-05,
       "reps": 5
     },
     {
@@ -133,7 +133,7 @@
       "observed": {
         "out_n": 1464
       },
-      "best_seconds": 4.7999899834394455e-05,
+      "best_seconds": 4.5000109821558e-05,
       "reps": 5
     },
     {
@@ -150,7 +150,7 @@
       "observed": {
         "out_n": 3657
       },
-      "best_seconds": 0.00012429989874362946,
+      "best_seconds": 0.0001108003780245781,
       "reps": 5
     },
     {
@@ -167,7 +167,7 @@
       "observed": {
         "out_n": 1464
       },
-      "best_seconds": 4.83999028801918e-05,
+      "best_seconds": 4.810001701116562e-05,
       "reps": 5
     },
     {
@@ -184,7 +184,7 @@
       "observed": {
         "out_n": 1465
       },
-      "best_seconds": 8.479971438646317e-05,
+      "best_seconds": 5.3099822252988815e-05,
       "reps": 5
     },
     {
@@ -201,7 +201,7 @@
       "observed": {
         "out_n": 1462
       },
-      "best_seconds": 0.00013120006769895554,
+      "best_seconds": 7.509998977184296e-05,
       "reps": 5
     },
     {
@@ -218,7 +218,7 @@
       "observed": {
         "out_n": 1557
       },
-      "best_seconds": 0.0003756997175514698,
+      "best_seconds": 0.00032300036400556564,
       "reps": 5
     },
     {
@@ -235,7 +235,7 @@
       "observed": {
         "out_n": 1464
       },
-      "best_seconds": 4.700012505054474e-05,
+      "best_seconds": 4.730001091957092e-05,
       "reps": 5
     },
     {
@@ -252,7 +252,7 @@
       "observed": {
         "out_n": 714
       },
-      "best_seconds": 2.7399975806474686e-05,
+      "best_seconds": 2.7900096029043198e-05,
       "reps": 5
     },
     {
@@ -267,7 +267,7 @@
       "observed": {
         "out_n": 2
       },
-      "best_seconds": 0.012108999770134687,
+      "best_seconds": 0.011621400248259306,
       "reps": 5
     },
     {
@@ -282,7 +282,7 @@
       "observed": {
         "out_n": 2
       },
-      "best_seconds": 0.011527399998158216,
+      "best_seconds": 0.0118090002797544,
       "reps": 5
     },
     {
@@ -297,7 +297,7 @@
       "observed": {
         "out_n": 2
       },
-      "best_seconds": 0.016357399988919497,
+      "best_seconds": 0.012879499699920416,
       "reps": 5
     },
     {
@@ -312,7 +312,7 @@
       "observed": {
         "out_n": 2
       },
-      "best_seconds": 0.012557299807667732,
+      "best_seconds": 0.012529599945992231,
       "reps": 5
     },
     {
@@ -327,7 +327,7 @@
       "observed": {
         "out_n": 6
       },
-      "best_seconds": 0.013994900044053793,
+      "best_seconds": 0.012752099893987179,
       "reps": 5
     },
     {
@@ -342,7 +342,7 @@
       "observed": {
         "out_n": 12
       },
-      "best_seconds": 0.01710489997640252,
+      "best_seconds": 0.014868100173771381,
       "reps": 5
     },
     {
@@ -357,7 +357,7 @@
       "observed": {
         "out_n": 20
       },
-      "best_seconds": 0.024485699832439423,
+      "best_seconds": 0.01886499999091029,
       "reps": 5
     },
     {
@@ -372,7 +372,7 @@
       "observed": {
         "out_n": 92
       },
-      "best_seconds": 0.04538979986682534,
+      "best_seconds": 0.04245950002223253,
       "reps": 5
     },
     {
@@ -387,7 +387,7 @@
       "observed": {
         "out_n": 8
       },
-      "best_seconds": 0.014034399762749672,
+      "best_seconds": 0.013975400011986494,
       "reps": 5
     },
     {
@@ -402,7 +402,7 @@
       "observed": {
         "out_n": 20
       },
-      "best_seconds": 0.018867900129407644,
+      "best_seconds": 0.01754160039126873,
       "reps": 5
     },
     {
@@ -417,7 +417,7 @@
       "observed": {
         "out_n": 38
       },
-      "best_seconds": 0.0298893004655838,
+      "best_seconds": 0.023469899781048298,
       "reps": 5
     },
     {
@@ -432,7 +432,491 @@
       "observed": {
         "out_n": 182
       },
-      "best_seconds": 0.0828901999630034,
+      "best_seconds": 0.07204019976779819,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n1000",
+      "axis": {
+        "n": 1000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 1000,
+        "outside": 197,
+        "coincident": 0,
+        "inside": 803,
+        "status": 0
+      },
+      "best_seconds": 0.005091199651360512,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n2000",
+      "axis": {
+        "n": 2000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 2000,
+        "outside": 390,
+        "coincident": 0,
+        "inside": 1610,
+        "status": 0
+      },
+      "best_seconds": 0.01008629985153675,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n4000",
+      "axis": {
+        "n": 4000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 4000,
+        "outside": 841,
+        "coincident": 0,
+        "inside": 3159,
+        "status": 0
+      },
+      "best_seconds": 0.02031940035521984,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n8000",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.04081259993836284,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n16000",
+      "axis": {
+        "n": 16000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 16000,
+        "outside": 3362,
+        "coincident": 0,
+        "inside": 12638,
+        "status": 0
+      },
+      "best_seconds": 0.08003369998186827,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n32000",
+      "axis": {
+        "n": 32000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 32000,
+        "outside": 6745,
+        "coincident": 0,
+        "inside": 25255,
+        "status": 0
+      },
+      "best_seconds": 0.1570580000989139,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "n64000",
+      "axis": {
+        "n": 64000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 64000,
+        "outside": 13559,
+        "coincident": 0,
+        "inside": 50441,
+        "status": 0
+      },
+      "best_seconds": 0.31427930016070604,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v100",
+      "axis": {
+        "n": 8000,
+        "v": 100,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 7995,
+        "outside": 1679,
+        "coincident": 0,
+        "inside": 6321,
+        "status": 0
+      },
+      "best_seconds": 0.007399800233542919,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v250",
+      "axis": {
+        "n": 8000,
+        "v": 250,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 7997,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.012521999888122082,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v1000",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.03965889988467097,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v4000",
+      "axis": {
+        "n": 8000,
+        "v": 4000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.14685870008543134,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "v16000",
+      "axis": {
+        "n": 8000,
+        "v": 16000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.5896306000649929,
+      "reps": 4
+    },
+    {
+      "group": "point_in_curve",
+      "name": "where_uniform",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.038939999882131815,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "where_spread",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "spread",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 872,
+        "outside": 7305,
+        "coincident": 0,
+        "inside": 695,
+        "status": 0
+      },
+      "best_seconds": 0.007441999856382608,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "where_inside",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "inside",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 0,
+        "coincident": 0,
+        "inside": 8000,
+        "status": 0
+      },
+      "best_seconds": 0.03955820016562939,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "where_outside",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "outside",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 0,
+        "outside": 8000,
+        "coincident": 0,
+        "inside": 0,
+        "status": 0
+      },
+      "best_seconds": 0.003463400062173605,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "shape_circle",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.03913530008867383,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "shape_comb",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "comb",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1998,
+        "coincident": 0,
+        "inside": 6002,
+        "status": 0
+      },
+      "best_seconds": 0.04285319987684488,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "tol0",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 0.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1675,
+        "coincident": 0,
+        "inside": 6325,
+        "status": 0
+      },
+      "best_seconds": 0.039379400201141834,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "tol1",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 1.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1643,
+        "coincident": 65,
+        "inside": 6292,
+        "status": 0
+      },
+      "best_seconds": 0.04044480016455054,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "tol10",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 10.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 1412,
+        "coincident": 562,
+        "inside": 6026,
+        "status": 0
+      },
+      "best_seconds": 0.03833359992131591,
+      "reps": 5
+    },
+    {
+      "group": "point_in_curve",
+      "name": "tol100",
+      "axis": {
+        "n": 8000,
+        "v": 1000,
+        "shape": "circle",
+        "where": "uniform",
+        "tol": 100.0
+      },
+      "batch": 1,
+      "skipped": false,
+      "observed": {
+        "scanned": 8000,
+        "outside": 223,
+        "coincident": 4228,
+        "inside": 3549,
+        "status": 0
+      },
+      "best_seconds": 0.034761699847877026,
       "reps": 5
     }
   ]

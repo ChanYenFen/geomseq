@@ -11,6 +11,10 @@ import sys
 KEYS = {
     "build_turn_waypoints": ["geometry", "theta_max_deg"],
     "redistribute_arc_lengths": ["band", "corners", "mode"],
+    # The native harness carries a subset of the Python rows here -- enough to
+    # read the bridge against, not the whole sweep -- so most Python rows have
+    # no native column, which is the normal case rather than a gap.
+    "point_in_curve": ["n", "v", "shape", "where", "tol"],
 }
 # Python-only axes, shown as extra columns and flagged as unmatched.
 PY_ONLY = {"redistribute_arc_lengths": ["input_n"]}
@@ -95,7 +99,10 @@ def main(argv):
             nat = native.get((group,) + key_of(r["axis"], fields))
             cells = [norm(r["axis"].get(f)) for f in fields]
             cells += [norm(r["axis"].get(f)) for f in extra]
-            cells.append(str(r["out_n"]))
+            # Not every group has one: point_in_curve writes exactly one answer
+            # per query point, so its output size is `n` and an out_n column
+            # would only repeat it. Dashed rather than printed as None.
+            cells.append("--" if r["out_n"] is None else str(r["out_n"]))
             if nat is None:
                 cells += ["--", "%.2f us" % r["per_call_us"], "--", "--"]
             else:

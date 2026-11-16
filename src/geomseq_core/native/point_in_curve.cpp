@@ -209,7 +209,7 @@ extern "C" {
 //                    names them, each with its first vertex repeated as its
 //                    last. Length is 2 * sum(vertex_counts).
 //   vertex_counts  : num_polylines ints, vertices in each polyline
-//   num_polylines  : stage 1 accepts exactly 1; anything else is refused
+//   num_polylines  : exactly 1; anything else is refused
 //   query_pts      : flat array, 2 doubles per query point -> x,y
 //   num_query      : number of query points
 //   tol            : how close to the boundary counts as PIC_COINCIDENT, in
@@ -232,9 +232,10 @@ DLL_EXPORT int point_in_curve(
     double        tol,
     int*          out_relationship)
 {
-    // Stage 1. The arrays are already shaped for more, so lifting this means
-    // deciding how the per-polyline parities combine (even-odd for holes),
-    // not changing the ABI.
+    // One curve, permanently. Several curves is a separate function with its
+    // own export, mirroring the split Grasshopper itself makes between Point
+    // In Curve and Point In Curves -- that one also reports which curve, which
+    // this signature has no output for.
     if (num_polylines != 1) {
         return PIC_ERR_POLYLINE_COUNT;
     }

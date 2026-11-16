@@ -33,6 +33,7 @@ use 20, which adds tens of milliseconds at these sizes.
 | `shatter_at_crossings` | 16,000 segments | 42.3 ms | probably the Python bridge — no native measurement yet | `20261102-shatter-sweep-heavy` |
 | `redistribute_arc_lengths` | 3,657 output points | 124.3 µs | 87% bridge, 13% algorithm | `comparison.md` |
 | `build_turn_waypoints` | 182 waypoints | 41.45 µs | 98% bridge | `comparison.md` |
+| `point_in_curve` | 16,000 points, 1,000-vertex curve | 79.8 ms | 9% bridge — but 98% of it when the bounding box answers every point | `20261116-point_in_curve-heavy` |
 
 Source files are `benchmarks/results/baseline-windows-amd64-<source>.md`, or
 the file named.
@@ -57,6 +58,7 @@ how it behaved over that range on uniform data, not a complexity class.
 | `shatter_at_crossings` | n^1.09 | 500–16k | O(n²) | bounding boxes that overlap without touching: long segments, dense clusters. On a cross-hatch the output itself is O(n²), so nothing can do better | O(n + k), k = contacts — O(n²) on a cross-hatch |
 | `redistribute_arc_lengths` | linear in output, 4.6 ns per point natively | 102–3,657 out | O(n_out + corners) | — input length does not reach the native side at all | O(n_out) |
 | `build_turn_waypoints` | linear in waypoints, 4.5 ns each natively | 2–182 | O(waypoints) | small `theta_max_deg` on a sharp turn — the count is turn angle over the cap | O(waypoints) |
+| `point_in_curve` | n^1.00 in query points, V^0.98 natively in curve vertices | 1k–64k points, 100–16k vertices | O(n·V) | every query point inside the curve's bounding box, which is what any point list covering the curve gives | O(n + V) |
 
 **Other input shapes**, for the sorts — the same baseline also runs the
 synthetic fixtures. The hardest clustering measured costs up to 16% more than
@@ -370,3 +372,51 @@ Polylines — `self_x` off then on — went from 49.8 and 51.2 ms to 7.5 and 8.3
   No such case is in the group, so the run says nothing about it.
 - **Clustered input**, as for every other group. Overlap between boxes is
   exactly what clustering raises.
+
+## `point_in_curve` — the cost is n × V, and the box decides which n
+
+Recorded before the edge index is written, which is the point of it: today's
+claim is only that the plane transform happens once per call, not that the
+classification is cheap. Source `20261116-point_in_curve-heavy`, with
+`comparison.md` for the native column.
+
+**Both axes are linear, so the cost is the product.** 5.0 ms at 1,000 query
+points against a 1,000-vertex curve, 317.9 ms at 64,000 (n^1.00); 7.0 ms at 100
+vertices, 599.2 ms at 16,000 at a fixed 8,000 points (V^0.98 natively). Every
+query point that reaches the scan reads all V edges twice — once for the
+nearest distance, once for the crossing count.
+
+**Which points reach it is the whole story.** The bounding-box rejection
+answers a point outside the box without reading an edge, and that is worth
+553×: 64.7 µs natively where every point is past the box, against 35.8 ms where
+none is. The query placement therefore moves the time more than anything else
+on the input:
+
+| query points | scanned of 8,000 | native | python | native % |
+|---|---|---|---|---|
+| over the bounding box | 8,000 | 35.8 ms | 39.2 ms | 91.3% |
+| over a square 3× as wide | 872 | 4.19 ms | 7.91 ms | 53.0% |
+| all interior | 8,000 | 37.2 ms | 40.7 ms | 91.6% |
+| all past the box | 0 | 0.065 ms | 3.59 ms | 1.8% |
+
+`scanned` is recorded per row because the output cannot be read for it: a point
+the box rejected and a point scanned and found outside both come back
+`PIC_OUTSIDE`.
+
+**The bridge is a flat 0.45 µs per query point** — 0.45 ms at n=1,000, 3.42 ms
+at 8,000, 29.0 ms at 64,000, and unchanged by V. So whether this function is
+bridge-bound does not depend on n, which is how the question was first put: it
+depends on `scanned × V`. At 8,000 points past the box the algorithm is 1.8% of
+the call; at 8,000 points against a 16,000-vertex curve it is 98.1%.
+
+**`tol` costs nothing by itself.** 39.2 ms at 0 against 35.6 ms at 100, with
+coincident rising from 0 to 4,228 of 8,000 — it moves points between the
+answers, and widens the band the box lets through, but never changes how many
+edges a scanned point reads.
+
+**Curve shape is recorded now, not later.** A comb whose teeth all span one
+band costs 38.7 ms against the circle's 35.8 at the same n and V, because the
+crossing count's y-span test succeeds for most of its edges and for only 2 of
+the circle's. Under g++ the same gap is 1.26× rather than 1.08×. This is the
+column an edge index would move, so it is on record before the index exists —
+otherwise the index could be credited with a difference that was the shape's.

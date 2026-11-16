@@ -300,12 +300,14 @@ a closed curve, all of them already in one plane. Grasshopper's own Point In
 Curve stays more general — it detects a plane per curve and decides the boundary
 analytically against the NURBS — and this does not cover those; it aims at the
 same semantics inside that narrower case, at a far lower cost per query point.
-Stage 1 takes one closed curve; a multi-curve stage follows, and the ABI is
-already shaped for it — the export takes a
-polyline array with a vertex count per polyline, and refuses a count other than
-1 rather than pretending the generality is there. Lifting that means deciding
-how per-polyline parities combine for nested curves, not changing the
-signature, so no ABI bump is owed to the second stage.
+This takes one closed curve and always will. Several curves is a *separate*
+function, the way Grasshopper splits Point In Curve from Point In Curves, and
+not a restriction to be lifted here: that one also reports which curve contains
+each point, and this export has no output for it. So it gets its own export, its
+own component and its own ABI bump, and `point_in_curve` refuses a polyline
+count other than 1 permanently rather than pretending the generality is there.
+Nothing about nested curves — how parities combine, which index wins — is owed
+by this function.
 
 **The curve never crosses the boundary.** `point_in_curve` takes 2D vertices and
 2D query points, nothing else; the C# layer discretizes the curve and projects
@@ -341,6 +343,13 @@ edge scan whether or not the bounding box had already answered, which disabled
 the rejection above for every query point. `P'` as the plane projection costs
 nothing — the C# layer computes it to call the native side at all — so
 `point_in_curve` returns only the classification, and the box rejection is live.
+
+**Tree matching differs from Rhino's with a flat list of curves.** `C` is item
+access and `P` is list access (the points are batched into one native call), so
+two flat curves give two branches, each testing every point. Rhino's component
+takes both as items, so its longest-list matching tests most points against the
+last curve only. Graft `C` and the two line up branch for branch — do that in
+any conformance comparison.
 
 **No per-curve plane.** Rhino's component detects a plane per curve. This one
 takes an optional `Plane` input and defaults to world XY, because the
@@ -634,17 +643,24 @@ groups. The numbers exist; the reading of them does not.
   an interval index on y; the nearest-distance scan only needs edges that could
   beat the best distance found so far, which is a radius query. Neither trades
   an answer for speed, so both are admissible under *Pruning must be provable*.
-  Nothing is measured yet — there is no benchmark case either, which is the
-  first thing to add, because the claim being made today is only "the plane
-  transform happens once", not "the algorithm is better".
+  **Measured as of `20261116-point_in_curve-heavy`**, which is the baseline the
+  index will be read against: the cost is the product n·V, linear in both
+  (n^1.00 over 1k–64k points, V^0.98 natively over 100–16k vertices). The
+  shape axis is in that run for this reason — a comb whose teeth share one band
+  costs 1.08× the circle at equal n and V under MSVC and 1.26× under g++,
+  because the y-span test succeeds for most of its edges and 2 of the circle's.
+  That gap is what the index would close, so it is on record before the index
+  exists rather than after.
 
-- **Whether `point_in_curve` is bridge-bound at small n is unknown**, and the
-  question arrives with the benchmark case above rather than after it. The
-  wrappers flatten every vertex and query point into a fresh array per call, so
-  for a short query list against a dense curve the marshaling could exceed the
-  classification. Measure before moving the plane projection into C++ — that
-  move is currently justified on architecture (the C# layer should convert
-  types, not do the maths) and not on any number, which is worth admitting
+- **`point_in_curve` is bridge-bound by work, not by n** — the question was put
+  as "at small n" and that was the wrong variable. The bridge is a flat 0.45 µs
+  per query point (0.45 ms at n=1,000, 29.0 ms at 64,000) and does not move with
+  V, so the ratio is set by `scanned · V`: the algorithm is 98.1% of the call at
+  8,000 points against a 16,000-vertex curve, 91% at V=1,000, and 1.8% at 8,000
+  points that all fall past the bounding box. Moving the plane projection into
+  C++ would not touch any of this — it is per point and so is the marshaling it
+  would replace — so that move stays justified on architecture alone (the C#
+  layer should convert types, not do the maths), which is still worth admitting
   rather than dressing up.
 
 ### Clustered sequencing for layered and zoned fabrication
