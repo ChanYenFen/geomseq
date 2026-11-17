@@ -29,7 +29,7 @@ public sealed class SampleCurvePointsComponent : GH_Component
     }
 
     public override Guid ComponentGuid => Id;
-    public override GH_Exposure Exposure => GH_Exposure.primary;
+    public override GH_Exposure Exposure => GH_Exposure.secondary;
     protected override Bitmap Icon => Icons.SampleCurvePoints;
 
     // Contract: Grasshopper saves wires by port index. New ports go at the end, never in between.
