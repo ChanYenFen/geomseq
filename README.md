@@ -79,6 +79,7 @@ src/
 │   │   └── geomseq_core.dll            # official .cpp files compiled into one binary (also .dylib / .so per platform)
 │   ├── native_bridge.py                # ctypes loading + signatures (platform-aware)
 │   ├── geometry_utils.py               # Python-facing wrappers (sort_curves_native, sort_points_native, ...)
+│   ├── coverage_path.py                # region -> cells -> fills -> travels -> ordered stitch path (pure Python, in progress)
 │   ├── misc.py                         # coordinate <-> flat-buffer marshaling
 │   └── _reload.py                      # dev-mode module unloading for GH hot-reload
 ├── rhino_utils/                        # depends on RhinoCommon; logic complex/reusable enough not to be a thin GH shell

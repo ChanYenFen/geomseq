@@ -718,6 +718,181 @@ groups. The numbers exist; the reading of them does not.
   layer should convert types, not do the maths), which is still worth admitting
   rather than dressing up.
 
+### Coverage path: fill a region, hide the travel
+
+Started 2026-11-17 on the `coverage-path` branch. The problem comes from
+tatami embroidery: fill a closed region with scan lines, and join the runs
+into one continuous stitch path where every travel move between runs is
+later covered by stitching, so it never shows. **There are no trims**
+(Fen's rule): a travel that cannot be hidden is shown, as little as
+possible. The same structure is coverage path planning in robotics, and the
+"minimise the visible length, then the travel" objective is the shape of
+"minimise vias, then wirelength" in routing.
+
+An earlier pixel version exists outside this repo (`ml_medial_axis`,
+A* on a mask). It is not carried over because its coverage test was
+wrong in a way that matters: it rasterised the stitch *polylines*, so with
+a line spacing of 2 pixels every other row counted as uncovered, and
+vertical travels were half "visible" by construction. Coverage is an
+*area* property — the union of the cells not yet stitched — and that is
+what makes a vector version both correct and fast: a travel only needs a
+path through the unstitched cells, found on a graph of a few hundred
+cells rather than a few hundred thousand pixels.
+
+**Stage 1, landed: `coverage_path.decompose`.** Boustrophedon cut into
+monotone cells along a sweep direction, with portals (the open scanline
+interval two cells share) as the adjacency. Pure Python; the Grasshopper
+side is `gh/decompose_region_component.py`. The cut reads each slab between
+two vertex heights at its midpoint, so no scanline ever meets a vertex and
+the usual degeneracies cannot occur; two rings sharing an edge are merged
+into one span because even-odd cancels the edge. Verified by tiling (cell
+areas sum to the region's), monotonicity, portal symmetry, and a pinch
+(two cells touching at a point) producing no portal.
+
+**Stage 2, landed: `coverage_path.fill_cells`.** A zig-zag per cell,
+walked four ways: from the left or the right end of the lowest line, and
+each of those backwards. Between them the four walks enter at all four
+corners of the cell, whatever the parity of the line count; forward and
+reverse alone reach only two. The mirror costs nothing on the fabric:
+Ink/Stitch (`adjust_stagger` in `lib/stitches/fill.py`) puts every
+penetration on a lattice fixed to the canvas, so a row's direction moves
+only its two end stitches, and its legacy fill exposes the same choice as
+`flip` and `reverse`. Two further decisions worth keeping. The lines sit on one
+global grid (`phase + k * spacing` in the sweep frame) for every cell,
+not on a grid started at each cell's bottom, so lines of neighbouring
+cells are collinear across a portal and the tatami rows read as one
+surface. And the join between two consecutive lines follows the cell's
+side chain through any vertices between them rather than cutting
+straight across: a monotone cell may still bend inward on one side, and
+the chord would leave it. The Grasshopper side is
+`gh/fill_cells_component.py`.
+
+**Stage 3, landed: `coverage_path.travel`.** The travel always exists on a
+connected region. Hiding it is the first priority, not a constraint: a
+link's cost is `(visible length, length)`, compared in that order, where
+visible is the part outside the unstitched cells. So the path keeps to
+unstitched cells whenever they join the two ends, and otherwise crosses
+stitched ones by the least visible length the graph allows;
+`visible_length` reports it. The first version made hiding a hard
+constraint and returned `None` (a trim) when it failed; Fen ruled trims
+out, and the Ink/Stitch tatami fill (`lib/stitches/tatami_fill.py`) works
+the same way: its underpath travel is preferred, never required, with a
+visible path as the fallback. The Grasshopper side is
+`gh/travel_cells_component.py`, which takes the stitch order by hand
+(`from_cell`, `to_cell`, `stitched`) and outputs the visible length.
+
+*Where in the cell it runs* was the question. The first version was the
+exact shortest path in the unstitched union (visibility graph over the cell
+vertices, Dijkstra), and it was wrong for the fabric: a shortest path hugs
+the corners, and on a donut it ran straight over the hole's corner. A
+thread along the edge of a hole shows; the pixel version's `center_bias`
+existed for the same reason. A clearance bound was tried next — bend
+points pushed in from the corners, a waiver near the two ends — and
+abandoned in the same hour: leaving the boundary at a shallow angle
+violated the bound beyond the waiver, so most travels between fill ends
+failed, and fixing that needed departure nodes and more special cases.
+
+What replaced it is Fen's suggestion and is simpler than both: route
+through the **midpoints of the fill lines**. Line to line within a cell,
+and from a cell's last line through the midpoint of a portal into the
+neighbour's first, then Dijkstra over that graph. The fill lines are the
+data that already say where the middle of each cell is, so the travel is
+central by construction, needs no clearance parameter, and cannot touch a
+boundary corner. Every link is still checked to lie inside the unstitched
+union, so a cell that bends sharply between two lines drops the link
+rather than letting the path out. The two ends attach to the midpoint of
+the line they lie on (a fill's entry and exit do), else to the nearest
+midpoint in sight; there is no direct end-to-end link, because between two
+fill ends that line can run along the boundary. One more exclusion fell
+out of the donut test: when the grid lands a fill line on a cell's top or
+bottom row and that row is a hole's edge, the line's midpoint is on the
+boundary, so such lines are left out of the graph.
+
+Routing through midpoints has one visible cost: doubling back. Two fill
+ends one line apart on the same side of a cell were joined by going out
+to the middle and back, five units for a one-unit hop. A shortcut pass
+fixes it with a local rule Fen proposed: from each point, jump to the
+farthest later point that is nearer than the next hop, provided the jump
+stays in the region and shows no more than the stretch it replaces. The
+bound is what keeps it safe — a jump is never longer than the hop it
+replaces, so it cannot grow into a long run along the boundary, and the
+inside check still refuses a hop across a notch. The exact version stays
+as `shortest_travel`: the lower bound a travel's length is judged against,
+not the travel itself.
+
+Two cells that touch only at a point share no portal, so the midline
+cannot cross between them. For that case `travel` falls back to the same
+cost over the cells' corners, which passes through the point contact; it
+hugs the boundary, which is why it is the fallback and not the rule. Only
+start and goal in separate pieces of the region raise.
+
+The travel also has to cross the cell it leaves: the last fill line stops
+inside it, below its top row. The component counts `from_cell` as
+unstitched, so that stretch, which rides along fresh rows, is not charged
+as visible. Whether it should be is a question for the ordering stage.
+
+**Stage 4, landed: `coverage_path.plan`.** Returns a `Plan`: the order
+as `(cell, walk)` pairs, and the path as pieces, fills and travels
+alternating, each starting where the last ended; `path` joins them. The
+Grasshopper side is `gh/plan_coverage_component.py`.
+
+*What counts as visible.* Everything outside the cells still to come,
+the cell just finished included. The first version let a travel ride
+free over the cell just finished, on the argument that it runs along
+fresh rows; in Grasshopper that showed as travels straight back across a
+whole cell, at zero cost, and Fen ruled it visible. One exception keeps
+the count honest the other way: the step from a cell's top or bottom
+line across a portal to the neighbour's nearest line is the fill's own
+step between rows, so it is hidden while either cell is still to come.
+Without it, every move between cells showed a stub up to one spacing
+long, and three harmless stubs outranked one real travel across fresh
+stitching. The step is straight across, or slanted 45 degrees inward
+when straight would pass through a corner of the outline, and only from
+an end that lies over the other line. `visible_length` applies the same
+rule, which is why it takes the fills.
+
+*No travel through a corner.* Every segment the router uses, links,
+attachments and shortcuts alike, is refused if a corner of the outline
+lies inside it. The earlier tests only checked a path's points against
+the hole's edges; checking segments found shortcuts sliding along a
+notch's floor through its corner.
+
+*How the order is found.* A greedy seed: from where the needle is, the
+cheapest next `(cell, walk)` by the travel to its entry (with no start
+given, every first `(cell, walk)` is tried). The greedy alone was not
+enough once the cell just left counted: it picks a walk by its entry and
+ignores where it exits, so it walked a comb's prong up and then came back
+down it. Two pieces fix that. For a fixed order the best walks are exact:
+the cells still to come at each travel depend on the order alone, so a
+travel's cost depends only on the walk it leaves and the walk it enters,
+and a shortest path through four states per cell finds the best walks
+(checked against all 4^n on every order of the comb). A local search
+then moves and swaps cells in the order, costing each order that way,
+until nothing improves. On the U, the donut and the comb at four
+spacings, every plan shows nothing, and on the three small enough to
+enumerate, the plan's cost equals the best over every order and walk.
+
+*What made it fast enough.* The travel graph is built once per plan, and
+each link is stored as its pieces, cut at cell edges and tagged with the
+cells each piece lies in: the visible length for any stitched set is a
+sum over pieces. Caching every segment's pieces, every route's costs,
+and stopping Dijkstra once all its goals are settled brought a 13-cell
+comb with 250 fill lines to 2.2 s (ad hoc). The search grows fast with
+the cell count, so the next speed step is contracting each cell's chain
+of line midpoints into one link.
+
+One fill bug surfaced here: a grid line exactly on a portal was laid in
+both cells, so the row would be stitched twice. The cell below now stops
+short of it.
+
+**Stages still to do, in order:** a subset DP over `(stitched set, last
+cell, walk)` as the exact baseline beyond what enumeration reaches, to
+measure the local search's gap; contraction of the travel graph for
+larger regions; stitches on a lattice fixed to the plane, as Ink/Stitch's
+are, so the walk the order picks never changes how the fill looks.
+Whether learning has a role is decided after the DP baseline exists, by
+measuring the gap, not before.
+
 ### Clustered sequencing for layered and zoned fabrication
 
 A separate algorithm, deliberately not folded into the sort components. They
