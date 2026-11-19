@@ -745,3 +745,30 @@ def test_plan_crosses_a_pinch():
     fills = fill_cells(dec, 0.2, phase=0.1)
     p = plan(dec, fills)
     _check_plan(dec, fills, p)
+
+
+@pytest.mark.parametrize("rings", [[SQUARE, HOLE], [COMB], [U_SHAPE]],
+                         ids=["donut", "comb", "u"])
+def test_folding_the_midline_keeps_every_cost(rings):
+    """Searches run over the graph with each cell's run of line midpoints
+    folded into one link. Against the unfolded graph, every route between
+    every pair of walk ends, under every stitched set, costs the same."""
+    dec = decompose(rings)
+    fills = fill_cells(dec, 0.3, phase=0.1)
+    folded = _Router(dec, fills, 1e-9)
+    plain = _Router(dec, fills, 1e-9)
+    plain.cadj = [[(v, length, pieces, ()) for v, length, pieces in a] for a in plain.adj]
+    plain.folded = {}
+    assert sum(map(len, folded.cadj)) < sum(map(len, plain.cadj))
+    n = len(dec.cells)
+    ends = [w[i] for f in fills for w in f.walks for i in (0, -1)]
+    goals = tuple(dict.fromkeys(ends))
+    for hidden in itertools.chain.from_iterable(
+            itertools.combinations(range(n), k) for k in range(n + 1)):
+        hidden = frozenset(hidden)
+        for start in goals:
+            a = folded.route(start, list(goals), hidden)
+            b = plain.route(start, list(goals), hidden)
+            for (ca, pa), (cb, pb) in zip(a, b):
+                assert _cost_close(ca, cb)
+                assert _path_length(pa) == pytest.approx(_path_length(pb))

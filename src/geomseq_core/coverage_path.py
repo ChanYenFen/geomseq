@@ -510,26 +510,28 @@ def _segment_inside_union(a, b, rings, tol):
 def _cuts(a, b, rings, tol):
     """Sorted parameters along ab, 0 and 1 included, where it meets a ring
     edge; between two consecutive ones the segment does not cross any."""
+    return _cut_params(a, b, ((r[i], r[(i + 1) % len(r)]) for r in rings for i in range(len(r))), tol)
+
+
+def _cut_params(a, b, edges, tol):
+    """As _cuts, against any iterable of edges (p, q)."""
     dx, dy = b[0] - a[0], b[1] - a[1]
     L = math.hypot(dx, dy)
     ts = [0.0, 1.0]
-    for ring in rings:
-        n = len(ring)
-        for i in range(n):
-            p, q = ring[i], ring[(i + 1) % n]
-            ex, ey = q[0] - p[0], q[1] - p[1]
-            ap = (p[0] - a[0], p[1] - a[1])
-            denom = dx * ey - dy * ex
-            if abs(denom) > tol * L * math.hypot(ex, ey):
-                t = (ap[0] * ey - ap[1] * ex) / denom
-                u = (ap[0] * dy - ap[1] * dx) / denom
-                if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
+    for p, q in edges:
+        ex, ey = q[0] - p[0], q[1] - p[1]
+        ap = (p[0] - a[0], p[1] - a[1])
+        denom = dx * ey - dy * ex
+        if abs(denom) > tol * L * math.hypot(ex, ey):
+            t = (ap[0] * ey - ap[1] * ex) / denom
+            u = (ap[0] * dy - ap[1] * dx) / denom
+            if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
+                ts.append(t)
+        elif abs(ap[0] * dy - ap[1] * dx) <= tol * L:
+            for r in (p, q):
+                t = ((r[0] - a[0]) * dx + (r[1] - a[1]) * dy) / (L * L)
+                if 0.0 <= t <= 1.0:
                     ts.append(t)
-            elif abs(ap[0] * dy - ap[1] * dx) <= tol * L:
-                for r in (p, q):
-                    t = ((r[0] - a[0]) * dx + (r[1] - a[1]) * dy) / (L * L)
-                    if 0.0 <= t <= 1.0:
-                        ts.append(t)
     ts.sort()
     return ts
 
@@ -612,39 +614,54 @@ def _shown(pieces, hidden):
 
 
 def _search(adj, src, hidden, targets=()):
-    """Dijkstra from src over links (node, length, pieces), cost
-    (visible length, length) for the given hidden set. Stops once every
-    node in targets is settled, if any are given. Returns (dist, prev)."""
+    """Dijkstra from src over links (node, length, pieces, via), cost
+    (visible length, length) for the given hidden set; via holds the points
+    a contracted link passes through on the way. Stops once every node in
+    targets is settled, if any are given. Returns (dist, prev), prev[v]
+    being (u, via) for the link that reached v."""
     n = len(adj)
     dist = [None] * n
-    prev = [-1] * n
+    prev = [None] * n
     dist[src] = (0.0, 0.0)
     heap = [(0.0, 0.0, src)]
     left = set(targets)
     while heap:
         vis, length_so_far, u = heapq.heappop(heap)
-        d = (vis, length_so_far)
-        if d > dist[u]:
+        if (vis, length_so_far) > dist[u]:
             continue
         if left:
             left.discard(u)
             if not left:
                 break
-        for v, length, pieces in adj[u]:
+        for v, length, pieces, via in adj[u]:
             nd = (vis + _shown(pieces, hidden), length_so_far + length)
             if dist[v] is None or nd < dist[v]:
                 dist[v] = nd
-                prev[v] = u
+                prev[v] = (u, via)
                 heapq.heappush(heap, (nd[0], nd[1], v))
     return dist, prev
 
 
+def _merge_pieces(runs):
+    """Pieces of consecutive links as one list, neighbours in the same cells
+    merged."""
+    out = []
+    for pieces in runs:
+        for length, cells in pieces:
+            if out and out[-1][1] == cells:
+                out[-1] = (out[-1][0] + length, cells)
+            else:
+                out.append((length, cells))
+    return out
+
+
 def _walk_back(nodes, prev, dst):
-    path = []
+    path = [nodes[dst]]
     u = dst
-    while u != -1:
+    while prev[u] is not None:
+        u, via = prev[u]
+        path.extend(reversed(via))
         path.append(nodes[u])
-        u = prev[u]
     return path[::-1]
 
 
@@ -673,6 +690,22 @@ class _Router(object):
         # fallback's nodes are corners, and a fill may end on one).
         self.outline_corners = [v for r in dec.rings for v in r]
 
+        # Every geometry query is filtered by bounding boxes first: a curved
+        # outline flattens to thousands of edges, and a query that meets
+        # them all made one plan take minutes.
+        self._boxes = []   # per cell: (xmin, ymin, xmax, ymax)
+        self._edges = []   # per cell: [(p, q, xmin, ymin, xmax, ymax)]
+        for ring in self.region:
+            xs = [v[0] for v in ring]
+            ys = [v[1] for v in ring]
+            self._boxes.append((min(xs) - tol, min(ys) - tol, max(xs) + tol, max(ys) + tol))
+            edges = []
+            for i in range(len(ring)):
+                p, q = ring[i], ring[(i + 1) % len(ring)]
+                edges.append((p, q, min(p[0], q[0]) - tol, min(p[1], q[1]) - tol,
+                              max(p[0], q[0]) + tol, max(p[1], q[1]) + tol))
+            self._edges.append(edges)
+
         # A fill line may sit on the region boundary itself (the grid landed
         # on a cell's top or bottom row, and that row is a hole's edge); its
         # midpoint is then on the boundary and is not a place a travel may be.
@@ -683,6 +716,7 @@ class _Router(object):
 
         # Midline of each cell: its line midpoints, chained.
         first, last = {}, {}
+        self._anchors = set()  # nodes the contraction must keep
         for c in range(len(dec.cells)):
             prev_node = None
             for k, (a, b) in enumerate(fills[c].lines):
@@ -698,6 +732,7 @@ class _Router(object):
                 prev_node = node
             if prev_node is not None:
                 last[c] = prev_node
+                self._anchors.update((first[c], last[c]))
 
         # Portals join the lower cell's last line to the upper cell's first,
         # through the portal's midpoint. Each cell also keeps its ways out,
@@ -708,6 +743,7 @@ class _Router(object):
         for p in dec.portals:
             if p.cell_a in last and p.cell_b in first:
                 node = self._add_node(_mid(p.p0, p.p1))
+                self._anchors.add(node)
                 self._link(last[p.cell_a], node)
                 self._link(node, first[p.cell_b])
                 self.ways_up.setdefault(p.cell_a, []).extend([node, first[p.cell_b]])
@@ -743,7 +779,44 @@ class _Router(object):
                         node = self._add_node(q)
                         self._link(node, target)
                         self.hops.setdefault(e, []).append(node)
+                        self._anchors.add(node)
                         break
+        self._contract()
+
+    def _contract(self):
+        """Fold each run of plain midline nodes (two links, nothing else
+        attached) into one link between the nodes at its ends, carrying the
+        run's points as via and its pieces end to end. Searches then run
+        over a few nodes per cell instead of one per fill line, and find the
+        same costs. An end attached to a folded node unfolds it for that
+        search (see route), through self.folded."""
+        n = len(self.nodes)
+        keep = [len(self.adj[i]) != 2 or i in self._anchors for i in range(n)]
+        self.cadj = [[] for _ in range(n)]
+        self.folded = {}  # node -> [(end, length, pieces, via)] toward both ends
+        for u in range(n):
+            if not keep[u]:
+                continue
+            for v, length, pieces in self.adj[u]:
+                run, lengths, piece_runs = [], [length], [pieces]
+                prev, cur = u, v
+                while not keep[cur] and cur not in run:
+                    run.append(cur)
+                    nxt = [e for e in self.adj[cur] if e[0] != prev]
+                    if not nxt:
+                        break
+                    prev, cur = cur, nxt[0][0]
+                    lengths.append(nxt[0][1])
+                    piece_runs.append(nxt[0][2])
+                if not keep[cur]:
+                    continue  # a run with no kept node at its far end
+                via = [self.nodes[x] for x in run]
+                self.cadj[u].append((cur, sum(lengths), _merge_pieces(piece_runs), via))
+                for i, x in enumerate(run):
+                    # Toward u: links 0..i, through run[:i] in reverse.
+                    self.folded.setdefault(x, []).append(
+                        (u, sum(lengths[:i + 1]), _merge_pieces(piece_runs[:i + 1]),
+                         [self.nodes[y] for y in reversed(run[:i])]))
 
     def _add_node(self, p):
         self.nodes.append(p)
@@ -768,26 +841,52 @@ class _Router(object):
             self._pieces[key] = self._cut_into_pieces(*key)
         return self._pieces[key]
 
+    def _cells_at(self, p):
+        """Cells whose closed outline holds p."""
+        x, y = p
+        out = []
+        for c, (x0, y0, x1, y1) in enumerate(self._boxes):
+            if x0 <= x <= x1 and y0 <= y <= y1 and self._contains(c, p):
+                out.append(c)
+        return out
+
+    def _contains(self, c, p):
+        if _point_in_ring(p, self.region[c]):
+            return True
+        x, y = p
+        for q0, q1, x0, y0, x1, y1 in self._edges[c]:
+            if x0 <= x <= x1 and y0 <= y <= y1 and _on_segment(p, q0, q1, self.tol):
+                return True
+        return False
+
     def _cut_into_pieces(self, a, b):
-        tol, region = self.tol, self.region
-        if not (_inside_union(a, region, tol) and _inside_union(b, region, tol)):
+        tol = self.tol
+        if not self._cells_at(a) or not self._cells_at(b):
             return None
+        bx0, by0 = min(a[0], b[0]) - tol, min(a[1], b[1]) - tol
+        bx1, by1 = max(a[0], b[0]) + tol, max(a[1], b[1]) + tol
         for v in self.outline_corners:
-            if not _same(v, a, tol) and not _same(v, b, tol) and _on_segment(v, a, b, tol):
+            if (bx0 <= v[0] <= bx1 and by0 <= v[1] <= by1 and not _same(v, a, tol)
+                    and not _same(v, b, tol) and _on_segment(v, a, b, tol)):
                 return None
         dx, dy = b[0] - a[0], b[1] - a[1]
         L = math.hypot(dx, dy)
         if L <= tol:
             return []
-        ts = _cuts(a, b, region, tol)
+        near = []
+        for c, (x0, y0, x1, y1) in enumerate(self._boxes):
+            if x0 <= bx1 and bx0 <= x1 and y0 <= by1 and by0 <= y1:
+                for q0, q1, ex0, ey0, ex1, ey1 in self._edges[c]:
+                    if ex0 <= bx1 and bx0 <= ex1 and ey0 <= by1 and by0 <= ey1:
+                        near.append((q0, q1))
+        ts = _cut_params(a, b, near, tol)
         out = []
         for t0, t1 in zip(ts, ts[1:]):
             piece = (t1 - t0) * L
             if piece <= tol:
                 continue
             tm = 0.5 * (t0 + t1)
-            m = (a[0] + tm * dx, a[1] + tm * dy)
-            cells = frozenset(i for i, r in enumerate(region) if _in_closed_polygon(m, r, tol))
+            cells = frozenset(self._cells_at((a[0] + tm * dx, a[1] + tm * dy)))
             if not cells:
                 return None
             out.append((piece, cells))
@@ -830,26 +929,37 @@ class _Router(object):
         if out:
             return out
         for node, _, _ in sorted(self.mids, key=lambda m: math.dist(p, self.nodes[m[0]])):
-            if _segment_inside_union(p, self.nodes[node], self.region, self.tol):
-                pieces = self.pieces(p, self.nodes[node])
+            pieces = self.pieces(p, self.nodes[node])
+            if pieces is not None:
                 return [(node, math.dist(p, self.nodes[node]), pieces)]
         return out
 
-    def route(self, start, goals, hidden):
+    def route(self, start, goals, hidden, paths=True):
         """The cheapest travel from start to each goal, as (cost, path),
         cost (visible length, length); path None only when the goal is in
-        another piece of the region. No direct start-to-goal link: between
-        two fill ends it could run along the boundary, which is the one
-        place a travel must not be."""
+        another piece of the region, or when paths is False. No direct
+        start-to-goal link: between two fill ends it could run along the
+        boundary, which is the one place a travel must not be."""
         n0 = len(self.nodes)
         nodes = self.nodes + [start] + list(goals)
-        adj = [list(a) for a in self.adj] + [[] for _ in range(1 + len(goals))]
+        adj = [list(a) for a in self.cadj] + [[] for _ in range(1 + len(goals))]
+        unfolded = set()
+
+        def unfold(x):
+            if x in self.folded and x not in unfolded:
+                unfolded.add(x)
+                for end, length, pieces, via in self.folded[x]:
+                    adj[x].append((end, length, pieces, via))
+                    adj[end].append((x, length, pieces, via[::-1]))
+
         for node, length, pieces in self._attach(start):
-            adj[n0].append((node, length, pieces))
-            adj[node].append((n0, length, pieces))
+            unfold(node)
+            adj[n0].append((node, length, pieces, ()))
+            adj[node].append((n0, length, pieces, ()))
         for g, goal in enumerate(goals):
             for node, length, pieces in self._attach(goal):
-                adj[node].append((n0 + 1 + g, length, pieces))  # into the goal only
+                unfold(node)
+                adj[node].append((n0 + 1 + g, length, pieces, ()))  # into the goal only
         dist, prev = _search(adj, n0, hidden, range(n0 + 1, n0 + 1 + len(goals)))
 
         out = []
@@ -857,7 +967,8 @@ class _Router(object):
             if _same(start, goal, self.tol):
                 out.append(((0.0, 0.0), [start, goal]))
             elif dist[n0 + 1 + g] is not None:
-                out.append((dist[n0 + 1 + g], _walk_back(nodes, prev, n0 + 1 + g)))
+                path = _walk_back(nodes, prev, n0 + 1 + g) if paths else None
+                out.append((dist[n0 + 1 + g], path))
             else:
                 out.append(self._corner_route(start, goal, hidden))
         return out
@@ -868,7 +979,7 @@ class _Router(object):
         many times over."""
         key = (start, goals, hidden)
         if key not in self._costs:
-            self._costs[key] = [cost for cost, _ in self.route(start, list(goals), hidden)]
+            self._costs[key] = [cost for cost, _ in self.route(start, list(goals), hidden, paths=False)]
         return self._costs[key]
 
     def _corner_route(self, start, goal, hidden):
@@ -889,8 +1000,8 @@ class _Router(object):
                     pieces = self.pieces(verts[i], verts[j])
                     if pieces is not None:
                         length = math.dist(verts[i], verts[j])
-                        adj[i].append((j, length, pieces))
-                        adj[j].append((i, length, pieces))
+                        adj[i].append((j, length, pieces, ()))
+                        adj[j].append((i, length, pieces, ()))
             self._corners = (verts, adj)
         verts, base = self._corners
         nodes = verts + [start, goal]
@@ -901,11 +1012,11 @@ class _Router(object):
                 pieces = self.pieces(nodes[end], v)
                 if pieces is not None:
                     length = math.dist(nodes[end], v)
-                    adj[end].append((i, length, pieces))
-                    adj[i].append((end, length, pieces))
+                    adj[end].append((i, length, pieces, ()))
+                    adj[i].append((end, length, pieces, ()))
         pieces = self.pieces(start, goal)
         if pieces is not None:
-            adj[s].append((g, math.dist(start, goal), pieces))
+            adj[s].append((g, math.dist(start, goal), pieces, ()))
         dist, prev = _search(adj, s, hidden)
         if dist[g] is None:
             return None, None
@@ -1121,12 +1232,13 @@ def plan(dec, fills, start=None, tol=DEFAULT_TOL):
     the best walk for every cell is exact: the stitched set at each step
     depends on the order alone, so the walks are a shortest path through
     four states per cell. A local search moves and swaps cells in the
-    order, keeping a change whenever that exact cost improves, until none
-    does. Costs are (visible length, travel length), compared in order.
+    order, keeping a change whenever that exact cost improves, until a
+    whole round of them finds none. Costs are (visible length, travel
+    length), compared in order. The seed only has to be somewhere to
+    start from: the search moves any cell to the front.
 
-    start: where the needle starts, or None to let the plan choose (every
-    first (cell, walk) is tried for the seed). Cells too thin to hold a
-    fill line are left out. Returns a Plan.
+    start: where the needle starts, or None to let the plan choose. Cells
+    too thin to hold a fill line are left out. Returns a Plan.
     """
     if tol < 0.0:
         raise ValueError("tol cannot be negative")
@@ -1136,15 +1248,8 @@ def plan(dec, fills, start=None, tol=DEFAULT_TOL):
     todo = [c for c in range(len(dec.cells)) if fills[c].lines]
     if not todo:
         return Plan([], [])
-    if start is not None:
-        seed = _greedy(router, fills, todo, start, None)
-    else:
-        seed = None
-        for c in todo:
-            for d in range(4):
-                p = _greedy(router, fills, todo, None, (c, d))
-                if seed is None or p.cost < seed.cost:
-                    seed = p
+    first = None if start is not None else (todo[0], FORWARD)
+    seed = _greedy(router, fills, todo, start, first)
     cells = [c for c, _ in seed.order]
     cells, _, walks = _improve(router, fills, cells, start, tol)
     return _assemble(router, fills, cells, walks, start)
@@ -1185,45 +1290,63 @@ def _entries(fills, c):
     return tuple(fills[c].walks[d][0] for d in range(4))
 
 
-def _walks_for(router, fills, cells, start):
-    """The best walk for every cell of a fixed order, and the total cost.
+def _forward(router, fills, cells, start, table=None, lo=0):
+    """The forward pass behind the best walks of a fixed order.
 
     Exact: with the order fixed, the cells still to come at each travel
     are fixed too, so a travel's cost depends only on the walk it leaves
-    and the walk it enters. A shortest path through four states per cell
-    (one per walk) finds the best walks. Returns (cost, walks), or
-    (None, None) if some travel cannot be made.
+    and the walk it enters, and a shortest path through four states per
+    cell (one per walk) finds the best walks. table[k] is (cost, came_from)
+    for cells[k]: the cheapest cost of reaching each of its walks, None
+    where none can be reached, and the walk of cells[k - 1] it came from.
+
+    Rows before lo are taken from table: an order changed only from
+    position lo on has the same cells there and the same cells still to
+    come after each, so those rows are the same.
     """
-    if start is None:
-        cost = [(0.0, 0.0)] * 4
-    else:
-        cost = router.costs(start, _entries(fills, cells[0]), frozenset(cells))
-    back = []
-    for i in range(1, len(cells)):
-        hidden = frozenset(cells[i:])
-        entries = _entries(fills, cells[i])
-        new, came_from = [None] * 4, [0] * 4
+    out = list(table[:lo]) if table else []
+    for k in range(len(out), len(cells)):
+        if k == 0:
+            if start is None:
+                out.append(([(0.0, 0.0)] * 4, None))
+            else:
+                out.append((router.costs(start, _entries(fills, cells[0]), frozenset(cells)), None))
+            continue
+        prev = out[k - 1][0]
+        hidden = frozenset(cells[k:])
+        entries = _entries(fills, cells[k])
+        cost, came_from = [None] * 4, [0] * 4
         for dp in range(4):
-            if cost[dp] is None:
+            if prev[dp] is None:
                 continue
-            step = router.costs(fills[cells[i - 1]].walks[dp][-1], entries, hidden)
+            step = router.costs(fills[cells[k - 1]].walks[dp][-1], entries, hidden)
             for d in range(4):
                 if step[d] is None:
                     continue
-                total = (cost[dp][0] + step[d][0], cost[dp][1] + step[d][1])
-                if new[d] is None or total < new[d]:
-                    new[d], came_from[d] = total, dp
-        cost = new
-        back.append(came_from)
-    ends = [(c, d) for d, c in enumerate(cost) if c is not None]
+                total = (prev[dp][0] + step[d][0], prev[dp][1] + step[d][1])
+                if cost[d] is None or total < cost[d]:
+                    cost[d], came_from[d] = total, dp
+        out.append((cost, came_from))
+    return out
+
+
+def _best_walks(table):
+    """(cost, walks) read back from a forward table, or (None, None)."""
+    ends = [(c, d) for d, c in enumerate(table[-1][0]) if c is not None]
     if not ends:
         return None, None
     best, d = min(ends)
     walks = [d]
-    for came_from in reversed(back):
-        d = came_from[d]
+    for k in range(len(table) - 1, 0, -1):
+        d = table[k][1][d]
         walks.append(d)
     return best, walks[::-1]
+
+
+def _walks_for(router, fills, cells, start):
+    """The best walk for every cell of a fixed order, and the total cost:
+    (cost, walks), or (None, None) if some travel cannot be made."""
+    return _best_walks(_forward(router, fills, cells, start))
 
 
 def _better(a, b, tol):
@@ -1231,35 +1354,44 @@ def _better(a, b, tol):
 
 
 def _rearrangements(cells):
-    """Every order one move away: a cell taken out and put back elsewhere,
-    or two cells swapped."""
+    """Every order one move away, as (first changed position, order): a
+    cell taken out and put back elsewhere, or two cells swapped."""
     n = len(cells)
     for i in range(n):
         rest = cells[:i] + cells[i + 1:]
         for j in range(n):
             if j != i:
-                yield rest[:j] + [cells[i]] + rest[j:]
+                yield min(i, j), rest[:j] + [cells[i]] + rest[j:]
     for i in range(n):
         for j in range(i + 2, n):
             out = list(cells)
             out[i], out[j] = out[j], out[i]
-            yield out
+            yield i, out
 
 
 def _improve(router, fills, cells, start, tol):
     """Local search over the order, each order costed with its best walks.
-    Takes the first rearrangement that improves and starts over, until
-    none does."""
-    best, walks = _walks_for(router, fills, cells, start)
-    improved = True
-    while improved:
-        improved = False
-        for cand in _rearrangements(cells):
-            cost, cand_walks = _walks_for(router, fills, cand, start)
-            if cost is not None and _better(cost, best, tol):
-                cells, best, walks = cand, cost, cand_walks
-                improved = True
-                break
+
+    Takes every rearrangement that improves, carrying on from there through
+    the next ones rather than starting over, and stops after a whole round
+    in which none does. Starting over after each change made a region of
+    thirty cells take minutes.
+    """
+    table = _forward(router, fills, cells, start)
+    best, walks = _best_walks(table)
+    moves = list(_rearrangements(cells))
+    k, quiet = 0, 0
+    while moves and quiet < len(moves):
+        lo, cand = moves[k % len(moves)]
+        cand_table = _forward(router, fills, cand, start, table, lo)
+        cost, cand_walks = _best_walks(cand_table)
+        if cost is not None and (best is None or _better(cost, best, tol)):
+            cells, table, best, walks = cand, cand_table, cost, cand_walks
+            moves = list(_rearrangements(cells))
+            quiet = 0
+        else:
+            quiet += 1
+        k += 1
     return cells, best, walks
 
 

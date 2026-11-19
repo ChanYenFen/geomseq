@@ -859,7 +859,9 @@ notch's floor through its corner.
 
 *How the order is found.* A greedy seed: from where the needle is, the
 cheapest next `(cell, walk)` by the travel to its entry (with no start
-given, every first `(cell, walk)` is tried). The greedy alone was not
+given, the first cell's forward walk). One seed only: trying every first
+`(cell, walk)` cost 4n greedy runs, and the local search below can move
+any cell to the front anyway. The greedy alone was not
 enough once the cell just left counted: it picks a walk by its entry and
 ignores where it exits, so it walked a comb's prong up and then came back
 down it. Two pieces fix that. For a fixed order the best walks are exact:
@@ -868,7 +870,10 @@ travel's cost depends only on the walk it leaves and the walk it enters,
 and a shortest path through four states per cell finds the best walks
 (checked against all 4^n on every order of the comb). A local search
 then moves and swaps cells in the order, costing each order that way,
-until nothing improves. On the U, the donut and the comb at four
+until a full cycle through the moves finds nothing better; after an
+improvement it carries on from the next move rather than starting over,
+and an order changed only after position i reuses the shortest-path rows
+before i. On the U, the donut and the comb at four
 spacings, every plan shows nothing, and on the three small enough to
 enumerate, the plan's cost equals the best over every order and walk.
 
@@ -877,9 +882,27 @@ each link is stored as its pieces, cut at cell edges and tagged with the
 cells each piece lies in: the visible length for any stitched set is a
 sum over pieces. Caching every segment's pieces, every route's costs,
 and stopping Dijkstra once all its goals are settled brought a 13-cell
-comb with 250 fill lines to 2.2 s (ad hoc). The search grows fast with
-the cell count, so the next speed step is contracting each cell's chain
-of line midpoints into one link.
+comb with 250 fill lines to 2.2 s (ad hoc).
+
+A flower-like region (30 cells, 7 holes, about 1400 outline vertices)
+then took an estimated 20+ minutes. Four changes brought it to about
+10 s at 212 fill lines and 27 s at 423 (ad hoc), every plan still
+showing nothing:
+
+- Geometry queries (does a segment leave the region, touch a corner,
+  which cells hold it) test bounding boxes first, cells then edges,
+  instead of every edge: building the graph went from 9.5 s to 0.6 s.
+  Same answers.
+- Each cell's chain of line midpoints is folded into one link carrying
+  its points, unfolded only where a start or goal attaches. Searches run
+  over a few nodes per cell; `test_folding_the_midline_keeps_every_cost`
+  checks every cost against the unfolded graph.
+- The single greedy seed and the cycling local search above. These can
+  change the plan; the exhaustive-optimum tests still hold.
+
+Tried and reverted: one search per start costing every cell entry at
+once. It cannot stop early at its goals and was two to three times
+slower.
 
 One fill bug surfaced here: a grid line exactly on a portal was laid in
 both cells, so the row would be stitched twice. The cell below now stops
@@ -887,8 +910,7 @@ short of it.
 
 **Stages still to do, in order:** a subset DP over `(stitched set, last
 cell, walk)` as the exact baseline beyond what enumeration reaches, to
-measure the local search's gap; contraction of the travel graph for
-larger regions; stitches on a lattice fixed to the plane, as Ink/Stitch's
+measure the local search's gap; stitches on a lattice fixed to the plane, as Ink/Stitch's
 are, so the walk the order picks never changes how the fill looks.
 Whether learning has a role is decided after the DP baseline exists, by
 measuring the gap, not before.
