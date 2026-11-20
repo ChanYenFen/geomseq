@@ -19,7 +19,7 @@ sys.path.insert(0, _HERE)
 
 from geomseq_core.coverage_path import ONE_WAY, ZIGZAG, hatch_region
 from geomseq_core.geometry_utils import hatch_region_native
-from test_coverage_path import BENT, COMB, DIAMOND, HOLE, HOURGLASS, SQUARE, U_SHAPE, _holes_row
+from test_coverage_path import BENT, COMB, DIAMOND, HOLE, HOURGLASS, NOTCH, SQUARE, U_SHAPE, _holes_row
 
 SAWTOOTH = [(0.0, 0.0), (6.0, 0.0), (6.0, 3.0), (5.0, 2.0), (4.0, 3.0), (3.0, 2.0),
             (2.0, 3.0), (1.0, 2.0), (0.0, 3.0)]
@@ -126,6 +126,22 @@ def test_kicks_match_python(name):
     router = _Router(dec, fills, 1e-9)
     assert _cost_close(_order_cost(router, fills, [c for c, _ in got.order], [d for _, d in got.order]),
                        _order_cost(router, fills, [c for c, _ in ref.order], [d for _, d in ref.order]))
+
+
+@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY], ids=["zigzag", "one_way"])
+def test_plan_matches_python_with_a_line_on_two_portals(link):
+    """A grid line on two portals: the port links the same way."""
+    dec = decompose([NOTCH])
+    fills = fill_cells(dec, 0.5, link=link)
+    ref = plan(dec, fills)
+    _, _, got = plan_coverage_native([NOTCH], 0.5, link=link)
+    _check_plan(dec, fills, got)
+    assert got.order == ref.order
+    assert len(got.pieces) == len(ref.pieces)
+    for a, b in zip(got.pieces, ref.pieces):
+        assert a.kind == b.kind
+        _same_points(a.points, b.points)
+        assert a.visible == pytest.approx(b.visible, abs=1e-9)
 
 
 def test_native_plan_refuses_negative_kicks():

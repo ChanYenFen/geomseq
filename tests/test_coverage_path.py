@@ -562,6 +562,40 @@ def test_cells_meeting_at_a_point_are_joined_through_it():
     assert any(_on_segment_pt((1.0, 1.0), a, b) for a, b in zip(path, path[1:]))
 
 
+# A bar on two legs. With spacing 0.5 the bar's bottom line lies on both
+# portals; the link from the right portal's midpoint to that line's runs
+# through the notch tip (8, 1).
+#
+#   (0,3) +-------------------+ (10,3)
+#         |                   |
+#         |              (8,1)|
+#         |               /\  |
+#   (0,0) +--------------+  +-+ (10,0)
+#                     (7,0) (9,0)
+NOTCH = [(0.0, 0.0), (7.0, 0.0), (8.0, 1.0), (9.0, 0.0), (10.0, 0.0), (10.0, 3.0), (0.0, 3.0)]
+
+
+def test_a_line_on_two_portals_still_joins_both_legs_on_the_midline():
+    """Every fill end reaches every other cell along the midline, without
+    the corner fallback."""
+    dec = decompose([NOTCH])
+    fills = fill_cells(dec, 0.5)
+    bar = _cell_at(dec, (5.0, 2.0))
+    assert len(dec.portals) == 2
+    assert min(a[1] for a, _ in fills[bar].lines) == pytest.approx(1.0)
+    router = _Router(dec, fills, 1e-9)
+
+    def no_fallback(start, goal, hidden):
+        pytest.fail("corner fallback from %r to %r" % (start, goal))
+
+    router._corner_route = no_fallback
+    n = len(dec.cells)
+    for f in range(n):
+        goals = [fills[t].walks[d][0] for t in range(n) if t != f for d in range(4)]
+        for d in range(4):
+            router.route(fills[f].walks[d][-1], goals, frozenset(), paths=False)
+
+
 def test_separate_pieces_cannot_be_joined():
     far = [(10.0, 0.0), (11.0, 0.0), (11.0, 1.0), (10.0, 1.0)]
     dec = decompose([SQUARE, far])

@@ -968,6 +968,13 @@ One fill bug surfaced here: a grid line exactly on a portal was laid in
 both cells, so the row would be stitched twice. The cell below now stops
 short of it.
 
+A travel bug followed from it. Where a cell rests on two portals and a
+grid line lies on them, the link from one portal's midpoint to that
+line's midpoint runs through the outline corner between the portals and
+is refused, cutting the lower cell off the midline: every travel to it
+took the slow corner fallback. A portal now links to the nearest midline
+node it can reach, usually the same one as before.
+
 *Which stages are components.* Each stage had its own GHPython component
 while it was being built, so it could be checked in Grasshopper on its
 own. Only two answer a general question and ship: Hatch Region (cells,
@@ -981,7 +988,9 @@ call; the Python stays as the reference. It replays the reference step
 for step, not just to the same cost: Dijkstra's heap compares the same
 (visible, length, node) triples, adjacency lists are built in the same
 order, and the kicks draw from a copy of Python's `random.Random(0)` and
-`sample`, so ties fall the same way. `tests/test_coverage_native.py`
+`sample`, so ties fall the same way. That needs Python 3.11 as in CI:
+3.9's `math.hypot` differs from C's `hypot` in the last place, and some
+ties fall the other way. `tests/test_coverage_native.py`
 checks the same cells, lines and walks on ten shapes at four angles, and
 the same order, pieces and visible lengths for every plan on eight. On
 the 30-cell flower without kicks it runs 0.77 s against 8.0 s; with 20

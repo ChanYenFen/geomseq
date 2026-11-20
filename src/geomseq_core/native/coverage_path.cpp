@@ -831,6 +831,7 @@ struct Router {
 
         // Midline of each cell: its line midpoints, chained.
         std::map<int, int> first, last;
+        std::map<int, std::vector<int>> chain;  // cell -> its midline nodes, bottom line first
         for (size_t c = 0; c < dec.cells.size(); ++c) {
             int prev_node = -1;
             for (size_t k = 0; k < fills[c].lines.size(); ++k) {
@@ -839,6 +840,7 @@ struct Router {
                     continue;
                 int node = add_node(m);
                 mids.push_back({node, (int)c, (int)k});
+                chain[(int)c].push_back(node);
                 if (prev_node != -1)
                     link(prev_node, node);
                 else
@@ -851,17 +853,28 @@ struct Router {
                 anchors.insert(last[(int)c]);
             }
         }
-        // Portals, and each cell's ways out up and down.
+        // Portals, and each cell's ways out up and down. A link into a cell
+        // goes to the nearest midline node it can reach.
+        auto link_in = [&](int node, int cell, bool from_top) {
+            const std::vector<int>& nodes_in = chain[cell];
+            int n = (int)nodes_in.size();
+            for (int i = 0; i < n; ++i) {
+                int target = nodes_in[from_top ? n - 1 - i : i];
+                if (link(node, target))
+                    return target;
+            }
+            return nodes_in[from_top ? n - 1 : 0];
+        };
         for (const Portal& p : dec.portals) {
             if (last.count(p.cell_a) && first.count(p.cell_b)) {
                 int node = add_node(mid(p.p0, p.p1));
                 anchors.insert(node);
-                link(last[p.cell_a], node);
-                link(node, first[p.cell_b]);
+                int below = link_in(node, p.cell_a, true);
+                int above = link_in(node, p.cell_b, false);
                 ways_up[p.cell_a].push_back(node);
-                ways_up[p.cell_a].push_back(first[p.cell_b]);
+                ways_up[p.cell_a].push_back(above);
                 ways_down[p.cell_b].push_back(node);
-                ways_down[p.cell_b].push_back(last[p.cell_a]);
+                ways_down[p.cell_b].push_back(below);
             }
         }
         // Hops: the fill's own step across a portal, hidden by either cell.
@@ -871,10 +884,11 @@ struct Router {
                 continue;
             struct Side {
                 std::pair<Pt, Pt> ends, line;
-                int target;
+                int cell;
+                bool from_top;
             };
-            Side sides[2] = {{fills[below].lines.back(), fills[above].lines.front(), first[above]},
-                             {fills[above].lines.front(), fills[below].lines.back(), last[below]}};
+            Side sides[2] = {{fills[below].lines.back(), fills[above].lines.front(), above, false},
+                             {fills[above].lines.front(), fills[below].lines.back(), below, true}};
             for (const Side& s : sides) {
                 const Pt* ends[2] = {&s.ends.first, &s.ends.second};
                 for (const Pt* e : ends) {
@@ -897,7 +911,7 @@ struct Router {
                         pool.push_back(one);
                         piece_ids[key] = (int)pool.size() - 1;
                         int node = add_node(q);
-                        link(node, s.target);
+                        link_in(node, s.cell, s.from_top);
                         hops[*e].push_back(node);
                         anchors.insert(node);
                         break;
@@ -914,14 +928,15 @@ struct Router {
         return (int)nodes.size() - 1;
     }
 
-    void link(int i, int j) {
+    bool link(int i, int j) {
         Pt a = nodes[i], b = nodes[j];
         int pid = pieces(a, b);
         if (pid < 0)
-            return;
+            return false;
         double len = dist(a, b);
         adj[i].push_back({j, len, pid, -1, false});
         adj[j].push_back({i, len, pid, -1, false});
+        return true;
     }
 
     void contract() {

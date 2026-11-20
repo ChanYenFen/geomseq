@@ -819,6 +819,7 @@ class _Router(object):
 
         # Midline of each cell: its line midpoints, chained.
         first, last = {}, {}
+        chain = {}  # cell -> its midline nodes, bottom line first
         self._anchors = set()  # nodes the contraction must keep
         for c in range(len(dec.cells)):
             prev_node = None
@@ -828,6 +829,7 @@ class _Router(object):
                     continue
                 node = self._add_node(m)
                 self.mids.append((node, c, k))
+                chain.setdefault(c, []).append(node)
                 if prev_node is not None:
                     self._link(prev_node, node)
                 else:
@@ -842,15 +844,24 @@ class _Router(object):
         # up and down (the portal's midpoint, and the neighbour's line next
         # to it), so an end on its top or bottom line can leave across the
         # gap to the portal instead of back across the cell.
+        # A link into a cell goes to the nearest midline node it can reach:
+        # a line lying on the portal may only be reachable through a corner.
+        def link_in(node, cell, from_top):
+            nodes = chain[cell][::-1] if from_top else chain[cell]
+            for target in nodes:
+                if self._link(node, target):
+                    return target
+            return nodes[0]
+
         self.ways_up, self.ways_down = {}, {}
         for p in dec.portals:
             if p.cell_a in last and p.cell_b in first:
                 node = self._add_node(_mid(p.p0, p.p1))
                 self._anchors.add(node)
-                self._link(last[p.cell_a], node)
-                self._link(node, first[p.cell_b])
-                self.ways_up.setdefault(p.cell_a, []).extend([node, first[p.cell_b]])
-                self.ways_down.setdefault(p.cell_b, []).extend([node, last[p.cell_a]])
+                below = link_in(node, p.cell_a, True)
+                above = link_in(node, p.cell_b, False)
+                self.ways_up.setdefault(p.cell_a, []).extend([node, above])
+                self.ways_down.setdefault(p.cell_b, []).extend([node, below])
 
         # Across a portal, the zig-zag can simply carry on: from each end
         # of the lower cell's top line straight across to the upper cell's
@@ -869,8 +880,8 @@ class _Router(object):
             below, above = p.cell_a, p.cell_b
             if below not in last or above not in first:
                 continue
-            for ends, line, target in ((fills[below].lines[-1], fills[above].lines[0], first[above]),
-                                       (fills[above].lines[0], fills[below].lines[-1], last[below])):
+            for ends, line, cell, from_top in ((fills[below].lines[-1], fills[above].lines[0], above, False),
+                                               (fills[above].lines[0], fills[below].lines[-1], below, True)):
                 for e in ends:
                     for q in _step_targets(e, line, tol):
                         step = self.pieces(e, q)
@@ -880,7 +891,7 @@ class _Router(object):
                         key = (e, q) if e <= q else (q, e)
                         self._pieces[key] = [(sum(length for length, _ in step), both)]
                         node = self._add_node(q)
-                        self._link(node, target)
+                        link_in(node, cell, from_top)
                         self.hops.setdefault(e, []).append(node)
                         self._anchors.add(node)
                         break
@@ -930,10 +941,11 @@ class _Router(object):
         a, b = self.nodes[i], self.nodes[j]
         pieces = self.pieces(a, b)
         if pieces is None:
-            return
+            return False
         length = math.dist(a, b)
         self.adj[i].append((j, length, pieces))
         self.adj[j].append((i, length, pieces))
+        return True
 
     def pieces(self, a, b):
         """Segment ab as (length, cells) pieces, or None if it leaves the
