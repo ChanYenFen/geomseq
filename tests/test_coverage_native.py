@@ -152,3 +152,28 @@ def test_native_plan_refuses_negative_kicks():
 def _inside(ring, p):
     from geomseq_core.coverage_path import _in_closed_polygon
     return _in_closed_polygon(p, ring, 1e-9)
+
+
+def _shortest_step(points):
+    return min((math.dist(a, b) for a, b in zip(points, points[1:])), default=math.inf)
+
+
+@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY], ids=["zigzag", "one_way"])
+@pytest.mark.parametrize("angle", [0.0, 0.5])
+@pytest.mark.parametrize("name", sorted(SHAPES) + ["notch"])
+def test_no_step_of_no_length(name, angle, link):
+    """No walk, piece or path has a step of no length, in Python or the
+    port: Rhino calls such a polyline invalid."""
+    rings = [NOTCH] if name == "notch" else SHAPES[name]
+    spacing, phase = (0.5, 0.0) if name == "notch" else (0.3, 0.1)
+    dec = decompose(rings, angle=angle)
+    fills = fill_cells(dec, spacing, phase=phase, link=link)
+    _, native_fills, got = plan_coverage_native(rings, spacing, angle=angle, phase=phase, link=link)
+    for f in list(fills) + list(native_fills):
+        for walk in f.walks:
+            assert _shortest_step(walk) > 1e-9
+    for p in (plan(dec, fills), got):
+        for piece in p.pieces:
+            assert len(piece.points) >= 2
+            assert _shortest_step(piece.points) > 1e-9, (piece.kind, piece.points)
+        assert _shortest_step(p.path) > 1e-9

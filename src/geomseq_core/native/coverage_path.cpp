@@ -66,6 +66,14 @@ inline Pt rotate(const Pt& p, double c, double s) {
 
 inline double dist(const Pt& a, const Pt& b) { return std::hypot(a.x - b.x, a.y - b.y); }
 
+inline bool same(const Pt& a, const Pt& b, double tol) { return std::hypot(a.x - b.x, a.y - b.y) <= tol; }
+
+// Append corner v unless it is within tol of the last point or of next.
+inline void add_corner(std::vector<Pt>& pts, const Pt& v, const Pt& next, double tol) {
+    if (!same(v, pts.back(), tol) && !same(v, next, tol))
+        pts.push_back(v);
+}
+
 // --- the cut -----------------------------------------------------------------
 
 struct Edge {
@@ -342,9 +350,10 @@ void zigzag(const std::vector<Row>& rows, double spacing, double phase, double t
         bool left_to_right = ((n % 2) == 0) == start_left;
         if (n > 0) {
             double y_prev = lines[n - 1].y;
+            Pt start = left_to_right ? Pt{ln.xl, ln.y} : Pt{ln.xr, ln.y};
             for (const Row& r : rows) {
                 if (y_prev < r.y && r.y < ln.y)
-                    pts.push_back({left_to_right ? r.xl : r.xr, r.y});
+                    add_corner(pts, {left_to_right ? r.xl : r.xr, r.y}, start, tol);
             }
         }
         if (left_to_right) {
@@ -429,7 +438,7 @@ std::vector<Pt> one_way(const std::vector<Row>& rows, const std::vector<Line>& l
         if (n > 0) {
             std::vector<Pt> join = shortest_in_cell(rows, pts.back(), a, tol);
             for (size_t i = 1; i + 1 < join.size(); ++i)
-                pts.push_back(join[i]);
+                add_corner(pts, join[i], a, tol);
         }
         pts.push_back(a);
         pts.push_back(b);
@@ -478,8 +487,6 @@ std::vector<Fill> fill_cells(const Decomposition& dec, double spacing, double ph
 
 const int CP_ERR_KICKS = -8;           // "kicks cannot be negative"
 const int CP_ERR_PIECES = -9;          // "the cells left lie in another piece of the region"
-
-inline bool same(const Pt& a, const Pt& b, double tol) { return std::hypot(a.x - b.x, a.y - b.y) <= tol; }
 
 // Python compares points as tuples: x first, then y.
 inline bool lex_less(const Pt& a, const Pt& b) { return a.x < b.x || (a.x == b.x && a.y < b.y); }
@@ -1323,8 +1330,15 @@ struct Router {
                     break;
                 }
             }
-            if (!same(path[nxt], out.back(), tol) || nxt == path.size() - 1)
+            // The goal replaces a point it coincides with rather than follow it.
+            if (!same(path[nxt], out.back(), tol))
                 out.push_back(path[nxt]);
+            else if (nxt == path.size() - 1) {
+                if (out.size() > 1)
+                    out.back() = path[nxt];
+                else
+                    out.push_back(path[nxt]);
+            }
             i = nxt;
         }
         return out;

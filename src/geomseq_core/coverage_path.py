@@ -455,9 +455,10 @@ def _zigzag(rows, spacing, phase, tol, start_left=True, drop_top=False):
             # This line starts where the last one ended: on the left if it
             # runs left to right. Index into (y, xl, xr).
             side = 1 if left_to_right else 2
+            start = (xl, y) if left_to_right else (xr, y)
             for row in rows:
                 if y_prev < row[0] < y:
-                    pts.append((row[side], row[0]))
+                    _add_corner(pts, (row[side], row[0]), start, tol)
         if left_to_right:
             pts.append((xl, y))
             pts.append((xr, y))
@@ -465,6 +466,13 @@ def _zigzag(rows, spacing, phase, tol, start_left=True, drop_top=False):
             pts.append((xr, y))
             pts.append((xl, y))
     return pts, lines
+
+
+def _add_corner(pts, v, nxt, tol):
+    """Append corner v unless it is within tol of the last point or of nxt:
+    a step of no length makes an invalid curve."""
+    if not _same(v, pts[-1], tol) and not _same(v, nxt, tol):
+        pts.append(v)
 
 
 def _one_way(rows, lines, start_left, tol):
@@ -475,7 +483,8 @@ def _one_way(rows, lines, start_left, tol):
     for n, (y, xl, xr) in enumerate(lines):
         a, b = ((xl, y), (xr, y)) if start_left else ((xr, y), (xl, y))
         if n > 0:
-            pts.extend(_shortest_in_cell(rows, pts[-1], a, tol)[1:-1])
+            for v in _shortest_in_cell(rows, pts[-1], a, tol)[1:-1]:
+                _add_corner(pts, v, a, tol)
         pts.append(a)
         pts.append(b)
     return pts
@@ -1162,9 +1171,15 @@ class _Router(object):
                 if pieces is not None and _shown(pieces, hidden) <= shown[j] - shown[i] + self.tol:
                     nxt = j
                     break
-            # A portal's midpoint can coincide with a line's on it.
-            if not _same(path[nxt], out[-1], self.tol) or nxt == len(path) - 1:
+            # A portal's midpoint can coincide with a line's on it. The goal
+            # replaces a point it coincides with rather than follow it.
+            if not _same(path[nxt], out[-1], self.tol):
                 out.append(path[nxt])
+            elif nxt == len(path) - 1:
+                if len(out) > 1:
+                    out[-1] = path[nxt]
+                else:
+                    out.append(path[nxt])
             i = nxt
         return out
 

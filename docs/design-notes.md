@@ -975,6 +975,11 @@ is refused, cutting the lower cell off the midline: every travel to it
 took the slow corner fallback. A portal now links to the nearest midline
 node it can reach, usually the same one as before.
 
+Steps of no length made Plan Coverage's curves invalid in Rhino. They
+came from `shortcut` appending the goal beside a point it coincided
+with, and from fill corners a hair (1e-11) off a grid line on a
+flattened curve. Both are now dropped or merged within `tol`.
+
 *Which stages are components.* Each stage had its own GHPython component
 while it was being built, so it could be checked in Grasshopper on its
 own. Only two answer a general question and ship: Hatch Region (cells,
