@@ -113,12 +113,16 @@ Run these from `src/geomseq_core/native/`:
 cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp shatter_at_crossings.cpp point_in_curve.cpp coverage_path.cpp abi_version.cpp /Fe:geomseq_core.dll
 
 # macOS
-clang++ -std=c++17 -O2 -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp
+clang++ -std=c++17 -O2 -ffp-contract=off -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp
 lipo -archs geomseq_core.dylib      # expect: x86_64 arm64
 
 # Linux
-g++ -std=c++17 -O2 -shared -fPIC -pthread -o geomseq_core.so *.cpp
+g++ -std=c++17 -O2 -ffp-contract=off -shared -fPIC -pthread -o geomseq_core.so *.cpp
 ```
+
+`-ffp-contract=off` keeps the compiler from fusing `a * b + c` into one
+rounding: clang does on arm64 by default, and the coverage path's results
+then differ from Python's in the last bit. MSVC does not fuse by default.
 
 On macOS both `-arch` flags are required: Rhino 8 runs natively on Apple
 Silicon and on Intel, so a single-architecture build fails to load on the other.

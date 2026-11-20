@@ -43,15 +43,17 @@ jobs:
       #
       # -pthread: nanoflann references std::thread/std::mutex even though its
       # n_thread_build defaults to 1 and the concurrent build path never runs.
+      # -ffp-contract=off: no fused multiply-add, so results match Python's
+      # to the last bit (the coverage tests compare them exactly).
       - name: Build geomseq_core.so (linux)
         if: runner.os == 'Linux'
         working-directory: src/geomseq_core/native
-        run: g++ -std=c++17 -O2 -shared -fPIC -pthread -o geomseq_core.so *.cpp
+        run: g++ -std=c++17 -O2 -ffp-contract=off -shared -fPIC -pthread -o geomseq_core.so *.cpp
 
       - name: Build geomseq_core.dylib (macos)
         if: runner.os == 'macOS'
         working-directory: src/geomseq_core/native
-        run: clang++ -std=c++17 -O2 -shared -fPIC -pthread -o geomseq_core.dylib *.cpp
+        run: clang++ -std=c++17 -O2 -ffp-contract=off -shared -fPIC -pthread -o geomseq_core.dylib *.cpp
 
       - name: Set up MSVC
         if: runner.os == 'Windows'
