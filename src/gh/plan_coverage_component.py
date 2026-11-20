@@ -2,7 +2,8 @@
 Plan Coverage Path Component for GeomSeq
 GH entry point: the whole stitch path over one closed region, cells in
 order, each filled in one of its four walks, joined by travels down the
-middle of the cells (geometry: coverage_path.plan).
+middle of the cells (geometry: coverage_path.plan, run in C++ through
+geometry_utils.plan_coverage_native; the Python module is its reference).
 
 Stage 4 of the coverage path. No trims: every travel exists, and the order
 is chosen to show as little of them as possible, then to travel least. A
@@ -20,6 +21,14 @@ Inputs
     plane            working plane. Optional, world XY
     chord_tolerance  largest gap allowed between a curve and its polyline
                      when it is flattened. Optional, 0 = document tolerance
+    link             how each cell's fill lines join. Optional, 0
+                     0  zig-zag: lines alternate, joined along the side
+                     1  one-way: lines all one way, joined across the cell
+    kicks            restarts of the order search from a shaken copy of
+                     its best order. Optional, 0. More finds shorter
+                     travel on large regions and takes longer, each about
+                     one more search; 20 reached the best order on every
+                     small shape measured
 Outputs
     path             the whole stitch path as one polyline
     pieces           the path cut into fills and travels, in order
@@ -34,6 +43,7 @@ Outputs
 
 import math
 import os
+import time
 import sys
 
 import Rhino
@@ -50,12 +60,14 @@ except ImportError:
 
 from geomseq_core import _reload
 
-# Force-reload so edits show up without restarting Rhino. coverage_path is
-# pure Python, so nothing native is reloaded.
+# Force-reload so edits show up without restarting Rhino. The DLL itself
+# stays loaded: a rebuilt one needs Rhino restarted.
 _reload.unload_modules("geomseq_core.coverage_path")
+_reload.unload_modules("geomseq_core.misc")
+_reload.unload_modules("geomseq_core.geometry_utils")
 
-from geomseq_core.coverage_path import decompose, fill_cells
-from geomseq_core.coverage_path import plan as make_plan
+from geomseq_core.coverage_path import KICKS, ZIGZAG
+from geomseq_core.geometry_utils import plan_coverage_native
 
 
 def _optional(name, default):
@@ -116,28 +128,33 @@ if __name__ == "__main__":
     src_plane = _optional("plane", rg.Plane.WorldXY)
     sweep = math.radians(float(_optional("angle", 0.0)))
     grid_phase = float(_optional("phase", 0.0))
+    link_mode = int(_optional("link", ZIGZAG))
+    restarts = int(_optional("kicks", KICKS))
     chord_tol = _resolve_chord_tolerance()
 
+    t0 = time.perf_counter()
     raw = list(curves) if curves else []  # type: ignore
     rings, rejected = _to_rings(raw, src_plane, chord_tol)
 
     path, pieces, kinds, order, directions = None, [], [], [], []
     visible, travel_length = 0.0, 0.0
 
-    if rejected:
+    if not raw:
+        print("[geomseq_core] no curves reached the curves input -- nothing was computed.")
+    elif rejected:
         # One region is one input; a bad ring refuses the whole thing.
         print("[geomseq_core] %d of %d input curves are missing, open, or could not "
               "be flattened (indices %s) -- nothing was computed."
               % (len(rejected), len(raw), rejected[:20]))
     elif rings:
         try:
-            dec = decompose(rings, angle=sweep)
-            fills = fill_cells(dec, float(spacing), phase=grid_phase)  # type: ignore
             needle = globals().get("start")
             if needle is not None:
                 ok, lp = src_plane.RemapToPlaneSpace(needle)
                 needle = (lp.X, lp.Y) if ok else (needle.X, needle.Y)
-            result = make_plan(dec, fills, start=needle)
+            _, _, result = plan_coverage_native(rings, float(spacing), angle=sweep,  # type: ignore
+                                                phase=grid_phase, link=link_mode,
+                                                start=needle, kicks=restarts)
         except (ValueError, NameError, TypeError) as e:
             print("[geomseq_core] %s" % e)
             result = None
@@ -151,5 +168,8 @@ if __name__ == "__main__":
             directions = [d for _, d in result.order]
             visible = result.visible_length
             travel_length = result.travel_length
+            print("[geomseq_core] %d cells in order, %d pieces, travel %.4g, visible %.4g, "
+                  "%.2f s" % (len(order), len(result.pieces), travel_length, visible,
+                              time.perf_counter() - t0))
             if visible > 0.0:
                 print("[geomseq_core] %.4g of the travel shows over stitched cells" % visible)

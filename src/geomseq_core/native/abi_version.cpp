@@ -19,8 +19,10 @@ extern "C" {
 // 3: point_in_curve lost its out_projected argument. The caller already holds
 //    that point -- it projects into the plane before calling.
 // 4: point_in_curves added.
+// 5: coverage_hatch_region, coverage_plan and the coverage_result_*
+//    functions added.
 DLL_EXPORT int geomseq_abi_version() {
-    return 4;
+    return 5;
 }
 
 } // extern "C"

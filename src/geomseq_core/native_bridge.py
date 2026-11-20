@@ -12,7 +12,7 @@ _LIB_NAMES = {
 
 
 # Must equal geomseq_abi_version() in native/abi_version.cpp, which says when to bump it.
-ABI_VERSION = 4
+ABI_VERSION = 5
 
 
 def _check_abi_version(lib, dll_path):
@@ -149,6 +149,49 @@ def load_dll():
         ctypes.POINTER(ctypes.c_int),     # out_index (num_query), -1 when outside all
     ]
     lib.point_in_curves.restype = ctypes.c_int
+
+    # int coverage_hatch_region(const double*, const int*, int, double, double,
+    #                           double, int, double, void**)
+    # Results come back as a handle: read with coverage_result_*, then free.
+    # See native/coverage_path.cpp for the status codes and field numbers.
+    lib.coverage_hatch_region.argtypes = [
+        ctypes.POINTER(ctypes.c_double),  # ring_xy (2*sum(ring_counts))
+        ctypes.POINTER(ctypes.c_int),     # ring_counts (num_rings)
+        ctypes.c_int,                     # num_rings
+        ctypes.c_double,                  # spacing
+        ctypes.c_double,                  # angle, radians
+        ctypes.c_double,                  # phase
+        ctypes.c_int,                     # link
+        ctypes.c_double,                  # tol
+        ctypes.POINTER(ctypes.c_void_p),  # out_handle
+    ]
+    lib.coverage_hatch_region.restype = ctypes.c_int
+    # int coverage_plan(<as coverage_hatch_region, without out_handle>,
+    #                   const double* start, int kicks, double tol, void**)
+    lib.coverage_plan.argtypes = [
+        ctypes.POINTER(ctypes.c_double),  # ring_xy
+        ctypes.POINTER(ctypes.c_int),     # ring_counts
+        ctypes.c_int,                     # num_rings
+        ctypes.c_double,                  # spacing
+        ctypes.c_double,                  # angle, radians
+        ctypes.c_double,                  # phase
+        ctypes.c_int,                     # link
+        ctypes.POINTER(ctypes.c_double),  # start (2), nullable
+        ctypes.c_int,                     # kicks
+        ctypes.c_double,                  # tol
+        ctypes.POINTER(ctypes.c_void_p),  # out_handle
+    ]
+    lib.coverage_plan.restype = ctypes.c_int
+    lib.coverage_result_size.argtypes = [ctypes.c_void_p, ctypes.c_int]
+    lib.coverage_result_size.restype = ctypes.c_int
+    lib.coverage_result_ints.argtypes = [
+        ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+    lib.coverage_result_ints.restype = ctypes.c_int
+    lib.coverage_result_doubles.argtypes = [
+        ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(ctypes.c_double), ctypes.c_int]
+    lib.coverage_result_doubles.restype = ctypes.c_int
+    lib.coverage_result_free.argtypes = [ctypes.c_void_p]
+    lib.coverage_result_free.restype = None
 
     _DLL = lib
     return lib

@@ -21,7 +21,9 @@ from geomseq_core.coverage_path import (
     FORWARD,
     MIRRORED,
     MIRRORED_REVERSE,
+    ONE_WAY,
     REVERSE,
+    ZIGZAG,
     FILL,
     TRAVEL,
     _Router,
@@ -29,6 +31,7 @@ from geomseq_core.coverage_path import (
     _walks_for,
     decompose,
     fill_cells,
+    hatch_region,
     plan,
     polygon_area,
     region_area,
@@ -54,6 +57,11 @@ U_SHAPE = [(0.0, 0.0), (3.0, 0.0), (3.0, 3.0), (2.0, 3.0),
 HOURGLASS = [(0.0, 0.0), (2.0, 0.0), (1.0, 1.0), (2.0, 2.0), (0.0, 2.0), (1.0, 1.0)]
 
 DIAMOND = [(1.0, 0.0), (2.0, 1.0), (1.0, 2.0), (0.0, 1.0)]
+
+# A comb: a bar with three prongs up. Stitching the bar between two prongs
+# leaves the last prong reachable only over it, so the order matters.
+COMB = [(0.0, 0.0), (5.0, 0.0), (5.0, 3.0), (4.0, 3.0), (4.0, 1.0), (3.0, 1.0),
+        (3.0, 3.0), (2.0, 3.0), (2.0, 1.0), (1.0, 1.0), (1.0, 3.0), (0.0, 3.0)]
 
 
 def _rotated(ring, angle):
@@ -362,6 +370,76 @@ def test_thin_cell_gets_one_line_through_its_middle():
     assert f.forward[0][1] == pytest.approx(0.1)
 
 
+# A square with its left side bent in to (7, 5): one cell, and with lines
+# at y = 0 and y = 10 the straight join across, either way, passes x = 5
+# at y = 5, outside.
+BENT = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (7.0, 5.0)]
+
+
+def _walk_inside(cell, walk):
+    for a, b in zip(walk, walk[1:]):
+        assert _segment_inside_union(a, b, [cell.outline], 1e-9), (a, b)
+
+
+def test_unknown_link_is_refused():
+    with pytest.raises(ValueError):
+        fill_cells(decompose([SQUARE]), 1.0, link=2)
+
+
+@pytest.mark.parametrize("spacing", [1.0, 4.0 / 3.0])
+def test_one_way_runs_every_line_the_same_way(spacing):
+    """Same lines as the zig-zag, each walked left to right in FORWARD,
+    right to left in MIRRORED; the joins are straight across the square.
+    Every walk leaves at the corner across from its entry, odd line count
+    or even."""
+    dec = decompose([SQUARE])
+    zig = fill_cells(dec, spacing)[0]
+    f = fill_cells(dec, spacing, link=ONE_WAY)[0]
+    assert f.lines == zig.lines
+    fw, mi = f.walks[FORWARD], f.walks[MIRRORED]
+    assert len(fw) == len(mi) == 2 * f.line_count
+    for k in range(0, len(fw), 2):
+        assert fw[k][0] == pytest.approx(0.0) and fw[k + 1][0] == pytest.approx(4.0)
+        assert mi[k][0] == pytest.approx(4.0) and mi[k + 1][0] == pytest.approx(0.0)
+    assert f.walks[REVERSE] == fw[::-1]
+    assert f.walks[MIRRORED_REVERSE] == mi[::-1]
+    entries = sorted((round(w[0][0], 9), round(w[0][1], 9)) for w in f.walks)
+    assert entries == [(0.0, 0.0), (0.0, 4.0), (4.0, 0.0), (4.0, 4.0)]
+    for w in f.walks:
+        assert w[-1] == pytest.approx((4.0 - w[0][0], 4.0 - w[0][1]))
+
+
+def test_one_way_join_bends_round_a_side_in_its_way():
+    dec = decompose([BENT])
+    assert len(dec.cells) == 1
+    f = fill_cells(dec, 10.0, link=ONE_WAY)[0]
+    assert f.line_count == 2
+    rounded = [(round(x, 9), round(y, 9)) for x, y in f.walks[FORWARD]]
+    assert rounded == [(0.0, 0.0), (10.0, 0.0), (7.0, 5.0), (0.0, 10.0), (10.0, 10.0)]
+    rounded = [(round(x, 9), round(y, 9)) for x, y in f.walks[MIRRORED]]
+    assert rounded == [(10.0, 0.0), (0.0, 0.0), (7.0, 5.0), (10.0, 10.0), (0.0, 10.0)]
+    for w in f.walks:
+        _walk_inside(dec.cells[0], w)
+
+
+@pytest.mark.parametrize("rings", [[U_SHAPE], [SQUARE, HOLE], [COMB], [BENT], [DIAMOND]],
+                         ids=["u", "donut", "comb", "bent", "diamond"])
+@pytest.mark.parametrize("angle", [0.0, 0.7])
+def test_one_way_stays_inside_its_cell(rings, angle):
+    dec = decompose(rings, angle=angle)
+    for f in fill_cells(dec, 0.3, phase=0.1, link=ONE_WAY):
+        for w in f.walks:
+            _walk_inside(dec.cells[f.cell], w)
+
+
+def test_hatch_region_is_decompose_then_fill():
+    dec, fills = hatch_region([SQUARE, HOLE], 0.3, angle=0.4, phase=0.1, link=ONE_WAY)
+    ref = decompose([SQUARE, HOLE], angle=0.4)
+    assert [c.outline for c in dec.cells] == [c.outline for c in ref.cells]
+    for f, g in zip(fills, fill_cells(ref, 0.3, phase=0.1, link=ONE_WAY)):
+        assert f.walks == g.walks and f.lines == g.lines
+
+
 def _path_length(path):
     return sum(math.dist(a, b) for a, b in zip(path, path[1:]))
 
@@ -601,12 +679,6 @@ def test_fill_lines_run_along_the_angle():
 
 # --- the order ---------------------------------------------------------------
 
-# A comb: a bar with three prongs up. Stitching the bar between two prongs
-# leaves the last prong reachable only over it, so the order matters.
-COMB = [(0.0, 0.0), (5.0, 0.0), (5.0, 3.0), (4.0, 3.0), (4.0, 1.0), (3.0, 1.0),
-        (3.0, 3.0), (2.0, 3.0), (2.0, 1.0), (1.0, 1.0), (1.0, 3.0), (0.0, 3.0)]
-
-
 def _check_plan(dec, fills, p):
     """Every cell filled once by one of its walks; each piece starts where
     the last ended; no two travels in a row; every travel inside the
@@ -653,6 +725,44 @@ def _exhaustive(router, fills, n, start=None):
                for walks in itertools.product(range(4), repeat=n))
 
 
+def _subset_dp(router, fills, n):
+    """The best cost over every order and walk, by dynamic programming
+    over (stitched set, last cell, its walk): exact because a travel's
+    cost depends only on where it leaves, where it enters and the cells
+    not stitched yet, the complement of the set. Reaches about a dozen
+    cells where enumerating every order reaches six."""
+    full = (1 << n) - 1
+    best = {(1 << c, c, d): (0.0, 0.0) for c in range(n) for d in range(4)}
+    for mask in sorted(range(1, full), key=lambda m: bin(m).count("1")):
+        rest = [c for c in range(n) if not mask >> c & 1]
+        hidden = frozenset(rest)
+        goals = tuple(fills[c].walks[d][0] for c in rest for d in range(4))
+        for last in range(n):
+            for w in range(4):
+                cur = best.get((mask, last, w))
+                if cur is None:
+                    continue
+                steps = iter(router.costs(fills[last].walks[w][-1], goals, hidden))
+                for c in rest:
+                    for d in range(4):
+                        step = next(steps)
+                        total = (cur[0] + step[0], cur[1] + step[1])
+                        key = (mask | 1 << c, c, d)
+                        if key not in best or total < best[key]:
+                            best[key] = total
+    return min(v for (m, _, _), v in best.items() if m == full)
+
+
+def _holes_row(m):
+    """A 2m+1 by 3 rectangle with m unit holes along its middle."""
+    w = 2.0 * m + 1.0
+    rings = [[(0.0, 0.0), (w, 0.0), (w, 3.0), (0.0, 3.0)]]
+    for i in range(m):
+        x = 1.0 + 2.0 * i
+        rings.append([(x, 1.0), (x + 1.0, 1.0), (x + 1.0, 2.0), (x, 2.0)])
+    return rings
+
+
 def _cost_close(a, b):
     return a[0] == pytest.approx(b[0], abs=1e-9) and a[1] == pytest.approx(b[1], abs=1e-9)
 
@@ -673,13 +783,14 @@ def test_best_walks_for_an_order_are_exact():
         assert _cost_close(_order_cost(router, fills, cells, walks), best)
 
 
+@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY], ids=["zigzag", "one_way"])
 @pytest.mark.parametrize("rings", [[U_SHAPE], [SQUARE, HOLE], [COMB]],
                          ids=["u", "donut", "comb"])
-def test_plan_reaches_the_exhaustive_optimum(rings):
+def test_plan_reaches_the_exhaustive_optimum(rings, link):
     """Small enough to try every order and every walk: the plan's order and
     walks cost exactly the best of them."""
     dec = decompose(rings)
-    fills = fill_cells(dec, 0.3, phase=0.1)
+    fills = fill_cells(dec, 0.3, phase=0.1, link=link)
     router = _Router(dec, fills, 1e-9)
     p = plan(dec, fills)
     _check_plan(dec, fills, p)
@@ -699,6 +810,34 @@ def test_plan_hides_every_travel_when_an_order_can(rings):
     p = plan(dec, fills)
     _check_plan(dec, fills, p)
     assert p.visible_length == 0.0
+
+
+def test_subset_dp_is_exhaustive():
+    """The DP baseline agrees with trying every order and every walk."""
+    dec = decompose(_holes_row(2))
+    fills = fill_cells(dec, 0.3, phase=0.1)
+    router = _Router(dec, fills, 1e-9)
+    assert _cost_close(_subset_dp(router, fills, len(dec.cells)),
+                       _exhaustive(router, fills, len(dec.cells)))
+
+
+@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY], ids=["zigzag", "one_way"])
+@pytest.mark.parametrize("rings,angle", [(_holes_row(2), 0.0), (_holes_row(3), 0.0),
+                                         ([COMB], 0.5)],
+                         ids=["holes2", "holes3", "comb-tilted"])
+def test_plan_reaches_the_subset_dp_optimum(rings, angle, link):
+    """Beyond what enumeration reaches. Moving and swapping single cells
+    alone stopped 16% (two holes, zig-zag) and 7% (three holes, one-way)
+    above the optimum, ad hoc; runs, reversals and 20 kicks reach it."""
+    dec = decompose(rings, angle=angle)
+    fills = fill_cells(dec, 0.3, phase=0.1, link=link)
+    router = _Router(dec, fills, 1e-9)
+    p = plan(dec, fills, kicks=20)
+    _check_plan(dec, fills, p)
+    cells = [c for c, _ in p.order]
+    walks = [d for _, d in p.order]
+    assert _cost_close(_order_cost(router, fills, cells, walks),
+                       _subset_dp(router, fills, len(dec.cells)))
 
 
 def test_travel_back_across_the_cell_just_finished_shows():

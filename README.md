@@ -59,6 +59,8 @@ Two callers, developed and released on different schedules:
 | `shatter_at_crossings` | cuts segments where they meet and opens a gap of `gap_d` there, so paths no longer touch; covers both a crossing and a T-junction, within a `touch_tol` given in model units. Input order decides which of a meeting pair yields; segments overlapping along a line are left uncut (**2D only**, z interpolated along the segment) | ✅ |
 | `point_in_curve` | classifies query points against one closed polyline: outside / coincident / inside. For the common case of many query points coplanar with the curve, where it costs far less per point than Grasshopper's own Point In Curve — which stays the general one (**2D only** — the caller discretizes the curve and projects into the working plane) | ✅ |
 | `point_in_curves` | the same against several closed polylines, and which one: the first in input order to contain the point, or -1. Split from the singular the way Grasshopper splits Point In Curve from Point In Curves (**2D only**, as above) | ✅ |
+| `coverage_hatch_region` | cuts a closed region (outer ring plus holes) into monotone cells and lays parallel fill lines across each, linked zig-zag or one-way into one polyline per cell, walkable four ways (**2D only**) | ✅ |
+| `coverage_plan` | one continuous path over the region, no trims: orders the cells, picks each one's walk, and joins them with travels hidden under cells still to come. C++ port of `coverage_path.py`, which stays the reference the tests compare it with (**2D only**) | ✅ |
 
 ## Layout
 
@@ -72,6 +74,7 @@ src/
 │   │   ├── build_turn_waypoints.cpp    # smooth polygonal turn between two path segments' headings
 │   │   ├── shatter_at_crossings.cpp    # contact predicates + broad phase + shatter_at_crossings
 │   │   ├── point_in_curve.cpp          # point-in-polygon against closed 2D polylines: both exports, one core
+│   │   ├── coverage_path.cpp           # C++ port of coverage_path.py: hatch_region and plan, results by handle
 │   │   ├── abi_version.cpp             # geomseq_abi_version(): the number both wrappers check at load time
 │   │   ├── nearest_unused.hpp          # greedy's nearest-unplaced-point search, shared by both sorts
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
@@ -107,7 +110,7 @@ Run these from `src/geomseq_core/native/`:
 
 ```
 # Windows (x64 Native Tools Command Prompt)
-cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp shatter_at_crossings.cpp point_in_curve.cpp abi_version.cpp /Fe:geomseq_core.dll
+cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp shatter_at_crossings.cpp point_in_curve.cpp coverage_path.cpp abi_version.cpp /Fe:geomseq_core.dll
 
 # macOS
 clang++ -std=c++17 -O2 -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp

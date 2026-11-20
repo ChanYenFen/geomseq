@@ -422,3 +422,128 @@ def point_in_curves_native(polylines, query_pts, tol=0.0):
     return ([out_relationship[i] for i in range(n_query)],
             [out_index[i] for i in range(n_query)],
             status)
+
+# --- coverage path -------------------------------------------------------------
+# The C++ port of coverage_path.py. Status codes and field numbers mirror
+# native/coverage_path.cpp; the messages are the pure-Python module's own, so
+# either raises the same ValueError for the same input.
+
+_COVERAGE_ERRORS = {
+    -1: "bad argument to the native coverage path",
+    -2: "tol cannot be negative",
+    -3: "a ring needs at least three distinct vertices",
+    -4: "the region has no height along the sweep direction",
+    -5: "a scanline crossed the boundary an odd number of times; the rings "
+        "are not closed or they cross each other",
+    -6: "spacing must be greater than 0",
+    -7: "link must be ZIGZAG (0) or ONE_WAY (1)",
+    -8: "kicks cannot be negative",
+    -9: "the cells left lie in another piece of the region",
+}
+
+(_F_CELL_COUNTS, _F_CELL_POINTS, _F_LINE_COUNTS, _F_LINE_POINTS,
+ _F_WALK_COUNTS, _F_WALK_POINTS, _F_ORDER, _F_PIECE_KINDS, _F_PIECE_COUNTS,
+ _F_PIECE_POINTS, _F_PIECE_VISIBLE) = range(11)
+
+
+def _coverage_check(status):
+    if status != 0:
+        raise ValueError(_COVERAGE_ERRORS.get(status, "native coverage path failed (%d)" % status))
+
+
+def _result_ints(lib, handle, field):
+    n = lib.coverage_result_size(handle, field)
+    buf = (ctypes.c_int * max(n, 1))()
+    lib.coverage_result_ints(handle, field, buf, n)
+    return list(buf[:n])
+
+
+def _result_points(lib, handle, field):
+    n = lib.coverage_result_size(handle, field)
+    buf = (ctypes.c_double * max(n, 1))()
+    lib.coverage_result_doubles(handle, field, buf, n)
+    return [(buf[i], buf[i + 1]) for i in range(0, n, 2)]
+
+
+def _split(items, counts):
+    out, at = [], 0
+    for c in counts:
+        out.append(items[at:at + c])
+        at += c
+    return out
+
+
+def _ring_buffers(rings):
+    counts = [len(r) for r in rings]
+    flat = [float(v) for r in rings for p in r for v in (p[0], p[1])]
+    return ((ctypes.c_double * max(len(flat), 1))(*flat),
+            (ctypes.c_int * max(len(counts), 1))(*counts))
+
+
+def _hatch_from(lib, handle, Fill):
+    outlines = _split(_result_points(lib, handle, _F_CELL_POINTS),
+                      _result_ints(lib, handle, _F_CELL_COUNTS))
+    line_pts = _result_points(lib, handle, _F_LINE_POINTS)
+    lines = _split([(line_pts[i], line_pts[i + 1]) for i in range(0, len(line_pts), 2)],
+                   _result_ints(lib, handle, _F_LINE_COUNTS))
+    walks = _split(_result_points(lib, handle, _F_WALK_POINTS),
+                   _result_ints(lib, handle, _F_WALK_COUNTS))
+    fills = [Fill(i, walks[4 * i], walks[4 * i + 2], lines[i]) for i in range(len(outlines))]
+    return outlines, fills
+
+
+def plan_coverage_native(rings, spacing, angle=0.0, phase=0.0, link=0, start=None,
+                         kicks=0, tol=1e-9):
+    """hatch_region followed by coverage_path.plan, in C++. Returns
+    (outlines, fills, plan), plan a coverage_path.Plan as the Python gives."""
+    try:
+        from .coverage_path import FILL, Fill, Piece, Plan
+    except ImportError:
+        from coverage_path import FILL, Fill, Piece, Plan
+    lib = native_bridge.load_dll()
+    xy, ring_counts = _ring_buffers(rings)
+    start_buf = None if start is None else (ctypes.c_double * 2)(float(start[0]), float(start[1]))
+    handle = ctypes.c_void_p()
+    _coverage_check(lib.coverage_plan(xy, ring_counts, len(rings), spacing, angle, phase, link,
+                                      start_buf, kicks, tol, ctypes.byref(handle)))
+    try:
+        outlines, fills = _hatch_from(lib, handle, Fill)
+        flat_order = _result_ints(lib, handle, _F_ORDER)
+        kinds = _result_ints(lib, handle, _F_PIECE_KINDS)
+        points = _split(_result_points(lib, handle, _F_PIECE_POINTS),
+                        _result_ints(lib, handle, _F_PIECE_COUNTS))
+        n = lib.coverage_result_size(handle, _F_PIECE_VISIBLE)
+        buf = (ctypes.c_double * max(n, 1))()
+        lib.coverage_result_doubles(handle, _F_PIECE_VISIBLE, buf, n)
+        visible = list(buf[:n])
+    finally:
+        lib.coverage_result_free(handle)
+    order = [(flat_order[i], flat_order[i + 1]) for i in range(0, len(flat_order), 2)]
+    pieces, k = [], 0
+    for kind, pts, vis in zip(kinds, points, visible):
+        if kind == FILL:
+            c, d = order[k]
+            k += 1
+            pieces.append(Piece(kind, pts, cell=c, direction=d))
+        else:
+            pieces.append(Piece(kind, pts, visible=vis))
+    return outlines, fills, Plan(order, pieces)
+
+
+def hatch_region_native(rings, spacing, angle=0.0, phase=0.0, link=0, tol=1e-9):
+    """coverage_path.hatch_region in C++. Returns (outlines, fills):
+    outlines[i] the outline of cell i, fills[i] a coverage_path.Fill with
+    its walks and lines, as the Python function gives them."""
+    try:
+        from .coverage_path import Fill
+    except ImportError:
+        from coverage_path import Fill
+    lib = native_bridge.load_dll()
+    xy, ring_counts = _ring_buffers(rings)
+    handle = ctypes.c_void_p()
+    _coverage_check(lib.coverage_hatch_region(xy, ring_counts, len(rings), spacing, angle,
+                                              phase, link, tol, ctypes.byref(handle)))
+    try:
+        return _hatch_from(lib, handle, Fill)
+    finally:
+        lib.coverage_result_free(handle)

@@ -1,7 +1,8 @@
 ﻿"""Coverage path planning: one continuous stitch path over a region.
 
 Four stages, each usable on its own: decompose (cut the region into
-monotone cells), fill_cells (a zig-zag per cell, walkable four ways),
+monotone cells), fill_cells (fill lines per cell, linked into one polyline
+per cell, walkable four ways; hatch_region does both),
 travel (join two points down the middle of the cells, hidden under later
 stitching where it can be), plan (order the cells and their walks into
 one path). No trims anywhere: a travel always exists.
@@ -29,6 +30,7 @@ overlap on the shared boundary one-to-one, and a portal otherwise.
 
 import heapq
 import math
+import random
 
 # Vertex heights closer than this (in input units) are one slab boundary;
 # a span or an overlap narrower than this is nothing.
@@ -299,11 +301,20 @@ def _link_slabs(trapezoids, levels, tol):
 
 FORWARD, REVERSE, MIRRORED, MIRRORED_REVERSE = 0, 1, 2, 3
 
+# How a cell's fill lines are linked into one polyline.
+#   ZIGZAG   lines alternate direction; each joins the next along the
+#            cell's side, so the joins lie on the boundary.
+#   ONE_WAY  every line runs the same direction; each joins the next by
+#            the shortest way across the cell, from the end of one line
+#            to the start of the next (a straight diagonal unless a side
+#            bends into its way).
+ZIGZAG, ONE_WAY = 0, 1
+
 
 class Fill(object):
-    """The zig-zag that covers one cell, in the input frame.
+    """The polyline that covers one cell, in the input frame.
 
-    A cell can be stitched four ways, `walks[direction]`:
+    A cell can be walked four ways, `walks[direction]`:
       FORWARD           bottom to top in the sweep, from the left end of
                         the lowest line
       REVERSE           FORWARD walked the other way
@@ -312,6 +323,8 @@ class Fill(object):
     All four lay the same lines; they differ in which corner they enter at
     and which they leave from, which is what the order of cells chooses
     between. A walk's entry is its first point and its exit its last.
+    Linked ONE_WAY, every walk leaves at the corner across from where it
+    entered; linked ZIGZAG, that depends on the line count.
     `lines` are the fill lines themselves, bottom to top, each as its
     (left end, right end): what a travel is routed along the middle of.
     """
@@ -336,8 +349,9 @@ class Fill(object):
         return len(self.lines)
 
 
-def fill_cells(dec, spacing, phase=0.0, tol=DEFAULT_TOL):
-    """Lay fill lines across every cell of a Decomposition.
+def fill_cells(dec, spacing, phase=0.0, link=ZIGZAG, tol=DEFAULT_TOL):
+    """Lay fill lines across every cell of a Decomposition and link each
+    cell's lines into one polyline.
 
     spacing: distance between lines, in input units. Must be > 0.
     phase: offset of the line grid along the sweep. Lines sit at
@@ -347,10 +361,14 @@ def fill_cells(dec, spacing, phase=0.0, tol=DEFAULT_TOL):
         grid line gets one line through its middle.
     A grid line exactly on a portal belongs to the cell above it; the cell
     below stops short of it, or that row would be stitched twice.
+    link: ZIGZAG or ONE_WAY, see their definitions. The lines are the same
+        either way; only the joins between them differ.
     Returns one Fill per cell, in cell order.
     """
     if spacing <= 0.0:
         raise ValueError("spacing must be greater than 0")
+    if link not in (ZIGZAG, ONE_WAY):
+        raise ValueError("link must be ZIGZAG (0) or ONE_WAY (1)")
     cb, sb = math.cos(dec.angle), math.sin(dec.angle)
     has_above = set(p.cell_a for p in dec.portals)
     fills = []
@@ -358,12 +376,24 @@ def fill_cells(dec, spacing, phase=0.0, tol=DEFAULT_TOL):
         drop_top = i in has_above
         pts, lines = _zigzag(cell.rows, spacing, phase, tol, True, drop_top)
         mirrored, _ = _zigzag(cell.rows, spacing, phase, tol, False, drop_top)
+        if link == ONE_WAY:
+            pts = _one_way(cell.rows, lines, True, tol)
+            mirrored = _one_way(cell.rows, lines, False, tol)
         fills.append(Fill(i,
                           [_rotate(p, cb, sb) for p in pts],
                           [_rotate(p, cb, sb) for p in mirrored],
                           [(_rotate((xl, y), cb, sb), _rotate((xr, y), cb, sb))
                            for y, xl, xr in lines]))
     return fills
+
+
+def hatch_region(rings, spacing, angle=0.0, phase=0.0, link=ZIGZAG, tol=DEFAULT_TOL):
+    """Cut a region into monotone cells and hatch each: decompose followed
+    by fill_cells, with the same arguments. Returns (dec, fills): dec.cells
+    are the cells, fills[i].lines cell i's fill lines, fills[i].walks its
+    linked polyline, four ways."""
+    dec = decompose(rings, angle=angle, tol=tol)
+    return dec, fill_cells(dec, spacing, phase=phase, link=link, tol=tol)
 
 
 def _interval_at(rows, y):
@@ -435,6 +465,73 @@ def _zigzag(rows, spacing, phase, tol, start_left=True, drop_top=False):
             pts.append((xr, y))
             pts.append((xl, y))
     return pts, lines
+
+
+def _one_way(rows, lines, start_left, tol):
+    """The lines walked all in one direction, bottom to top, left to right
+    when start_left, each joined to the next by the shortest way through
+    the cell. In the sweep frame, like _zigzag."""
+    pts = []
+    for n, (y, xl, xr) in enumerate(lines):
+        a, b = ((xl, y), (xr, y)) if start_left else ((xr, y), (xl, y))
+        if n > 0:
+            pts.extend(_shortest_in_cell(rows, pts[-1], a, tol)[1:-1])
+        pts.append(a)
+        pts.append(b)
+    return pts
+
+
+def _narrowest(rows, y_lo, y_hi):
+    """(y, xl, xr) at each row height strictly between y_lo and y_hi,
+    keeping the narrower interval where the cell steps at that height."""
+    out = {}
+    for y, xl, xr in rows:
+        if y_lo < y < y_hi:
+            if y in out:
+                lo, hi = out[y]
+                out[y] = (max(lo, xl), min(hi, xr))
+            else:
+                out[y] = (xl, xr)
+    return sorted((y, lo, hi) for y, (lo, hi) in out.items())
+
+
+def _shortest_in_cell(rows, a, b, tol):
+    """The shortest polyline from a to b inside a monotone cell, a below b
+    (sweep frame). The sides are straight between row heights, so a
+    segment is inside when it is inside at every row height it crosses,
+    and the shortest path bends only at row vertices, climbing as it goes."""
+    levels = _narrowest(rows, a[1], b[1])
+
+    def clear(p, q):
+        for y, lo, hi in levels:
+            if p[1] < y < q[1]:
+                x = p[0] + (q[0] - p[0]) * (y - p[1]) / (q[1] - p[1])
+                if x < lo - tol or x > hi + tol:
+                    return False
+        return True
+
+    if clear(a, b):
+        return [a, b]
+    nodes = [a]
+    for y, lo, hi in levels:
+        nodes.append((lo, y))
+        nodes.append((hi, y))
+    nodes.append(b)
+    dist = [math.inf] * len(nodes)
+    prev = [None] * len(nodes)
+    dist[0] = 0.0
+    # Nodes are in height order and the path climbs, so one pass settles all.
+    for j in range(1, len(nodes)):
+        for i in range(j):
+            if dist[i] < math.inf and nodes[i][1] < nodes[j][1] and clear(nodes[i], nodes[j]):
+                d = dist[i] + math.dist(nodes[i], nodes[j])
+                if d < dist[j]:
+                    dist[j], prev[j] = d, i
+    path, j = [], len(nodes) - 1
+    while j is not None:
+        path.append(nodes[j])
+        j = prev[j]
+    return path[::-1]
 
 
 def _rows_to_outline(rows):
@@ -634,7 +731,12 @@ def _search(adj, src, hidden, targets=()):
             if not left:
                 break
         for v, length, pieces, via in adj[u]:
-            nd = (vis + _shown(pieces, hidden), length_so_far + length)
+            # _shown, inlined: this loop is where a plan spends its time.
+            shown = 0.0
+            for piece_length, cells in pieces:
+                if cells.isdisjoint(hidden):
+                    shown += piece_length
+            nd = (vis + shown, length_so_far + length)
             if dist[v] is None or nd < dist[v]:
                 dist[v] = nd
                 prev[v] = (u, via)
@@ -684,6 +786,7 @@ class _Router(object):
         self._attached = {}
         self._pieces = {}
         self._costs = {}
+        self._gaps = {}
         self._corners = None
         # No travel passes through a corner of the outline: there a thread
         # along the edge shows. A corner may still end a segment (the
@@ -1150,6 +1253,12 @@ def shortest_travel(dec, unstitched, start, goal, tol=DEFAULT_TOL):
 
 FILL, TRAVEL = 0, 1
 
+# Default restarts of the order search from a shaken copy of its best
+# order. 0 keeps a 23-cell region near half a minute in Python; 20 reached
+# the subset-DP optimum on every shape measured (5 to 11 cells), 5 left one
+# 23% above it, each restart costing about one more search.
+KICKS = 0
+
 
 class Piece(object):
     """One stretch of the stitch path: a cell's fill, or a travel.
@@ -1218,7 +1327,7 @@ class Plan(object):
         return (self.visible_length, self.travel_length)
 
 
-def plan(dec, fills, start=None, tol=DEFAULT_TOL):
+def plan(dec, fills, start=None, kicks=KICKS, tol=DEFAULT_TOL):
     """Order the cells and pick each one's walk, joining them with travels
     into one stitch path. No trims: every travel exists, and the order is
     chosen to show as little of them as possible, then to travel least.
@@ -1231,15 +1340,23 @@ def plan(dec, fills, start=None, tol=DEFAULT_TOL):
     (cell, walk) by the travel to its entry. Then, for any order of cells,
     the best walk for every cell is exact: the stitched set at each step
     depends on the order alone, so the walks are a shortest path through
-    four states per cell. A local search moves and swaps cells in the
-    order, keeping a change whenever that exact cost improves, until a
-    whole round of them finds none. Costs are (visible length, travel
-    length), compared in order. The seed only has to be somewhere to
-    start from: the search moves any cell to the front.
+    four states per cell. A local search rearranges the order (a run of
+    up to three cells moved, as it was or reversed; two cells swapped; a
+    stretch reversed), keeping a change whenever that exact cost
+    improves, until a whole round of them finds none; then, `kicks`
+    times, it shakes the best order and searches again from there. Costs
+    are (visible length, travel length), compared in order. The seed only
+    has to be somewhere to start from: the search moves any cell to the
+    front.
 
-    start: where the needle starts, or None to let the plan choose. Cells
-    too thin to hold a fill line are left out. Returns a Plan.
+    start: where the needle starts, or None to let the plan choose.
+    kicks: restarts of the search. Each costs about one more search; more
+        finds shorter travel on larger regions, 0 stops at the first
+        local optimum. Seeded, so the same input gives the same plan.
+    Cells too thin to hold a fill line are left out. Returns a Plan.
     """
+    if kicks < 0:
+        raise ValueError("kicks cannot be negative")
     if tol < 0.0:
         raise ValueError("tol cannot be negative")
     if len(fills) != len(dec.cells):
@@ -1251,7 +1368,7 @@ def plan(dec, fills, start=None, tol=DEFAULT_TOL):
     first = None if start is not None else (todo[0], FORWARD)
     seed = _greedy(router, fills, todo, start, first)
     cells = [c for c, _ in seed.order]
-    cells, _, walks = _improve(router, fills, cells, start, tol)
+    cells, _, walks = _improve(router, fills, cells, start, tol, kicks)
     return _assemble(router, fills, cells, walks, start)
 
 
@@ -1306,28 +1423,163 @@ def _forward(router, fills, cells, start, table=None, lo=0):
     """
     out = list(table[:lo]) if table else []
     for k in range(len(out), len(cells)):
-        if k == 0:
-            if start is None:
-                out.append(([(0.0, 0.0)] * 4, None))
-            else:
-                out.append((router.costs(start, _entries(fills, cells[0]), frozenset(cells)), None))
-            continue
-        prev = out[k - 1][0]
-        hidden = frozenset(cells[k:])
-        entries = _entries(fills, cells[k])
-        cost, came_from = [None] * 4, [0] * 4
-        for dp in range(4):
-            if prev[dp] is None:
-                continue
-            step = router.costs(fills[cells[k - 1]].walks[dp][-1], entries, hidden)
-            for d in range(4):
-                if step[d] is None:
-                    continue
-                total = (prev[dp][0] + step[d][0], prev[dp][1] + step[d][1])
-                if cost[d] is None or total < cost[d]:
-                    cost[d], came_from[d] = total, dp
-        out.append((cost, came_from))
+        out.append(_row(router, fills, cells, start, k, out[k - 1][0] if k else None))
     return out
+
+
+def _row(router, fills, cells, start, k, prev, cut=None):
+    """Row k of the forward table, from row k - 1's costs (prev).
+
+    cut, if given, is (best, tol, rest): rest a floor on everything after
+    leaving cells[k - 1], in both terms. A walk of cells[k - 1] whose cost
+    plus rest is no better than best is not travelled from, since nothing
+    through it can beat best; the row is then exact for every order that
+    does, which is all _spliced_cost needs."""
+    if k == 0:
+        if start is None:
+            return [(0.0, 0.0)] * 4, None
+        return router.costs(start, _entries(fills, cells[0]), frozenset(cells)), None
+    hidden = frozenset(cells[k:])
+    entries = _entries(fills, cells[k])
+    cost, came_from = [None] * 4, [0] * 4
+    for dp in range(4):
+        if prev[dp] is None:
+            continue
+        if cut is not None:
+            best, tol, rest = cut
+            if not _better((prev[dp][0] + rest[0], prev[dp][1] + rest[1]), best, tol):
+                continue
+        step = router.costs(fills[cells[k - 1]].walks[dp][-1], entries, hidden)
+        for d in range(4):
+            if step[d] is None:
+                continue
+            total = (prev[dp][0] + step[d][0], prev[dp][1] + step[d][1])
+            if cost[d] is None or total < cost[d]:
+                cost[d], came_from[d] = total, dp
+    return cost, came_from
+
+
+def _backward(router, fills, cells):
+    """back[k][d]: the cheapest cost from the end of cells[k] walked d to
+    the end of the order, each later cell in its best walk; None where the
+    rest cannot be reached."""
+    n = len(cells)
+    back = [None] * n
+    back[n - 1] = [(0.0, 0.0)] * 4
+    for k in range(n - 2, -1, -1):
+        hidden = frozenset(cells[k + 1:])
+        entries = _entries(fills, cells[k + 1])
+        row = []
+        for d in range(4):
+            step = router.costs(fills[cells[k]].walks[d][-1], entries, hidden)
+            best = None
+            for dn in range(4):
+                if step[dn] is None or back[k + 1][dn] is None:
+                    continue
+                total = (step[dn][0] + back[k + 1][dn][0], step[dn][1] + back[k + 1][dn][1])
+                if best is None or total < best:
+                    best = total
+            row.append(best)
+        back[k] = row
+    return back
+
+
+def _lowest(costs):
+    found = [c for c in costs if c is not None]
+    return min(found) if found else None
+
+
+def _floor(costs):
+    """(least visible, least length) over costs, each taken on its own: a
+    bound under every one of them in both terms, which the lexicographic
+    least is not. None if there are none."""
+    found = [c for c in costs if c is not None]
+    if not found:
+        return None
+    return (min(c[0] for c in found), min(c[1] for c in found))
+
+
+def _gap(router, fills, a, b):
+    """No travel from an exit of cell a to an entry of cell b is shorter
+    than this, whatever is stitched: the shortest such travel when every
+    cell is still to come, so that none shows and only length counts.
+    Every travel runs on the same graph, so its length is at least that.
+    Where the graph does not join them, the straight distance."""
+    key = (a, b)
+    found = router._gaps.get(key)
+    if found is None:
+        everything = frozenset(range(len(fills)))
+        entries = _entries(fills, b)
+        found = math.inf
+        for d in range(4):
+            exit_ = fills[a].walks[d][-1]
+            for q, cost in zip(entries, router.costs(exit_, entries, everything)):
+                found = min(found, cost[1] if cost is not None else math.dist(exit_, q))
+        router._gaps[key] = found
+    return found
+
+
+def _spliced_cost(router, fills, cells, cand, start, table, back, lo, best, tol):
+    """The cost of cand, an order equal to cells (whose forward table and
+    back are given) before lo and after its last changed position hi.
+    After hi the cells, and the cells still to come at each, are the
+    current order's, so the cost from there on is back[hi + 1]: only rows
+    lo to hi + 1 are computed.
+
+    Gives up, returning None, once cand provably cannot beat best: the
+    rows computed so far, plus _gap for each travel still to cost, plus
+    the cheapest finish, is already no better. No travel is shorter than
+    its _gap and no part of it shows less than nothing, so this bound is
+    under the true cost in both terms. The bound is tried before any row
+    is computed, which is what saves the most."""
+    n = len(cand)
+    hi = n - 1
+    while hi >= lo and cand[hi] == cells[hi]:
+        hi -= 1
+    if hi < lo:
+        return None  # the same order
+    last = min(hi + 1, n - 1)
+    finish = _floor(back[hi + 1]) if hi + 1 < n else (0.0, 0.0)
+    if finish is None:
+        return None
+    # run: the length floor of every travel into rows lo..last;
+    # floors[k]: of those into rows k+1..last.
+    run = 0.0
+    floors = {}
+    for k in range(last, lo - 1, -1):
+        floors[k] = run
+        if k >= 1:
+            run += _gap(router, fills, cand[k - 1], cand[k])
+    # Before any row: the row before lo, plus every travel from lo on.
+    if best is not None:
+        if lo == 0:
+            head = (0.0, 0.0)
+            if start is not None:
+                head = (0.0, min(math.dist(start, q) for q in _entries(fills, cand[0])))
+        else:
+            head = _floor(table[lo - 1][0])
+        if head is not None and not _better(
+                (head[0] + finish[0], head[1] + run + finish[1]), best, tol):
+            return None
+    prev = table[lo - 1][0] if lo else None
+    for k in range(lo, last + 1):
+        cut = None
+        if best is not None and k >= 1:
+            cut = (best, tol, (finish[0], _gap(router, fills, cand[k - 1], cand[k])
+                               + floors[k] + finish[1]))
+        row, _ = _row(router, fills, cand, start, k, prev, cut)
+        low = _floor(row)
+        if low is None:
+            return None
+        if best is not None and k < last and not _better(
+                (low[0] + finish[0], low[1] + floors[k] + finish[1]), best, tol):
+            return None
+        prev = row
+    if hi + 1 >= n:
+        return _lowest(prev)
+    ends = [(prev[d][0] + back[hi + 1][d][0], prev[d][1] + back[hi + 1][d][1])
+            for d in range(4) if prev[d] is not None and back[hi + 1][d] is not None]
+    return min(ends) if ends else None
 
 
 def _best_walks(table):
@@ -1354,44 +1606,83 @@ def _better(a, b, tol):
 
 
 def _rearrangements(cells):
-    """Every order one move away, as (first changed position, order): a
-    cell taken out and put back elsewhere, or two cells swapped."""
+    """Every order one move away, as (first changed position, order):
+    a run of one to three cells taken out and put back elsewhere, as it
+    was or reversed; two cells swapped; a stretch of the order reversed.
+    Moving one cell at a time cannot take a run of neighbouring cells
+    somewhere else together: each single step out of the run costs more,
+    so the search never starts it."""
     n = len(cells)
-    for i in range(n):
-        rest = cells[:i] + cells[i + 1:]
-        for j in range(n):
-            if j != i:
-                yield min(i, j), rest[:j] + [cells[i]] + rest[j:]
+    for size in (1, 2, 3):
+        for i in range(n - size + 1):
+            block = cells[i:i + size]
+            rest = cells[:i] + cells[i + size:]
+            for run in ((block, block[::-1]) if size > 1 else (block,)):
+                for j in range(len(rest) + 1):
+                    if j == i and run is block:
+                        continue
+                    yield min(i, j), rest[:j] + run + rest[j:]
     for i in range(n):
         for j in range(i + 2, n):
             out = list(cells)
             out[i], out[j] = out[j], out[i]
             yield i, out
+    for i in range(n):
+        for j in range(i + 4, n + 1):
+            yield i, cells[:i] + cells[i:j][::-1] + cells[j:]
 
 
-def _improve(router, fills, cells, start, tol):
+def _descend(router, fills, cells, start, tol):
     """Local search over the order, each order costed with its best walks.
 
     Takes every rearrangement that improves, carrying on from there through
     the next ones rather than starting over, and stops after a whole round
     in which none does. Starting over after each change made a region of
-    thirty cells take minutes.
+    thirty cells take minutes. Each candidate is costed by _spliced_cost:
+    only the stretch it changes, and not even that once it cannot win.
+    Returns (cells, cost, walks).
     """
     table = _forward(router, fills, cells, start)
     best, walks = _best_walks(table)
+    back = _backward(router, fills, cells)
     moves = list(_rearrangements(cells))
     k, quiet = 0, 0
     while moves and quiet < len(moves):
         lo, cand = moves[k % len(moves)]
-        cand_table = _forward(router, fills, cand, start, table, lo)
-        cost, cand_walks = _best_walks(cand_table)
+        cost = _spliced_cost(router, fills, cells, cand, start, table, back, lo, best, tol)
         if cost is not None and (best is None or _better(cost, best, tol)):
-            cells, table, best, walks = cand, cand_table, cost, cand_walks
+            cells = cand
+            table = _forward(router, fills, cells, start, table, lo)
+            best, walks = _best_walks(table)
+            back = _backward(router, fills, cells)
             moves = list(_rearrangements(cells))
             quiet = 0
         else:
             quiet += 1
         k += 1
+    return cells, best, walks
+
+
+def _kick(cells, rng):
+    """Cut the order in four and swap the middle two: A B C D -> A C B D.
+    No single rearrangement undoes it, so the search restarts somewhere
+    it could not walk to."""
+    p, q, r = sorted(rng.sample(range(1, len(cells)), 3))
+    return cells[:p] + cells[q:r] + cells[p:q] + cells[r:]
+
+
+def _improve(router, fills, cells, start, tol, kicks):
+    """Local search, then `kicks` times: shake the best order found and
+    search again from there, keeping the result if it is better. Seeded,
+    so a plan is the same every run."""
+    cells, best, walks = _descend(router, fills, cells, start, tol)
+    if len(cells) < 4:
+        return cells, best, walks
+    rng = random.Random(0)
+    for _ in range(kicks):
+        cand, cost, cand_walks = _descend(router, fills, _kick(cells, rng), start, tol)
+        if cost is not None and (best is None or _better(cost, best, tol)):
+            cells, best, walks = cand, cost, cand_walks
     return cells, best, walks
 
 

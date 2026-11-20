@@ -741,8 +741,7 @@ cells rather than a few hundred thousand pixels.
 
 **Stage 1, landed: `coverage_path.decompose`.** Boustrophedon cut into
 monotone cells along a sweep direction, with portals (the open scanline
-interval two cells share) as the adjacency. Pure Python; the Grasshopper
-side is `gh/decompose_region_component.py`. The cut reads each slab between
+interval two cells share) as the adjacency. The cut reads each slab between
 two vertex heights at its midpoint, so no scanline ever meets a vertex and
 the usual degeneracies cannot occur; two rings sharing an edge are merged
 into one span because even-odd cancels the edge. Verified by tiling (cell
@@ -764,8 +763,24 @@ cells are collinear across a portal and the tatami rows read as one
 surface. And the join between two consecutive lines follows the cell's
 side chain through any vertices between them rather than cutting
 straight across: a monotone cell may still bend inward on one side, and
-the chord would leave it. The Grasshopper side is
-`gh/fill_cells_component.py`.
+the chord would leave it.
+
+*Two ways to link the lines.* `link=ZIGZAG` is the above. `link=ONE_WAY`
+runs every line the same direction and joins the end of one to the start
+of the next straight across the cell, as a production embroidery file Fen
+read does (rows one way, a stitched diagonal back). Linking lines is a
+general step, the zig-zag/one-way choice CNC pocketing and print infill
+also offer, so it is an option on the fill, not a second component.
+The lines are identical either way. A diagonal that a side bends into
+takes the shortest way round, through the row vertices (a visibility
+search climbing between the two heights; the cell's sides are straight
+between row heights, so checking the crossing at each of them is exact).
+The four walks still enter at the four corners, and each leaves at the
+corner across from its entry whatever the line count, so `plan` needs no
+change: on the U, the donut and the comb it reaches the exhaustive optimum
+with either link. `hatch_region` is `decompose` then `fill_cells`, with
+`gh/hatch_region_component.py` outputting cells, lines per cell and
+linked paths.
 
 **Stage 3, landed: `coverage_path.travel`.** The travel always exists on a
 connected region. Hiding it is the first priority, not a constraint: a
@@ -777,9 +792,7 @@ stitched ones by the least visible length the graph allows;
 constraint and returned `None` (a trim) when it failed; Fen ruled trims
 out, and the Ink/Stitch tatami fill (`lib/stitches/tatami_fill.py`) works
 the same way: its underpath travel is preferred, never required, with a
-visible path as the fallback. The Grasshopper side is
-`gh/travel_cells_component.py`, which takes the stitch order by hand
-(`from_cell`, `to_cell`, `stitched`) and outputs the visible length.
+visible path as the fallback.
 
 *Where in the cell it runs* was the question. The first version was the
 exact shortest path in the unstitched union (visibility graph over the cell
@@ -877,6 +890,53 @@ before i. On the U, the donut and the comb at four
 spacings, every plan shows nothing, and on the three small enough to
 enumerate, the plan's cost equals the best over every order and walk.
 
+*How far from the best it was, and what closed it.* Enumeration stops at
+about six cells. A subset DP over `(stitched set, last cell, walk)` is
+exact further, because a travel's cost depends only on where it leaves,
+where it enters and the cells not stitched yet, the complement of the
+set; it agrees with enumeration and reaches about eleven cells in ten
+seconds (`_subset_dp` in the tests). Against it, on combs, rows of holes
+and a band toothed on both sides, 5 to 11 cells, two angles, both links
+(28 runs, ad hoc): every plan showed nothing, as the optimum does, but
+14 of the 28 travelled 0.6–37% more. Moving one cell or swapping two
+cannot take a run of neighbouring cells elsewhere together, since each
+single step out of the run costs more. Adding moves of a run of two or
+three cells (as it was or reversed) and reversals of a stretch left 6
+runs above the optimum; restarting the search from a shaken copy of the
+best order (cut in four, middle two swapped) 5 times left one, 20 times
+none. The restarts are `kicks`, a parameter: they trade time for
+travel, so the caller chooses. `test_plan_reaches_the_subset_dp_optimum`
+runs 20 and fails with 0.
+
+The larger moves cost time: about 5,000 orders per round on 30 cells
+against 1,300, so a 23-cell flower Fen tested went from about 20 s to over
+a minute with no kicks, and 20 kicks on a 30-cell one took 325 s (for
+travel 4.7% shorter than none). Three
+changes that leave every result identical (checked on the 28 runs and,
+step by step, on the flower) won most of it back:
+
+- A candidate order differs from the current one only between its first
+  and last changed positions; after them the cells and the cells still to
+  come are the same, so its cost is the changed rows plus a backward table
+  of the current order (`_spliced_cost`, `_backward`), not a pass to the
+  end.
+- A candidate is dropped, before any travel is costed, when it provably
+  cannot win: the rows before the change, plus a floor for each travel in
+  the changed stretch, plus the cheapest finish. The floor is the shortest
+  travel between the two cells with every cell still to come, so nothing
+  shows and only length counts; no travel is shorter, since all run on
+  one graph. A straight-line floor dropped almost nothing; this one cut
+  the travels costed by more than half. Floors are taken per term, not as
+  the lexicographic least, so the bound holds within `tol`.
+- Dijkstra's per-link visible sum is inlined.
+
+The 30-cell flower without kicks: 17.8 s with the larger moves before
+these, 9.8 s after; 4.1 s with only single moves and swaps (ad hoc, one
+run each, timings varying by a third between runs). Dropping runs of
+three or reversals saves under a quarter of that and costs a little
+travel on the small shapes, so all moves stay. `kicks` defaults to 0 to keep a region of that size near half
+a minute in Python; the C++ port is what would make 20 affordable.
+
 *What made it fast enough.* The travel graph is built once per plan, and
 each link is stored as its pieces, cut at cell edges and tagged with the
 cells each piece lies in: the visible length for any stitched set is a
@@ -908,12 +968,39 @@ One fill bug surfaced here: a grid line exactly on a portal was laid in
 both cells, so the row would be stitched twice. The cell below now stops
 short of it.
 
-**Stages still to do, in order:** a subset DP over `(stitched set, last
-cell, walk)` as the exact baseline beyond what enumeration reaches, to
-measure the local search's gap; stitches on a lattice fixed to the plane, as Ink/Stitch's
-are, so the walk the order picks never changes how the fill looks.
-Whether learning has a role is decided after the DP baseline exists, by
-measuring the gap, not before.
+*Which stages are components.* Each stage had its own GHPython component
+while it was being built, so it could be checked in Grasshopper on its
+own. Only two answer a general question and ship: Hatch Region (cells,
+their lines, linked paths) and Plan Coverage (the whole path). The
+Decompose Region, Fill Cells and Travel Cells components were removed;
+their functions stay in the module, covered by the tests.
+
+**The C++ port.** `native/coverage_path.cpp` mirrors the module function
+for function and is what the Plan Coverage and Hatch Region components
+call; the Python stays as the reference. It replays the reference step
+for step, not just to the same cost: Dijkstra's heap compares the same
+(visible, length, node) triples, adjacency lists are built in the same
+order, and the kicks draw from a copy of Python's `random.Random(0)` and
+`sample`, so ties fall the same way. `tests/test_coverage_native.py`
+checks the same cells, lines and walks on ten shapes at four angles, and
+the same order, pieces and visible lengths for every plan on eight. On
+the 30-cell flower without kicks it runs 0.77 s against 8.0 s; with 20
+kicks, 9.6 s (ad hoc). A result comes back as a handle with numbered
+fields, since its size is not known before the run.
+
+One thing the port made visible: with 20 kicks the flower's search cost
+fell (1206 to 1149) but its travel after `shortcut` rose (1082 to 1121).
+The search costs travels before the shortcut is applied, so it optimises
+a slightly different length from the one stitched. Open.
+
+**Still to do.** The gap beyond eleven cells is unknown: the flower's
+4.7% from kicks says the search without them was not at the optimum
+there, not how far the search with them is. Whether learning has a role
+is decided by that gap, on regions the DP cannot reach, not before.
+C# components for Plan Coverage and Hatch Region, calling the two
+exports. Stitch placement on a lattice fixed to the plane is a separate
+topic (points on a grid, then the points on a curve), not a stage of
+this one.
 
 ### Clustered sequencing for layered and zoned fabrication
 
