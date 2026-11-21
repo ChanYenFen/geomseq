@@ -64,9 +64,13 @@ inline Pt rotate(const Pt& p, double c, double s) {
     return {c * p.x - s * p.y, s * p.x + c * p.y};
 }
 
-inline double dist(const Pt& a, const Pt& b) { return std::hypot(a.x - b.x, a.y - b.y); }
+// sqrt, not std::hypot: sqrt is correctly rounded everywhere, hypot is not,
+// and this must match coverage_path.py's _norm to the last bit.
+inline double norm(double dx, double dy) { return std::sqrt(dx * dx + dy * dy); }
 
-inline bool same(const Pt& a, const Pt& b, double tol) { return std::hypot(a.x - b.x, a.y - b.y) <= tol; }
+inline double dist(const Pt& a, const Pt& b) { return norm(a.x - b.x, a.y - b.y); }
+
+inline bool same(const Pt& a, const Pt& b, double tol) { return dist(a, b) <= tol; }
 
 // Append corner v unless it is within tol of the last point or of next.
 inline void add_corner(std::vector<Pt>& pts, const Pt& v, const Pt& next, double tol) {
@@ -530,7 +534,7 @@ bool point_in_ring(const Pt& p, const std::vector<Pt>& ring) {
 std::vector<double> cut_params(const Pt& a, const Pt& b, const std::vector<std::pair<Pt, Pt>>& edges,
                                double tol) {
     double dx = b.x - a.x, dy = b.y - a.y;
-    double L = std::hypot(dx, dy);
+    double L = norm(dx, dy);
     std::vector<double> ts = {0.0, 1.0};
     for (const auto& e : edges) {
         const Pt& p = e.first;
@@ -538,7 +542,7 @@ std::vector<double> cut_params(const Pt& a, const Pt& b, const std::vector<std::
         double ex = q.x - p.x, ey = q.y - p.y;
         double apx = p.x - a.x, apy = p.y - a.y;
         double denom = dx * ey - dy * ex;
-        if (std::fabs(denom) > tol * L * std::hypot(ex, ey)) {
+        if (std::fabs(denom) > tol * L * norm(ex, ey)) {
             double t = (apx * ey - apy * ex) / denom;
             double u = (apx * dy - apy * dx) / denom;
             if (0.0 <= t && t <= 1.0 && 0.0 <= u && u <= 1.0)
@@ -1069,7 +1073,7 @@ struct Router {
                 !same(v, b, tol) && on_segment(v, a, b, tol))
                 return false;
         double dx = b.x - a.x, dy = b.y - a.y;
-        double L = std::hypot(dx, dy);
+        double L = norm(dx, dy);
         if (L <= tol)
             return true;  // no pieces
         std::vector<std::pair<Pt, Pt>> near;

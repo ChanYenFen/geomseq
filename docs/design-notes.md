@@ -993,11 +993,13 @@ call; the Python stays as the reference. It replays the reference step
 for step, not just to the same cost: Dijkstra's heap compares the same
 (visible, length, node) triples, adjacency lists are built in the same
 order, and the kicks draw from a copy of Python's `random.Random(0)` and
-`sample`, so ties fall the same way. That needs Python 3.11 as in CI:
-3.9's `math.hypot` differs from C's `hypot` in the last place, and some
-ties fall the other way. It also needs `-ffp-contract=off` on clang and
-g++: a fused multiply-add rounds once where Python rounds twice, and
-CI's arm64 build failed on points one bit apart. `tests/test_coverage_native.py`
+`sample`, so ties fall the same way. Two things keep the arithmetic
+identical on every platform. Lengths are `sqrt(dx*dx + dy*dy)` on both
+sides, not `hypot`: sqrt is correctly rounded everywhere, while CPython's
+`hypot` and each C library's differ in the last place, and a tie between
+collinear paths fell the other way on macOS arm64. And clang and g++
+build with `-ffp-contract=off`: a fused multiply-add rounds once where
+Python rounds twice. `tests/test_coverage_native.py`
 checks the same cells, lines and walks on ten shapes at four angles, and
 the same order, pieces and visible lengths for every plan on eight. On
 the 30-cell flower without kicks it runs 0.77 s against 8.0 s; with 20

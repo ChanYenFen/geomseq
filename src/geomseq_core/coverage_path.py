@@ -533,7 +533,7 @@ def _shortest_in_cell(rows, a, b, tol):
     for j in range(1, len(nodes)):
         for i in range(j):
             if dist[i] < math.inf and nodes[i][1] < nodes[j][1] and clear(nodes[i], nodes[j]):
-                d = dist[i] + math.dist(nodes[i], nodes[j])
+                d = dist[i] + _dist(nodes[i], nodes[j])
                 if d < dist[j]:
                     dist[j], prev[j] = d, i
     path, j = [], len(nodes) - 1
@@ -564,8 +564,19 @@ def _rows_to_outline(rows):
 
 # --- the travel --------------------------------------------------------------
 
+def _norm(dx, dy):
+    """Length of (dx, dy) as sqrt, not hypot: sqrt is correctly rounded on
+    every platform, a C library's hypot is not, and the C++ port must match
+    this to the last bit or ties fall differently."""
+    return math.sqrt(dx * dx + dy * dy)
+
+
+def _dist(a, b):
+    return _norm(a[0] - b[0], a[1] - b[1])
+
+
 def _same(a, b, tol):
-    return math.hypot(a[0] - b[0], a[1] - b[1]) <= tol
+    return _dist(a, b) <= tol
 
 
 def _on_segment(p, a, b, tol):
@@ -600,7 +611,7 @@ def _segment_inside_union(a, b, rings, tol):
     if not (_inside_union(a, rings, tol) and _inside_union(b, rings, tol)):
         return False
     dx, dy = b[0] - a[0], b[1] - a[1]
-    L = math.hypot(dx, dy)
+    L = _norm(dx, dy)
     if L <= tol:
         return True
     ts = _cuts(a, b, rings, tol)
@@ -622,13 +633,13 @@ def _cuts(a, b, rings, tol):
 def _cut_params(a, b, edges, tol):
     """As _cuts, against any iterable of edges (p, q)."""
     dx, dy = b[0] - a[0], b[1] - a[1]
-    L = math.hypot(dx, dy)
+    L = _norm(dx, dy)
     ts = [0.0, 1.0]
     for p, q in edges:
         ex, ey = q[0] - p[0], q[1] - p[1]
         ap = (p[0] - a[0], p[1] - a[1])
         denom = dx * ey - dy * ex
-        if abs(denom) > tol * L * math.hypot(ex, ey):
+        if abs(denom) > tol * L * _norm(ex, ey):
             t = (ap[0] * ey - ap[1] * ex) / denom
             u = (ap[0] * dy - ap[1] * dx) / denom
             if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
@@ -686,9 +697,9 @@ def _step_targets(e, line, tol):
     foot = _foot_on_segment(e, line[0], line[1], tol)
     if foot is None:
         return []
-    gap = math.dist(e, foot)
+    gap = _dist(e, foot)
     m = _mid(*line)
-    toward = math.dist(foot, m)
+    toward = _dist(foot, m)
     if gap <= tol or toward <= tol:
         return [foot]
     s = min(gap, toward) / toward
@@ -951,7 +962,7 @@ class _Router(object):
         pieces = self.pieces(a, b)
         if pieces is None:
             return False
-        length = math.dist(a, b)
+        length = _dist(a, b)
         self.adj[i].append((j, length, pieces))
         self.adj[j].append((i, length, pieces))
         return True
@@ -994,7 +1005,7 @@ class _Router(object):
                     and not _same(v, b, tol) and _on_segment(v, a, b, tol)):
                 return None
         dx, dy = b[0] - a[0], b[1] - a[1]
-        L = math.hypot(dx, dy)
+        L = _norm(dx, dy)
         if L <= tol:
             return []
         near = []
@@ -1049,13 +1060,13 @@ class _Router(object):
         for node in dict.fromkeys(targets):
             pieces = self.pieces(p, self.nodes[node])
             if pieces is not None:
-                out.append((node, math.dist(p, self.nodes[node]), pieces))
+                out.append((node, _dist(p, self.nodes[node]), pieces))
         if out:
             return out
-        for node, _, _ in sorted(self.mids, key=lambda m: math.dist(p, self.nodes[m[0]])):
+        for node, _, _ in sorted(self.mids, key=lambda m: _dist(p, self.nodes[m[0]])):
             pieces = self.pieces(p, self.nodes[node])
             if pieces is not None:
-                return [(node, math.dist(p, self.nodes[node]), pieces)]
+                return [(node, _dist(p, self.nodes[node]), pieces)]
         return out
 
     def route(self, start, goals, hidden, paths=True):
@@ -1123,7 +1134,7 @@ class _Router(object):
                 for j in range(i + 1, len(verts)):
                     pieces = self.pieces(verts[i], verts[j])
                     if pieces is not None:
-                        length = math.dist(verts[i], verts[j])
+                        length = _dist(verts[i], verts[j])
                         adj[i].append((j, length, pieces, ()))
                         adj[j].append((i, length, pieces, ()))
             self._corners = (verts, adj)
@@ -1135,12 +1146,12 @@ class _Router(object):
             for i, v in enumerate(verts):
                 pieces = self.pieces(nodes[end], v)
                 if pieces is not None:
-                    length = math.dist(nodes[end], v)
+                    length = _dist(nodes[end], v)
                     adj[end].append((i, length, pieces, ()))
                     adj[i].append((end, length, pieces, ()))
         pieces = self.pieces(start, goal)
         if pieces is not None:
-            adj[s].append((g, math.dist(start, goal), pieces, ()))
+            adj[s].append((g, _dist(start, goal), pieces, ()))
         dist, prev = _search(adj, s, hidden)
         if dist[g] is None:
             return None, None
@@ -1163,9 +1174,9 @@ class _Router(object):
         i = 0
         while i < len(path) - 1:
             nxt = i + 1
-            hop = math.dist(path[i], path[nxt])
+            hop = _dist(path[i], path[nxt])
             for j in range(len(path) - 1, i + 1, -1):
-                if math.dist(path[i], path[j]) >= hop:
+                if _dist(path[i], path[j]) >= hop:
                     continue
                 pieces = self.pieces(path[i], path[j])
                 if pieces is not None and _shown(pieces, hidden) <= shown[j] - shown[i] + self.tol:
@@ -1270,7 +1281,7 @@ def shortest_travel(dec, unstitched, start, goal, tol=DEFAULT_TOL):
     for i in range(n):
         for j in range(i + 1, n):
             if _segment_inside_union(nodes[i], nodes[j], rings, tol):
-                w = (math.hypot(nodes[i][0] - nodes[j][0], nodes[i][1] - nodes[j][1]),)
+                w = (_dist(nodes[i], nodes[j]),)
                 adj[i].append((j, w))
                 adj[j].append((i, w))
     return _dijkstra(nodes, adj, 0, 1)
@@ -1308,7 +1319,7 @@ class Piece(object):
 
     @property
     def length(self):
-        return sum(math.dist(a, b) for a, b in zip(self.points, self.points[1:]))
+        return sum(_dist(a, b) for a, b in zip(self.points, self.points[1:]))
 
 
 class Plan(object):
@@ -1541,7 +1552,7 @@ def _gap(router, fills, a, b):
         for d in range(4):
             exit_ = fills[a].walks[d][-1]
             for q, cost in zip(entries, router.costs(exit_, entries, everything)):
-                found = min(found, cost[1] if cost is not None else math.dist(exit_, q))
+                found = min(found, cost[1] if cost is not None else _dist(exit_, q))
         router._gaps[key] = found
     return found
 
@@ -1582,7 +1593,7 @@ def _spliced_cost(router, fills, cells, cand, start, table, back, lo, best, tol)
         if lo == 0:
             head = (0.0, 0.0)
             if start is not None:
-                head = (0.0, min(math.dist(start, q) for q in _entries(fills, cand[0])))
+                head = (0.0, min(_dist(start, q) for q in _entries(fills, cand[0])))
         else:
             head = _floor(table[lo - 1][0])
         if head is not None and not _better(
