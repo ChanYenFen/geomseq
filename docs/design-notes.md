@@ -699,6 +699,37 @@ groups. The numbers exist; the reading of them does not.
   row because the bridge used to be under 0.1%; that reason expired with the
   pair loop. Add the row before optimising either side.
 
+- **Coverage path, as of 2026-11-23.**
+  - *The DLL lags the source.* The portal links, the steps of no length
+    and the sqrt lengths are in the dylib but not the DLL. Rebuild it on
+    Windows, then check in Rhino that Divide Curves takes Plan Coverage's
+    output.
+  - *An entry on a hop's landing point is reached the long way.* The route
+    goes on to the line's midpoint and back, so the cost counts a detour
+    the shortcut later removes, and plans undervalue the hop. Attaching the
+    entry to the hop node directly cut travel 8.22 → 6.44 (holes2,
+    zig-zag) and 15.18 → 12.48 (holes3), ad hoc. It also left the holes2
+    one-way plan at 7.51 against the subset DP's 7.18: a true local
+    optimum two moves from the best, and with five cells the kicks have
+    only four shakes to try. Decide how the search reaches it (exact DP
+    for few cells?) before landing the fix.
+  - *One-way cell boundaries look empty.* Inside a cell, one-way rows are
+    joined by a diagonal back to the next row's far end; across a portal
+    there is none, so the band between the two rows reads as a missing row
+    in the preview. A diagonal hop to the far end alone is never chosen:
+    the plan flips the row direction instead, and the straight step is
+    shorter. Keeping the diagonal needs an option that runs every cell's
+    rows the same way (walks FORWARD and MIRRORED_REVERSE, or the other
+    two). Whether the band shows on fabric is untested; stitch a sample
+    first. Drawing rows and joins apart in the preview is the cheap half.
+  - *A live search, Kangaroo style.* Run the local search in steps across
+    Grasshopper solutions and show the best path so far, instead of a time
+    limit. The steps are deterministic, so running to convergence gives
+    plan()'s answer. Risks: a native handle held across solutions (free it
+    on reset, input change and removal), inputs changing mid-run, and an
+    unconverged path exported unnoticed (output a converged flag). First
+    step: the Python search as a stepper, tested chunked against one run.
+
 - **`point_in_curve` is swept in y now, and the sawtooth is what is left.**
   Done the same day the baseline was taken; see *Why the point-in-curve scan is
   swept in y* and `docs/benchmarks.md`. What remains open is the shape the
