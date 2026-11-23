@@ -18,26 +18,14 @@ except ImportError:
 from rhino_utils.divide_curves import DivideCurves, process_curve
 
 
-def _resolve_overlap_flag():
-    """Unconnected optional GH input (missing or None) reads as False."""
-    try:
-        value = overlap
-    except NameError:
-        return False
-    return False if value is None else value
-
-
-def _resolve_join_ends_flag():
-    """Unconnected optional GH input (missing or None) reads as True."""
-    try:
-        value = join_ends
-    except NameError:
-        return True
-    return True if value is None else value
+def _optional(name, default):
+    """Unconnected optional GH input (missing or None) reads as default."""
+    value = globals().get(name)
+    return default if value is None else value
 
 
 def _resolve_segment_length(segment_lengths, i):
-    """Accepts a scalar (broadcast) or a per-curve list; reuses the last entry if the list is shorter than the curve count."""
+    """A scalar, or a per-curve list whose last entry repeats."""
     if not hasattr(segment_lengths, "__len__"):
         return segment_lengths
     if i < len(segment_lengths):
@@ -45,25 +33,16 @@ def _resolve_segment_length(segment_lengths, i):
     return segment_lengths[-1]
 
 
-def _resolve_overlap_length(seg_length):
-    """Unconnected optional GH input (missing or None) reads as this curve's seg_length."""
-    try:
-        value = overlap_length
-    except NameError:
-        return seg_length
-    return seg_length if value is None else value
-
-
 if __name__ == "__main__":
-    overlap = _resolve_overlap_flag()
-    join_ends = _resolve_join_ends_flag()
+    overlap = _optional("overlap", False)
+    join_ends = _optional("join_ends", True)
 
     dc = DivideCurves(curves)
     pts_nested, arc_lengths_nested, corner_indices_nested = [], [], []
 
     for i, crv in enumerate(dc.curves):
         seg_length = _resolve_segment_length(segment_lengths, i)
-        this_overlap_length = _resolve_overlap_length(seg_length)
+        this_overlap_length = _optional("overlap_length", seg_length)
         crv_pts, crv_arc_lengths, crv_corners = process_curve(
             dc, crv, seg_length, join_ends, overlap, this_overlap_length
         )

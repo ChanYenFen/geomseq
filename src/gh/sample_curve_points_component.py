@@ -1,6 +1,6 @@
 """
 Sample Curve Points Component for GeomSeq
-GH entry point: wraps rhino_utils.sample_curve_points (evaluates points at arc lengths).
+GH entry point: points at arc lengths along curves (rhino_utils.sample_curve_points).
 """
 
 import os

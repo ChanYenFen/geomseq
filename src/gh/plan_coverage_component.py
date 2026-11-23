@@ -1,45 +1,6 @@
 """
-Plan Coverage Path Component for GeomSeq
-GH entry point: the whole stitch path over one closed region, cells in
-order, each filled in one of its four walks, joined by travels down the
-middle of the cells (geometry: coverage_path.plan, run in C++ through
-geometry_utils.plan_coverage_native; the Python module is its reference).
-
-Stage 4 of the coverage path. No trims: every travel exists, and the order
-is chosen to show as little of them as possible, then to travel least. A
-travel back across the cell just finished shows like any other. Greedy
-seed, then a local search over the order with the best walks for each
-order found exactly.
-
-Inputs
-    curves           closed curves: one outer boundary and any holes
-    spacing          distance between fill lines; must be > 0
-    angle            direction of the fill lines in degrees. Optional, 0
-    phase            offset of the line grid. Optional, 0
-    start            where the needle starts. Optional; unconnected, the
-                     plan picks the first cell and walk itself
-    plane            working plane. Optional, world XY
-    chord_tolerance  largest gap allowed between a curve and its polyline
-                     when it is flattened. Optional, 0 = document tolerance
-    link             how each cell's fill lines join. Optional, 0
-                     0  zig-zag: lines alternate, joined along the side
-                     1  one-way: lines all one way, joined across the cell
-                     2  one-way, plus a line through each seam between cells
-    kicks            restarts of the order search from a shaken copy of
-                     its best order. Optional, 0. More finds shorter
-                     travel on large regions and takes longer, each about
-                     one more search; 20 reached the best order on every
-                     small shape measured
-Outputs
-    path             the whole stitch path as one polyline
-    pieces           the path cut into fills and travels, in order
-    kinds            one per piece: 0 fill, 1 travel
-    order            cell indices in the order stitched
-    directions       one per cell in order: the walk it is filled in,
-                     0 forward, 1 reverse, 2 mirrored, 3 mirrored reverse
-    visible          total travel length over stitched cells, which no
-                     later stitching covers; 0 when every travel is hidden
-    travel_length    total length of the travels
+Plan Coverage Component for GeomSeq
+GH entry point: one path over a closed region, cells in order joined by travels (geometry_utils.plan_coverage_native).
 """
 
 import math
@@ -47,77 +8,32 @@ import os
 import time
 import sys
 
-import Rhino
 import Rhino.Geometry as rg
 
 try:
     import geomseq_core
+    import rhino_utils
 except ImportError:
-    # Dev mode: geomseq_core isn't installed / not on sys.path yet -- add its
-    # parent src/ dir (this file lives in src/gh/, geomseq_core lives in src/geomseq_core/).
     _SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _SRC not in sys.path:
         sys.path.insert(0, _SRC)
 
 from geomseq_core import _reload
 
-# Force-reload so edits show up without restarting Rhino. The DLL itself
-# stays loaded: a rebuilt one needs Rhino restarted.
 _reload.unload_modules("geomseq_core.coverage_path")
 _reload.unload_modules("geomseq_core.misc")
 _reload.unload_modules("geomseq_core.geometry_utils")
+_reload.unload_modules("rhino_utils.plane_rings")
 
 from geomseq_core.coverage_path import KICKS, ZIGZAG
 from geomseq_core.geometry_utils import plan_coverage_native
+from rhino_utils.plane_rings import resolve_chord_tolerance, to_rings
 
 
 def _optional(name, default):
     """Unconnected optional GH input (missing or None) reads as default."""
     value = globals().get(name)
     return default if value is None else value
-
-
-def _resolve_chord_tolerance():
-    """Unconnected or 0 reads as the document tolerance."""
-    value = _optional("chord_tolerance", 0.0)
-    if float(value) > 0.0:
-        return float(value)
-    try:
-        return Rhino.RhinoDoc.ActiveDoc.ModelAbsoluteTolerance
-    except Exception:
-        return 0.01
-
-
-def _flatten(curve, chord_tol):
-    """A polyline's vertices are exact; anything else is straightened to
-    within chord_tol. Mirrors Discretize in src/gha/Native/GeomSeqCore.cs."""
-    ok, pl = curve.TryGetPolyline()
-    if ok and pl is not None:
-        return pl
-    # The zeros switch off every constraint but the chord height.
-    pc = curve.ToPolyline(0, 0, 0, 0, 0, chord_tol, 0, 0, True)
-    return None if pc is None else pc.ToPolyline()
-
-
-def _to_rings(curves, src_plane, chord_tol):
-    """Returns (rings, rejected): rings in plane coordinates, rejected the
-    input indices that are missing, open, or could not be flattened."""
-    rings, rejected = [], []
-    for i, crv in enumerate(curves):
-        if crv is None or not crv.IsClosed:
-            rejected.append(i)
-            continue
-        pl = _flatten(crv, chord_tol)
-        if pl is None or pl.Count < 4:
-            rejected.append(i)
-            continue
-        ring = []
-        for k in range(pl.Count):
-            ok, lp = src_plane.RemapToPlaneSpace(pl[k])
-            p = lp if ok else pl[k]
-            ring.append((p.X, p.Y))
-        rings.append(ring)
-    return rings, rejected
 
 
 def _polyline(points, src_plane):
@@ -131,11 +47,11 @@ if __name__ == "__main__":
     grid_phase = float(_optional("phase", 0.0))
     link_mode = int(_optional("link", ZIGZAG))
     restarts = int(_optional("kicks", KICKS))
-    chord_tol = _resolve_chord_tolerance()
+    chord_tol = resolve_chord_tolerance(_optional("chord_tolerance", 0.0))
 
     t0 = time.perf_counter()
     raw = list(curves) if curves else []  # type: ignore
-    rings, rejected = _to_rings(raw, src_plane, chord_tol)
+    rings, rejected = to_rings(raw, src_plane, chord_tol)
 
     path, pieces, kinds, order, directions = None, [], [], [], []
     visible, travel_length = 0.0, 0.0
@@ -149,13 +65,13 @@ if __name__ == "__main__":
               % (len(rejected), len(raw), rejected[:20]))
     elif rings:
         try:
-            needle = globals().get("start")
-            if needle is not None:
-                ok, lp = src_plane.RemapToPlaneSpace(needle)
-                needle = (lp.X, lp.Y) if ok else (needle.X, needle.Y)
+            origin = globals().get("start")
+            if origin is not None:
+                ok, lp = src_plane.RemapToPlaneSpace(origin)
+                origin = (lp.X, lp.Y) if ok else (origin.X, origin.Y)
             _, _, result = plan_coverage_native(rings, float(spacing), angle=sweep,  # type: ignore
                                                 phase=grid_phase, link=link_mode,
-                                                start=needle, kicks=restarts)
+                                                start=origin, kicks=restarts)
         except (ValueError, NameError, TypeError) as e:
             print("[geomseq_core] %s" % e)
             result = None
@@ -173,4 +89,4 @@ if __name__ == "__main__":
                   "%.2f s" % (len(order), len(result.pieces), travel_length, visible,
                               time.perf_counter() - t0))
             if visible > 0.0:
-                print("[geomseq_core] %.4g of the travel shows over stitched cells" % visible)
+                print("[geomseq_core] %.4g of the travel lies over filled cells" % visible)

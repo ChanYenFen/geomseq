@@ -1,10 +1,6 @@
 """
 Shatter Crossings Component for GeomSeq
-GH entry point: cuts polylines where they cross and opens a gap at each crossing
-(geometry_utils.shatter_at_crossings_native).
-
-Polylines only. They are exploded into segments, shattered, and the pieces that
-were never cut are rejoined into polylines.
+GH entry point: cuts polylines where they cross and opens a gap at each crossing (geometry_utils.shatter_at_crossings_native).
 """
 
 import os
@@ -17,16 +13,12 @@ import ghpythonlib.treehelpers as th
 try:
     import geomseq_core
 except ImportError:
-    # Dev mode: geomseq_core isn't installed / not on sys.path yet -- add its
-    # parent src/ dir (this file lives in src/gh/, geomseq_core lives in src/geomseq_core/).
     _SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     if _SRC not in sys.path:
         sys.path.insert(0, _SRC)
 
 from geomseq_core import _reload
 
-# Force-reload geometry_utils/misc so edits show up without restarting Rhino.
-# Skip native_bridge -- reloading it would reload geomseq_core.dll every recompute (slow).
 _reload.unload_modules("geomseq_core.misc")
 _reload.unload_modules("geomseq_core.geometry_utils")
 
@@ -45,22 +37,15 @@ class _Seg(object):
         self.PointAtStart, self.PointAtEnd = a, b
 
 
-def _resolve_plane():
-    """Unconnected optional GH input reads as world XY."""
-    try:
-        value = plane  # type: ignore
-    except NameError:
-        value = None
-    return rg.Plane.WorldXY if value is None else value
+def _optional(name, default):
+    """Unconnected optional GH input (missing or None) reads as default."""
+    value = globals().get(name)
+    return default if value is None else value
 
 
 def _resolve_gap_distance():
-    """D is the whole gap: how far apart the two cut ends end up. Each crossing
-    loses D/2 to either side of itself."""
-    try:
-        value = gap_distance  # type: ignore
-    except NameError:
-        value = None
+    """D is the whole gap between the two cut ends."""
+    value = _optional("gap_distance", None)
     if value is None:
         print("[geomseq_core] D not connected -- using 0.0, so polylines are cut "
               "at crossings but no gap is opened")
@@ -70,10 +55,7 @@ def _resolve_gap_distance():
 
 def _resolve_touch_tolerance():
     """How close counts as touching. Unconnected reads as the document tolerance."""
-    try:
-        value = touch_tolerance  # type: ignore
-    except NameError:
-        value = None
+    value = _optional("touch_tolerance", None)
     if value is not None:
         return float(value)
     try:
@@ -82,17 +64,8 @@ def _resolve_touch_tolerance():
         return 0.0
 
 
-def _resolve_self_intersection():
-    try:
-        value = self_intersection  # type: ignore
-    except NameError:
-        value = None
-    return bool(value) if value is not None else False
-
-
 def _to_polylines(curves):
-    """Returns (polylines, rejected): rejected holds the input indices that are
-    not polylines."""
+    """(polylines, indices of curves that are not polylines)."""
     polylines, rejected = [], []
     for i, crv in enumerate(curves):
         if crv is None:
@@ -107,10 +80,10 @@ def _to_polylines(curves):
 
 
 if __name__ == "__main__":
-    src_plane = _resolve_plane()
+    src_plane = _optional("plane", rg.Plane.WorldXY)
     gap_d = _resolve_gap_distance()
     touch_tol = _resolve_touch_tolerance()
-    test_self = _resolve_self_intersection()
+    test_self = bool(_optional("self_intersection", False))
 
     raw = list(curves) if curves else []  # type: ignore
 
@@ -124,9 +97,6 @@ if __name__ == "__main__":
         segments_tree = th.list_to_tree([[]])
         piece_counts_tree = th.list_to_tree([[]])
     else:
-        # --- explode, in plane space ---
-        # The crossing test is 2D, in plane coordinates; the height above the
-        # plane rides along as z.
         segs, owners, spans = [], [], []
         for owner, (src_index, pl) in enumerate(polylines):
             local = []
@@ -146,8 +116,6 @@ if __name__ == "__main__":
                                                 segment_owner=owners,
                                                 test_self=test_self)
 
-        # --- rejoin, back in world space ---
-        # A run of pieces that touch end-to-start is one surviving polyline.
         nested_pieces, nested_counts = [], []
         for src_index, start, stop in spans:
             runs, cur = [], []

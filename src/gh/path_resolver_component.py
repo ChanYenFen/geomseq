@@ -1,6 +1,6 @@
 """
 Path Resolver Component for GeomSeq
-GH entry point: locates src/ module folders relative to the saved .gh file and adds them to sys.path, so other components can import geomseq_core/rhino_utils regardless of machine.
+GH entry point: adds the src/ module folders next to the saved .gh file to sys.path.
 """
 
 import os

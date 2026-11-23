@@ -61,6 +61,7 @@ Two callers, developed and released on different schedules:
 | `point_in_curves` | the same against several closed polylines, and which one: the first in input order to contain the point, or -1. Split from the singular the way Grasshopper splits Point In Curve from Point In Curves (**2D only**, as above) | ✅ |
 | `coverage_hatch_region` | cuts a closed region (outer ring plus holes) into monotone cells and lays parallel fill lines across each, linked zig-zag or one-way into one polyline per cell, walkable four ways (**2D only**) | ✅ |
 | `coverage_plan` | one continuous path over the region, no trims: orders the cells, picks each one's walk, and joins them with travels hidden under cells still to come. C++ port of `coverage_path.py`, which stays the reference the tests compare it with (**2D only**) | ✅ |
+| `resample_on_lattice` | resamples a path, given as runs, onto a staggered lattice: rows take the lattice's points, joins between rows its columns, free runs (travels) are split evenly by length, and steps under `min_step` are dropped. C++ port of `resample_on_lattice.py` (**2D only**) | ✅ |
 
 ## Layout
 
@@ -75,6 +76,7 @@ src/
 │   │   ├── shatter_at_crossings.cpp    # contact predicates + broad phase + shatter_at_crossings
 │   │   ├── point_in_curve.cpp          # point-in-polygon against closed 2D polylines: both exports, one core
 │   │   ├── coverage_path.cpp           # C++ port of coverage_path.py: hatch_region and plan, results by handle
+│   │   ├── resample_on_lattice.cpp     # C++ port of resample_on_lattice.py
 │   │   ├── abi_version.cpp             # geomseq_abi_version(): the number both wrappers check at load time
 │   │   ├── nearest_unused.hpp          # greedy's nearest-unplaced-point search, shared by both sorts
 │   │   ├── nanoflann.hpp               # vendored kd-tree (BSD 2-Clause)
@@ -83,11 +85,13 @@ src/
 │   ├── native_bridge.py                # ctypes loading + signatures (platform-aware)
 │   ├── geometry_utils.py               # Python-facing wrappers (sort_curves_native, sort_points_native, ...)
 │   ├── coverage_path.py                # region -> cells -> fills -> travels -> ordered stitch path (pure Python, in progress)
+│   ├── resample_on_lattice.py          # resample a path onto a staggered lattice (pure Python, the C++ port's reference)
 │   ├── misc.py                         # coordinate <-> flat-buffer marshaling
 │   └── _reload.py                      # dev-mode module unloading for GH hot-reload
 ├── rhino_utils/                        # depends on RhinoCommon; logic complex/reusable enough not to be a thin GH shell
 │   ├── divide_curves.py                # curve -> division points + arc lengths
-│   └── sample_curve_points.py          # arc lengths -> points on a curve
+│   ├── sample_curve_points.py          # arc lengths -> points on a curve
+│   └── plane_rings.py                  # curves -> 2D rings in a working plane (coverage components)
 ├── gh/                                 # Rhino-side verification: GHPython shells, hot-reloaded on edit (GH I/O only)
 │   ├── definitions/                    # .gh example files
 │   └── *_component.py
@@ -110,7 +114,7 @@ Run these from `src/geomseq_core/native/`:
 
 ```
 # Windows (x64 Native Tools Command Prompt)
-cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp shatter_at_crossings.cpp point_in_curve.cpp coverage_path.cpp abi_version.cpp /Fe:geomseq_core.dll
+cl /std:c++17 /O2 /LD /EHsc /MT sort_curves.cpp sort_points.cpp redistribute_arc_lengths.cpp build_turn_waypoints.cpp shatter_at_crossings.cpp point_in_curve.cpp coverage_path.cpp resample_on_lattice.cpp abi_version.cpp /Fe:geomseq_core.dll
 
 # macOS
 clang++ -std=c++17 -O2 -ffp-contract=off -shared -fPIC -pthread -arch x86_64 -arch arm64 -o geomseq_core.dylib *.cpp
