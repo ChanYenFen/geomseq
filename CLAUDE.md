@@ -64,8 +64,10 @@ changing what a rule protects.
 - **GUIDs are permanent; new ports are appended, never inserted.** Saved `.gh`
   files find components by GUID and wires by port index. Same for the library
   GUID in `GeomSeqInfo`. *(Contracts)*
-- **The Python layer stays.** pytest is the only verification outside Rhino;
-  only `src/gh/*_component.py` retires, once its C# twin is checked in Rhino.
+- **The Python layer stays, GHPython shells included.** pytest is the only
+  verification outside Rhino, and `src/gh/*_component.py` is the fastest way to
+  try a structural change in Rhino. Keep a shell beside its C# twin; it may move
+  to its own branch later, not be deleted. *(Why C# and P/Invoke)*
 - **Read points as `GH_Point`, and keep list inputs `Optional`.** A null
   `Point3d` arrives as the origin; a required input stops `SolveInstance` from
   running. *(Why some component behaviour is not obvious)*

@@ -27,17 +27,26 @@ geometry instead of changing it.
 | Redistribute Arc Lengths (`Redist`) | Division | `S` arc lengths, one curve per branch · `lo` smallest step (> 0) · `hi` largest step · `M` mode (0 dense centre, 1 dense ends) · `F` flat percent · `C` corners to keep exactly | `S` respaced arc lengths |
 | Sample Curve Points (`SampleCrv`) | Division | `C` one curve per branch of `S` · `S` arc-length positions | `P` points on each curve |
 | Shatter Crossings (`ShatterX`) | Division | `C` polylines, one branch at a time · `D` gap · `T` touch tolerance (default 0, exact only) · `X` also cut self-crossings (default false) · `P` plane (default: world XY) | `S` surviving pieces · `N` pieces per input curve |
+| Resample On Lattice (`ResampleLat`) | Division | `Pc` Plan Coverage's pieces · `K` its kinds · `Fr` its frame · `S` spacing · `St` step along a row · `F` free step along a travel (default 0, takes `St`) · `M` min step (default 0, takes `S`; negative keeps every point) · ⊕ `Sg` stagger (default 4) | `P` points in order · `L` one polyline through them |
+| Hatch Region (`Hatch`) | Division | `C` closed curves, one region · `S` spacing · `A` angle in degrees · `Ph` phase · `L` link (0 zig-zag, 1 one-way, 2 one-way with seam lines) · `D` direction (0–3) · `Pl` plane · ⊕ `Ct` chord tolerance | `C` cells · `L` lines, one branch per cell · `P` one path per cell · `Fr` frame |
 | Point In Curve (`PtInCrv`) | Analysis | `C` one closed curve · `P` points · `Pl` plane (default: world XY) · `T` boundary tolerance (default 0, exact only) · `Ct` chord tolerance (default 0, takes the document's) | `R` 0 outside / 1 on the boundary / 2 inside · `P'` each point dropped onto the plane, as Rhino's own `P'` |
 | Point In Curves (`PtInCrvs`) | Analysis | `C` closed curves · `P` points · `Pl` plane · `T` boundary tolerance · `Ct` chord tolerance, all as above | `R` as above · `I` index in `C` of the first curve containing the point, or -1 · `P'` as above |
 | Sort Curves (`SortCrv`) | Sequence | `C` curves · `S` start (optional, default: origin) · `T` output travel (default false) · `F` allow reversal (default true; false keeps every curve's direction and skips 2-opt) | `C` sorted curves, reversals applied · `i` input indices · `R` reversed · `D` travel per branch · `T` travel lines (only when input `T` is true) |
 | Sort Points (`SortPt`) | Sequence | `P` points · `S` start (optional, default: origin) · `Ct` continuous (default true; each branch starts where the last ended) | `P` sorted points · `i` input indices · `D` travel per branch |
 | Build Waypoints (`Wp`) | Travel | `C` curves in travel order | `W` two points per move — the end of one curve, the start of the next — one branch per move, branch k leaving curve k |
 | Build Turn Waypoints (`Turn`) | Travel | `P` points, one branch per turn · `A` max angle in degrees (default 30) · `St` fillet step (> 0) · `E` extend past each end · `Pl` plane (default: world XY) | `W` waypoints through the turn |
+| Plan Coverage (`Cover`) | Travel | `C` closed curves, one region · `S` spacing · `A` angle in degrees · `Ph` phase · `L` link, as Hatch Region · `St` start (optional) · `Pl` plane · ⊕ `K` kicks (default 0) · ⊕ `Ct` chord tolerance | `P` the whole path · `Pc` pieces · `K` kinds (0 fill, 1 travel) · `O` cell order · `D` walk per cell · `V` visible travel · `T` travel length · `Fr` frame: the plane turned to the lines, origin on the line grid |
 
 On the two sorts, `D` is per branch and includes the move *into* that branch —
 from `S` for the first, from the previous branch's last item for the rest — so
 summing the branches gives the whole journey. `i` always refers to positions in
 the original input, within the item's own branch.
+
+Inputs marked ⊕ are hidden until added: zoom in on the component and press
+the ⊕ under its last input. Absent, they take their default. They replace a
+right-click menu, which this cross-platform build cannot use, and unlike a menu
+they can be wired. `Fr` carries the angle, phase and plane from Plan Coverage
+(or Hatch Region) to Resample On Lattice, so the three cannot disagree.
 
 `Redistribute Arc Lengths` and `Sample Curve Points` are the two halves of one
 job: the first decides where the positions go, the second turns them back into

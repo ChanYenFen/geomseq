@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.InteropServices;
 
 namespace GeomSeq.Native;
@@ -9,7 +10,9 @@ namespace GeomSeq.Native;
 /// <remarks>
 /// The ABI is double, int, and pointers to them, nothing else: every argument is blittable,
 /// so the runtime passes it through untouched. The caller allocates and pins every buffer;
-/// the native side only writes into them, and never allocates or frees.
+/// the native side only writes into them. The one exception is the coverage path, whose
+/// result sizes are unknown until it has run: it hands back an opaque handle, read with
+/// coverage_result_* and released with coverage_result_free, always in a finally.
 /// Call <see cref="NativeLibraryLoader.TryEnsureLoaded"/> first.
 /// </remarks>
 internal static unsafe class NativeMethods
@@ -114,4 +117,72 @@ internal static unsafe class NativeMethods
         double  tol,
         int*    outRelationship,  // n: 0 outside, 1 coincident, 2 inside
         int*    outIndex);        // n: containing polyline, or -1
+
+    // Coverage path: status codes and field numbers are listed in coverage_path.cpp,
+    // and mapped to messages in GeomSeqCore. 2D: rings are x/y in the working plane.
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "coverage_hatch_region",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int CoverageHatchRegion(
+        double* ringXy,           // x,y per vertex, ring after ring
+        int*    ringCounts,       // numRings
+        int     numRings,
+        double  spacing,
+        double  angle,            // radians
+        double  phase,
+        int     link,             // 0 zig-zag, 1 one-way, 2 one-way with seam lines
+        double  tol,
+        IntPtr* outHandle);       // free with CoverageResultFree
+
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "coverage_plan",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int CoveragePlan(
+        double* ringXy,
+        int*    ringCounts,
+        int     numRings,
+        double  spacing,
+        double  angle,
+        double  phase,
+        int     link,
+        double* start,            // x,y, or null to let the plan choose
+        int     kicks,
+        double  tol,
+        IntPtr* outHandle);
+
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "coverage_result_size",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int CoverageResultSize(IntPtr handle, int field);
+
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "coverage_result_ints",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int CoverageResultInts(IntPtr handle, int field, int* output, int capacity);
+
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "coverage_result_doubles",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int CoverageResultDoubles(IntPtr handle, int field, double* output, int capacity);
+
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "coverage_result_free",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern void CoverageResultFree(IntPtr handle);
+
+    // outCount reports the points REQUIRED: above outCapacity nothing was written,
+    // and the caller repeats with that much room.
+    [DllImport(NativeLibraryLoader.LibraryName, EntryPoint = "resample_on_lattice",
+               CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern int ResampleOnLattice(
+        double* xy,               // x,y per vertex, run after run
+        int*    runCounts,        // numRuns
+        int*    runFree,          // numRuns: 0 on the lattice, 1 free
+        int     numRuns,
+        double  spacing,
+        double  step,
+        double  angle,            // radians
+        double  phase,
+        double  stagger,
+        double  freeStep,         // > 0
+        int     skipRowEnds,      // 0/1
+        double  minStep,          // >= 0
+        double  tol,
+        double* outXy,
+        int     outCapacity,
+        int*    outCount);
 }

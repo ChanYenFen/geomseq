@@ -20,6 +20,10 @@ internal static class Icons
     public static readonly Bitmap PointInCurves       = Load("point_in_curves.png");
     public static readonly Bitmap BuildWaypoints      = Load("build_waypoints.png");
 
+    public static readonly Bitmap HatchRegion         = Load("hatch_region.png");
+    public static readonly Bitmap PlanCoverage        = Load("plan_coverage.png");
+    public static readonly Bitmap ResampleOnLattice   = Load("resample_on_lattice.png");
+
     private static Bitmap Load(string file)
     {
         using Stream? stream = typeof(Icons).Assembly.GetManifestResourceStream("GeomSeq.Resources." + file);
