@@ -23,8 +23,9 @@ extern "C" {
 //    functions added.
 // 6: the coverage exports' link accepts ONE_WAY_SEAMS (2). The signatures
 //    did not change; a version-5 binary would refuse 2 with its link error.
+// 7: resample_on_lattice added.
 DLL_EXPORT int geomseq_abi_version() {
-    return 6;
+    return 7;
 }
 
 } // extern "C"

@@ -25,12 +25,14 @@ internal static class NativeLibraryLoader
     {
         AbiVersionExport, "sort_curves", "sort_points", "redistribute_arc_lengths",
         "build_turn_waypoints", "shatter_at_crossings", "point_in_curve",
-        "point_in_curves",
+        "point_in_curves", "coverage_hatch_region", "coverage_plan", "coverage_result_size",
+        "coverage_result_ints", "coverage_result_doubles", "coverage_result_free",
+        "resample_on_lattice",
     };
 
     // Must equal geomseq_abi_version() in src/geomseq_core/native/abi_version.cpp,
     // which says when to bump it. A binary with another version is refused.
-    private const int AbiVersion = 6;
+    private const int AbiVersion = 7;
     private const string AbiVersionExport = "geomseq_abi_version";
 
     private static readonly object Gate = new();

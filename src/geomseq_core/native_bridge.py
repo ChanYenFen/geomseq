@@ -12,7 +12,7 @@ _LIB_NAMES = {
 
 
 # Must equal geomseq_abi_version() in native/abi_version.cpp, which says when to bump it.
-ABI_VERSION = 6
+ABI_VERSION = 7
 
 
 def _check_abi_version(lib, dll_path):
@@ -192,6 +192,28 @@ def load_dll():
     lib.coverage_result_doubles.restype = ctypes.c_int
     lib.coverage_result_free.argtypes = [ctypes.c_void_p]
     lib.coverage_result_free.restype = None
+
+    # int resample_on_lattice(const double*, const int*, const int*, int, double x5,
+    #                         double, int, double, double, double*, int, int*)
+    lib.resample_on_lattice.argtypes = [
+        ctypes.POINTER(ctypes.c_double),  # xy (2*sum(run_counts))
+        ctypes.POINTER(ctypes.c_int),     # run_counts (num_runs)
+        ctypes.POINTER(ctypes.c_int),     # run_free (num_runs): 0 lattice, 1 free
+        ctypes.c_int,                     # num_runs
+        ctypes.c_double,                  # spacing
+        ctypes.c_double,                  # step
+        ctypes.c_double,                  # angle, radians
+        ctypes.c_double,                  # phase
+        ctypes.c_double,                  # stagger
+        ctypes.c_double,                  # free_step (> 0, resolved by the caller)
+        ctypes.c_int,                     # skip_row_ends
+        ctypes.c_double,                  # min_step (>= 0, resolved by the caller)
+        ctypes.c_double,                  # tol
+        ctypes.POINTER(ctypes.c_double),  # out_xy (2*out_capacity)
+        ctypes.c_int,                     # out_capacity
+        ctypes.POINTER(ctypes.c_int),     # out_count: points REQUIRED
+    ]
+    lib.resample_on_lattice.restype = ctypes.c_int
 
     _DLL = lib
     return lib

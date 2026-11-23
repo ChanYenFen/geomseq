@@ -1,10 +1,10 @@
-﻿"""Coverage path planning: one continuous stitch path over a region.
+﻿"""Coverage path planning: one continuous path over a region.
 
 Four stages, each usable on its own: decompose (cut the region into
 monotone cells), fill_cells (fill lines per cell, linked into one polyline
 per cell, walkable four ways; hatch_region does both),
 travel (join two points down the middle of the cells, hidden under later
-stitching where it can be), plan (order the cells and their walks into
+filling where it can be), plan (order the cells and their walks into
 one path). No trims anywhere: a travel always exists.
 
 Pure Python, no Rhino. The region is a list of closed rings in plane
@@ -368,7 +368,7 @@ def fill_cells(dec, spacing, phase=0.0, link=ZIGZAG, tol=DEFAULT_TOL):
         portal and the pattern reads as one. A cell too thin to catch a
         grid line gets one line through its middle.
     A grid line exactly on a portal belongs to the cell above it; the cell
-    below stops short of it, or that row would be stitched twice.
+    below stops short of it, or that row would be filled twice.
     link: ZIGZAG, ONE_WAY or ONE_WAY_SEAMS, see their definitions. The
         grid lines are the same every way; only the joins between them
         differ, and ONE_WAY_SEAMS adds its seam lines, off the grid, to the
@@ -838,7 +838,7 @@ class _Router(object):
 
     Nodes are the midpoints of the fill lines and of the portals. Each link
     is kept as its pieces, (length, cells the piece lies in), cut wherever
-    it crosses a cell edge; the visible length for any set of unstitched
+    it crosses a cell edge; the visible length for any set of unfilled
     cells is then a sum over pieces rather than a geometry query, so the
     one graph serves every step of an order.
     """
@@ -933,7 +933,7 @@ class _Router(object):
         # of the lower cell's top line straight across to the upper cell's
         # bottom line, and back down from the ends of that one. The step is
         # the fill's own step between rows, so it counts as part of both
-        # cells' fill: hidden while either is still to be stitched. A walk
+        # cells' fill: hidden while either is still to be filled. A walk
         # that ends by a portal then leaves without showing anything; one
         # that ends across the cell from it still shows the way back.
         # Every walk's entry and exit is such an end, so the hops are keyed
@@ -1156,7 +1156,7 @@ class _Router(object):
 
     def costs(self, start, goals, hidden):
         """route's costs alone (None for an unreachable goal), remembered:
-        an order search asks for the same exit, entries and stitched set
+        an order search asks for the same exit, entries and filled set
         many times over."""
         key = (start, goals, hidden)
         if key not in self._costs:
@@ -1241,9 +1241,9 @@ class _Router(object):
         return out
 
 
-def travel(dec, fills, unstitched, start, goal, tol=DEFAULT_TOL):
+def travel(dec, fills, unfilled, start, goal, tol=DEFAULT_TOL):
     """A path from start to goal down the middle of the cells, hidden under
-    later stitching wherever it can be. Never None on a connected region:
+    later filling wherever it can be. Never None on a connected region:
     a trim is not an option, so a travel that cannot be hidden is shown,
     as little of it as possible.
 
@@ -1251,9 +1251,9 @@ def travel(dec, fills, unstitched, start, goal, tol=DEFAULT_TOL):
     within a cell, and from a cell's last line through the midpoint of a
     portal into the neighbour's first line. Every cell takes part. A link's
     cost is (visible length, length), compared in that order: visible is
-    the part outside the unstitched cells, which no later stitching covers.
-    So the path keeps to unstitched cells whenever they join start to goal
-    (visible length 0), and otherwise crosses stitched ones by the least
+    the part outside the unfilled cells, which no later filling covers.
+    So the path keeps to unfilled cells whenever they join start to goal
+    (visible length 0), and otherwise crosses filled ones by the least
     visible length the midline allows. It keeps to the middle of the
     fabric by construction: the fill lines say where the middle is.
 
@@ -1274,21 +1274,21 @@ def travel(dec, fills, unstitched, start, goal, tol=DEFAULT_TOL):
     if _same(start, goal, tol):
         return [start, goal]
     router = _Router(dec, fills, tol)
-    hidden = frozenset(unstitched)
+    hidden = frozenset(unfilled)
     _, path = router.route(start, [goal], hidden)[0]
     if path is None:
         raise ValueError("start and goal lie in separate pieces of the region")
     return router.shortcut(path, hidden)
 
 
-def visible_length(path, dec, fills, unstitched, tol=DEFAULT_TOL):
-    """How much of a travel no later stitching covers: its length outside
-    the unstitched cells, except a straight step across a portal between
+def visible_length(path, dec, fills, unfilled, tol=DEFAULT_TOL):
+    """How much of a travel no later filling covers: its length outside
+    the unfilled cells, except a straight step across a portal between
     two cells' rows, which is the fill's own step and hidden while either
-    cell is unstitched. The same rule travel and plan minimise. Raises
+    cell is unfilled. The same rule travel and plan minimise. Raises
     ValueError if the path leaves the region."""
     router = _Router(dec, fills, tol)
-    hidden = frozenset(unstitched)
+    hidden = frozenset(unfilled)
     total = 0.0
     for a, b in zip(path, path[1:]):
         pieces = router.pieces(a, b)
@@ -1298,8 +1298,8 @@ def visible_length(path, dec, fills, unstitched, tol=DEFAULT_TOL):
     return total
 
 
-def shortest_travel(dec, unstitched, start, goal, tol=DEFAULT_TOL):
-    """The shortest path from start to goal inside the unstitched cells,
+def shortest_travel(dec, unfilled, start, goal, tol=DEFAULT_TOL):
+    """The shortest path from start to goal inside the unfilled cells,
     regardless of where in the fabric it runs: the lower bound a travel's
     length is compared against, or None when they do not join the two.
 
@@ -1310,7 +1310,7 @@ def shortest_travel(dec, unstitched, start, goal, tol=DEFAULT_TOL):
     """
     if tol < 0.0:
         raise ValueError("tol cannot be negative")
-    rings = [dec.cells[i].outline for i in unstitched]
+    rings = [dec.cells[i].outline for i in unfilled]
     if not rings:
         return None
     if _same(start, goal, tol):
@@ -1345,13 +1345,13 @@ KICKS = 0
 
 
 class Piece(object):
-    """One stretch of the stitch path: a cell's fill, or a travel.
+    """One stretch of the path: a cell's fill, or a travel.
 
     kind       FILL or TRAVEL
     points     the polyline; it starts where the previous piece ended
     cell       the cell filled (FILL), or None
     direction  the walk the cell is filled in (FILL), or None
-    visible    length of the travel no stitching covers (TRAVEL), else 0
+    visible    length of the travel no filling covers (TRAVEL), else 0
     """
 
     __slots__ = ("kind", "points", "cell", "direction", "visible")
@@ -1369,10 +1369,10 @@ class Piece(object):
 
 
 class Plan(object):
-    """The whole stitch path: fills and travels in order, each piece
+    """The whole path: fills and travels in order, each piece
     starting where the last one ended.
 
-    order  [(cell, direction)] in the order stitched
+    order  [(cell, direction)] in the order filled
     pieces [Piece], fills and travels alternating where a travel is needed
     """
 
@@ -1413,16 +1413,16 @@ class Plan(object):
 
 def plan(dec, fills, start=None, kicks=KICKS, tol=DEFAULT_TOL):
     """Order the cells and pick each one's walk, joining them with travels
-    into one stitch path. No trims: every travel exists, and the order is
+    into one path. No trims: every travel exists, and the order is
     chosen to show as little of them as possible, then to travel least.
 
-    A travel is hidden only by the cells not stitched yet: over the cell
+    A travel is hidden only by the cells not filled yet: over the cell
     just finished it shows like over any other, so a walk has to end next
     to the way on, not across the cell from it.
 
     Three steps. A greedy seed: from where the needle is, the cheapest next
     (cell, walk) by the travel to its entry. Then, for any order of cells,
-    the best walk for every cell is exact: the stitched set at each step
+    the best walk for every cell is exact: the filled set at each step
     depends on the order alone, so the walks are a shortest path through
     four states per cell. A local search rearranges the order (a run of
     up to three cells moved, as it was or reversed; two cells swapped; a
@@ -1585,7 +1585,7 @@ def _floor(costs):
 
 def _gap(router, fills, a, b):
     """No travel from an exit of cell a to an entry of cell b is shorter
-    than this, whatever is stitched: the shortest such travel when every
+    than this, whatever is filled: the shortest such travel when every
     cell is still to come, so that none shows and only length counts.
     Every travel runs on the same graph, so its length is at least that.
     Where the graph does not join them, the straight distance."""

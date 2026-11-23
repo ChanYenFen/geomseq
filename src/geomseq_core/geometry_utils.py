@@ -547,3 +547,39 @@ def hatch_region_native(rings, spacing, angle=0.0, phase=0.0, link=0, tol=1e-9):
         return _hatch_from(lib, handle, Fill)
     finally:
         lib.coverage_result_free(handle)
+
+
+_RESAMPLE_ERRORS = {
+    -1: "bad argument to the native resample_on_lattice",
+    -2: "spacing must be greater than 0",
+    -3: "step must be greater than 0",
+    -4: "stagger must be greater than 0",
+    -5: "free_step must be greater than 0",
+    -6: "min_step cannot be negative",
+}
+
+
+def resample_on_lattice_native(runs, spacing, step, angle=0.0, phase=0.0, stagger=4.0,
+                               free_step=None, skip_row_ends=False, min_step=None, tol=1e-9):
+    """resample_on_lattice.resample_on_lattice in C++, same arguments and
+    result: the points as (x, y), in order."""
+    lib = native_bridge.load_dll()
+    free_step = step if free_step is None else free_step
+    min_step = spacing if min_step is None else min_step
+    counts = [len(points) for points, _ in runs]
+    flat = [float(v) for points, _ in runs for p in points for v in (p[0], p[1])]
+    xy = (ctypes.c_double * max(len(flat), 1))(*flat)
+    run_counts = (ctypes.c_int * max(len(runs), 1))(*counts)
+    run_free = (ctypes.c_int * max(len(runs), 1))(*[1 if free else 0 for _, free in runs])
+    capacity = 2 * sum(counts) + 16
+    while True:
+        out = (ctypes.c_double * (2 * capacity))()
+        need = ctypes.c_int()
+        status = lib.resample_on_lattice(xy, run_counts, run_free, len(runs), spacing, step, angle,
+                                         phase, stagger, free_step, 1 if skip_row_ends else 0,
+                                         min_step, tol, out, capacity, ctypes.byref(need))
+        if status != 0:
+            raise ValueError(_RESAMPLE_ERRORS.get(status, "native resample_on_lattice failed (%d)" % status))
+        if need.value <= capacity:
+            return [(out[2 * i], out[2 * i + 1]) for i in range(need.value)]
+        capacity = need.value

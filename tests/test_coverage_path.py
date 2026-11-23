@@ -59,7 +59,7 @@ HOURGLASS = [(0.0, 0.0), (2.0, 0.0), (1.0, 1.0), (2.0, 2.0), (0.0, 2.0), (1.0, 1
 
 DIAMOND = [(1.0, 0.0), (2.0, 1.0), (1.0, 2.0), (0.0, 1.0)]
 
-# A comb: a bar with three prongs up. Stitching the bar between two prongs
+# A comb: a bar with three prongs up. Filling the bar between two prongs
 # leaves the last prong reachable only over it, so the order matters.
 COMB = [(0.0, 0.0), (5.0, 0.0), (5.0, 3.0), (4.0, 3.0), (4.0, 1.0), (3.0, 1.0),
         (3.0, 3.0), (2.0, 3.0), (2.0, 1.0), (1.0, 1.0), (1.0, 3.0), (0.0, 3.0)]
@@ -309,7 +309,7 @@ def test_lines_of_neighbouring_cells_share_the_grid():
             assert (y / 0.5) == pytest.approx(round(y / 0.5))
 
 
-def test_a_line_on_a_portal_is_stitched_once():
+def test_a_line_on_a_portal_is_filled_once():
     """With spacing 0.5 the grid lands on y = 1, the U's portals: the arms
     take that row, the bar stops below it."""
     dec = decompose([U_SHAPE])
@@ -459,10 +459,10 @@ def _fill_ends(dec, fills, from_cell, to_cell):
     return fills[from_cell].forward[-1], fills[to_cell].forward[0]
 
 
-def _check_path(dec, unstitched, path, start, goal):
-    """Ends in place, every segment inside the unstitched cells."""
+def _check_path(dec, unfilled, path, start, goal):
+    """Ends in place, every segment inside the unfilled cells."""
     assert path[0] == start and path[-1] == goal
-    rings = [dec.cells[i].outline for i in unstitched]
+    rings = [dec.cells[i].outline for i in unfilled]
     for a, b in zip(path, path[1:]):
         assert _segment_inside_union(a, b, rings, 1e-9)
 
@@ -475,7 +475,7 @@ def test_travel_to_self_is_one_point():
 
 
 def test_travel_runs_down_the_middle_of_the_arm():
-    """Left arm to right arm of the U with the bar unstitched: down the left
+    """Left arm to right arm of the U with the bar unfilled: down the left
     arm's midline (x = 0.5), through the portal, along the bar's midline,
     up the right arm's (x = 2.5). Nothing on a corner, nothing on an edge."""
     dec = decompose([U_SHAPE])
@@ -493,8 +493,8 @@ def test_travel_runs_down_the_middle_of_the_arm():
         assert p not in [(1.0, 1.0), (2.0, 1.0)]
 
 
-def test_travel_over_a_stitched_bar_shows_only_the_crossing():
-    """The bar is already stitched and the arms are joined only through it:
+def test_travel_over_a_filled_bar_shows_only_the_crossing():
+    """The bar is already filled and the arms are joined only through it:
     no trim, the travel crosses the bar, and only that crossing shows."""
     dec = decompose([U_SHAPE])
     fills = fill_cells(dec, 0.5, phase=0.25)
@@ -510,8 +510,8 @@ def test_travel_over_a_stitched_bar_shows_only_the_crossing():
         [p for p in path if p[1] <= 1.0 + 1e-9], dec, fills, [left, right]))
 
 
-def test_travel_is_hidden_whenever_unstitched_cells_join_the_ends():
-    """With the bar unstitched the same travel shows nothing."""
+def test_travel_is_hidden_whenever_unfilled_cells_join_the_ends():
+    """With the bar unfilled the same travel shows nothing."""
     dec = decompose([U_SHAPE])
     fills = fill_cells(dec, 0.5, phase=0.25)
     left, right = _cell_at(dec, (0.5, 2.0)), _cell_at(dec, (2.5, 2.0))
@@ -522,7 +522,7 @@ def test_travel_is_hidden_whenever_unstitched_cells_join_the_ends():
 
 
 def test_hidden_detour_beats_a_shorter_visible_way():
-    """Donut, the bottom cell stitched: from the left cell to the right the
+    """Donut, the bottom cell filled: from the left cell to the right the
     way under the bottom is shorter but shows; the way over the top is
     longer and hidden, and is the one taken."""
     rings = [SQUARE, HOLE]
@@ -532,22 +532,22 @@ def test_hidden_detour_beats_a_shorter_visible_way():
     left, right = _cell_at(dec, (0.5, 2.0)), _cell_at(dec, (3.5, 2.0))
     start = fills[left].lines[0][0]
     goal = fills[right].lines[0][1]
-    unstitched = [i for i in range(len(dec.cells)) if i != bottom]
-    path = travel(dec, fills, unstitched, start, goal)
-    assert visible_length(path, dec, fills, unstitched) == 0.0
+    unfilled = [i for i in range(len(dec.cells)) if i != bottom]
+    path = travel(dec, fills, unfilled, start, goal)
+    assert visible_length(path, dec, fills, unfilled) == 0.0
     assert max(y for _, y in path) > 3.0
 
 
-def test_goal_in_a_stitched_cell_is_still_reached():
+def test_goal_in_a_filled_cell_is_still_reached():
     dec = decompose([U_SHAPE])
     fills = fill_cells(dec, 0.5, phase=0.25)
     bar = _cell_at(dec, (1.5, 0.5))
     left = _cell_at(dec, (0.5, 2.0))
     start, goal = _fill_ends(dec, fills, left, bar)
-    unstitched = [i for i in range(len(dec.cells)) if i != bar]
-    path = travel(dec, fills, unstitched, start, goal)
+    unfilled = [i for i in range(len(dec.cells)) if i != bar]
+    path = travel(dec, fills, unfilled, start, goal)
     _check_path(dec, list(range(len(dec.cells))), path, start, goal)
-    assert visible_length(path, dec, fills, unstitched) > 0.0
+    assert visible_length(path, dec, fills, unfilled) > 0.0
 
 
 def test_cells_meeting_at_a_point_are_joined_through_it():
@@ -608,7 +608,7 @@ def test_separate_pieces_cannot_be_joined():
 
 def test_every_pair_of_donut_cells_is_joined_from_fill_end_to_fill_start():
     """What the component asks for: from the end of one cell's fill to the
-    start of another's, the cell just stitched still open to leave through.
+    start of another's, the cell just filled still open to leave through.
     No point of any travel sits on the hole's boundary."""
     rings = [SQUARE, HOLE]
     dec = decompose(rings)
@@ -670,7 +670,7 @@ def test_no_doubling_back_to_a_midpoint_when_the_goal_is_nearer():
     assert path == [(0.0, 0.0), (0.0, 1.0)]
 
 
-def test_shortcut_never_leaves_the_unstitched_cells():
+def test_shortcut_never_leaves_the_unfilled_cells():
     """Across the U's notch the two arms' fill ends are 1 apart, nearer than
     any midpoint, but the straight hop crosses the notch; the path still
     goes down through the bar."""
@@ -762,9 +762,9 @@ def _exhaustive(router, fills, n, start=None):
 
 def _subset_dp(router, fills, n):
     """The best cost over every order and walk, by dynamic programming
-    over (stitched set, last cell, its walk): exact because a travel's
+    over (filled set, last cell, its walk): exact because a travel's
     cost depends only on where it leaves, where it enters and the cells
-    not stitched yet, the complement of the set. Reaches about a dozen
+    not filled yet, the complement of the set. Reaches about a dozen
     cells where enumerating every order reaches six."""
     full = (1 << n) - 1
     best = {(1 << c, c, d): (0.0, 0.0) for c in range(n) for d in range(4)}
@@ -839,7 +839,7 @@ def test_plan_reaches_the_exhaustive_optimum(rings, link):
                          ids=["square", "u", "comb"])
 def test_plan_hides_every_travel_when_an_order_can(rings):
     """Each of these has an order whose every travel runs under cells still
-    to come, the cell just left counted as stitched; the plan finds one."""
+    to come, the cell just left counted as filled; the plan finds one."""
     dec = decompose(rings)
     fills = fill_cells(dec, 0.3, phase=0.1)
     p = plan(dec, fills)
@@ -876,7 +876,7 @@ def test_plan_reaches_the_subset_dp_optimum(rings, angle, link):
 
 
 def test_travel_back_across_the_cell_just_finished_shows():
-    """The left arm stitched bottom to top ends at its top, and the way to
+    """The left arm filled bottom to top ends at its top, and the way to
     the bar is back down the whole arm, over fresh rows: visible. Walked
     top to bottom, it ends by the portal and only the step across shows."""
     dec = decompose([U_SHAPE])
@@ -884,16 +884,16 @@ def test_travel_back_across_the_cell_just_finished_shows():
     bar = _cell_at(dec, (1.5, 0.5))
     left, right = _cell_at(dec, (0.5, 2.0)), _cell_at(dec, (2.5, 2.0))
     goal = fills[bar].walks[FORWARD][0]
-    unstitched = [bar, right]
-    up = travel(dec, fills, unstitched, fills[left].walks[FORWARD][-1], goal)
-    down = travel(dec, fills, unstitched, fills[left].walks[REVERSE][-1], goal)
-    assert visible_length(up, dec, fills, unstitched) > 1.5
-    assert visible_length(down, dec, fills, unstitched) < 0.6
+    unfilled = [bar, right]
+    up = travel(dec, fills, unfilled, fills[left].walks[FORWARD][-1], goal)
+    down = travel(dec, fills, unfilled, fills[left].walks[REVERSE][-1], goal)
+    assert visible_length(up, dec, fills, unfilled) > 1.5
+    assert visible_length(down, dec, fills, unfilled) < 0.6
 
 
 def test_plan_visible_is_what_its_travels_show():
     """Each travel's visible length, recomputed from scratch against the
-    cells not yet stitched."""
+    cells not yet filled."""
     dec = decompose([COMB])
     fills = fill_cells(dec, 0.3, phase=0.1)
     p = plan(dec, fills, start=(4.5, 2.9))
@@ -926,7 +926,7 @@ def test_plan_crosses_a_pinch():
 def test_folding_the_midline_keeps_every_cost(rings):
     """Searches run over the graph with each cell's run of line midpoints
     folded into one link. Against the unfolded graph, every route between
-    every pair of walk ends, under every stitched set, costs the same."""
+    every pair of walk ends, under every filled set, costs the same."""
     dec = decompose(rings)
     fills = fill_cells(dec, 0.3, phase=0.1)
     folded = _Router(dec, fills, 1e-9)

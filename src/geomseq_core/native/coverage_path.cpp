@@ -1938,11 +1938,11 @@ enum Field {
     F_WALK_COUNTS = 4,   // int, 4 per cell: point count of each walk
     F_WALK_POINTS = 5,   // double, x y per point, walk after walk, cell after cell
     // coverage_plan only:
-    F_ORDER = 6,         // int, cell then walk, per cell in the order stitched
+    F_ORDER = 6,         // int, cell then walk, per cell in the order filled
     F_PIECE_KINDS = 7,   // int, per piece: 0 fill, 1 travel
     F_PIECE_COUNTS = 8,  // int, per piece: point count
     F_PIECE_POINTS = 9,  // double, x y per point, piece after piece
-    F_PIECE_VISIBLE = 10,  // double, per piece: travel no stitching covers
+    F_PIECE_VISIBLE = 10,  // double, per piece: travel no filling covers
     F_COUNT = 11
 };
 
@@ -2044,7 +2044,7 @@ DLL_EXPORT int coverage_hatch_region(const double* ring_xy, const int* ring_coun
     }
 }
 
-// The whole stitch path over a region: coverage_path.plan after hatch_region.
+// The whole path over a region: coverage_path.plan after hatch_region.
 // Arguments as coverage_hatch_region, plus
 //   start  x y where the needle starts, or null to let the plan choose
 //   kicks  restarts of the order search; see coverage_path.plan

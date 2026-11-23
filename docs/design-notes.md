@@ -138,7 +138,7 @@ The second was density, and it is the more interesting one. Every sweep packed
 more segments into the same 1000×1000 square, so n and density rose together —
 and windowed's window is the K *nearest* edges, whose physical reach shrinks as
 density rises. `sort_curves_density` grew the extent as √n instead, holding
-segments per unit area fixed (also the realistic case: more stitches usually
+segments per unit area fixed (also the realistic case: more fills usually
 means a bigger design, not a tighter one). Density explained about a third of
 the degradation at 50,000 — 18.6% became 13.3% — and no more. The gap still
 roughly doubles from 12,000 to 50,000 with density held constant.
@@ -494,8 +494,12 @@ itself does that, and only if it is committed alongside the results.
 The install target is two files in `Grasshopper/Libraries`, with no Python
 environment to set up. The Python layer (`native_bridge.py`, `misc.py`,
 `geometry_utils.py`) stays anyway: it is what `pytest` runs, and pytest is the
-only verification that exists outside Rhino. Only `src/gh/*_component.py` is
-retired, once each C# component has been checked in Rhino.
+only verification that exists outside Rhino. The GHPython shells in
+`src/gh/*_component.py` stay too, beside their C# twins: they hot-reload on
+edit, so a structural change can be tried in Rhino without rebuilding the
+plug-in, which is how the coverage path's stages were worked out. They may
+move to a branch of their own later; they are not deleted when the C#
+component is checked.
 
 ### Why the library is loaded through a resolver
 
@@ -729,7 +733,14 @@ groups. The numbers exist; the reading of them does not.
     on reset, input change and removal), inputs changing mid-run, and an
     unconverged path exported unnoticed (output a converged flag). First
     step: the Python search as a stepper, tested chunked against one run.
-  - *Stitch placement, read off an Ink/Stitch DST.* This is the separate
+  - *Point placement, read off an Ink/Stitch DST.* Now `resample_on_lattice.py`
+    and the Resample On Lattice component (Python only): fill pieces on a
+    staggered lattice (one-way joins in the columns of the row they reach),
+    travel pieces spread evenly by `free_step` (the DST's travels step about
+    2 mm), points under `min_step` (default spacing) dropped,
+    `skip_row_ends` an option whose Ink/Stitch rule below is still
+    unconfirmed. The DST itself reads as link 0 with every boundary turn
+    dropped, which a `min_step` above one turn reproduces. This is the separate
     stitch-generation step (a point grid sharing spacing, angle and phase,
     picked where it meets the path), not the path. The coverage path stays
     as it is: the file is a plain zig-zag. What was measured, from 46
@@ -785,8 +796,8 @@ groups. The numbers exist; the reading of them does not.
 
 Started 2026-11-17 on the `coverage-path` branch. The problem comes from
 tatami embroidery: fill a closed region with scan lines, and join the runs
-into one continuous stitch path where every travel move between runs is
-later covered by stitching, so it never shows. **There are no trims**
+into one continuous path where every travel move between runs is
+later covered by filling, so it never shows. **There are no trims**
 (Fen's rule): a travel that cannot be hidden is shown, as little as
 possible. The same structure is coverage path planning in robotics, and the
 "minimise the visible length, then the travel" objective is the shape of
@@ -797,9 +808,9 @@ A* on a mask). It is not carried over because its coverage test was
 wrong in a way that matters: it rasterised the stitch *polylines*, so with
 a line spacing of 2 pixels every other row counted as uncovered, and
 vertical travels were half "visible" by construction. Coverage is an
-*area* property — the union of the cells not yet stitched — and that is
+*area* property — the union of the cells not yet filled — and that is
 what makes a vector version both correct and fast: a travel only needs a
-path through the unstitched cells, found on a graph of a few hundred
+path through the unfilled cells, found on a graph of a few hundred
 cells rather than a few hundred thousand pixels.
 
 **Stage 1, landed: `coverage_path.decompose`.** Boustrophedon cut into
@@ -816,9 +827,9 @@ walked four ways: from the left or the right end of the lowest line, and
 each of those backwards. Between them the four walks enter at all four
 corners of the cell, whatever the parity of the line count; forward and
 reverse alone reach only two. The mirror costs nothing on the fabric:
-Ink/Stitch (`adjust_stagger` in `lib/stitches/fill.py`) puts every
+Ink/Stitch (`adjust_stagger` in `lib/fills/fill.py`) puts every
 penetration on a lattice fixed to the canvas, so a row's direction moves
-only its two end stitches, and its legacy fill exposes the same choice as
+only its two end fills, and its legacy fill exposes the same choice as
 `flip` and `reverse`. Two further decisions worth keeping. The lines sit on one
 global grid (`phase + k * spacing` in the sweep frame) for every cell,
 not on a grid started at each cell's bottom, so lines of neighbouring
@@ -831,7 +842,7 @@ the chord would leave it.
 *Two ways to link the lines.* `link=ZIGZAG` is the above. `link=ONE_WAY`
 runs every line the same direction and joins the end of one to the start
 of the next straight across the cell, as a production embroidery file Fen
-read does (rows one way, a stitched diagonal back). Linking lines is a
+read does (rows one way, a filled diagonal back). Linking lines is a
 general step, the zig-zag/one-way choice CNC pocketing and print infill
 also offer, so it is an option on the fill, not a second component.
 The lines are identical either way. A diagonal that a side bends into
@@ -848,17 +859,17 @@ linked paths.
 **Stage 3, landed: `coverage_path.travel`.** The travel always exists on a
 connected region. Hiding it is the first priority, not a constraint: a
 link's cost is `(visible length, length)`, compared in that order, where
-visible is the part outside the unstitched cells. So the path keeps to
-unstitched cells whenever they join the two ends, and otherwise crosses
-stitched ones by the least visible length the graph allows;
+visible is the part outside the unfilled cells. So the path keeps to
+unfilled cells whenever they join the two ends, and otherwise crosses
+filled ones by the least visible length the graph allows;
 `visible_length` reports it. The first version made hiding a hard
 constraint and returned `None` (a trim) when it failed; Fen ruled trims
-out, and the Ink/Stitch tatami fill (`lib/stitches/tatami_fill.py`) works
+out, and the Ink/Stitch tatami fill (`lib/fills/tatami_fill.py`) works
 the same way: its underpath travel is preferred, never required, with a
 visible path as the fallback.
 
 *Where in the cell it runs* was the question. The first version was the
-exact shortest path in the unstitched union (visibility graph over the cell
+exact shortest path in the unfilled union (visibility graph over the cell
 vertices, Dijkstra), and it was wrong for the fabric: a shortest path hugs
 the corners, and on a donut it ran straight over the hole's corner. A
 thread along the edge of a hole shows; the pixel version's `center_bias`
@@ -874,7 +885,7 @@ and from a cell's last line through the midpoint of a portal into the
 neighbour's first, then Dijkstra over that graph. The fill lines are the
 data that already say where the middle of each cell is, so the travel is
 central by construction, needs no clearance parameter, and cannot touch a
-boundary corner. Every link is still checked to lie inside the unstitched
+boundary corner. Every link is still checked to lie inside the unfilled
 union, so a cell that bends sharply between two lines drops the link
 rather than letting the path out. The two ends attach to the midpoint of
 the line they lie on (a fill's entry and exit do), else to the nearest
@@ -904,7 +915,7 @@ start and goal in separate pieces of the region raise.
 
 The travel also has to cross the cell it leaves: the last fill line stops
 inside it, below its top row. The component counts `from_cell` as
-unstitched, so that stretch, which rides along fresh rows, is not charged
+unfilled, so that stretch, which rides along fresh rows, is not charged
 as visible. Whether it should be is a question for the ordering stage.
 
 **Stage 4, landed: `coverage_path.plan`.** Returns a `Plan`: the order
@@ -922,7 +933,7 @@ line across a portal to the neighbour's nearest line is the fill's own
 step between rows, so it is hidden while either cell is still to come.
 Without it, every move between cells showed a stub up to one spacing
 long, and three harmless stubs outranked one real travel across fresh
-stitching. The step is straight across, or slanted 45 degrees inward
+filling. The step is straight across, or slanted 45 degrees inward
 when straight would pass through a corner of the outline, and only from
 an end that lies over the other line. `visible_length` applies the same
 rule, which is why it takes the fills.
@@ -954,9 +965,9 @@ spacings, every plan shows nothing, and on the three small enough to
 enumerate, the plan's cost equals the best over every order and walk.
 
 *How far from the best it was, and what closed it.* Enumeration stops at
-about six cells. A subset DP over `(stitched set, last cell, walk)` is
+about six cells. A subset DP over `(filled set, last cell, walk)` is
 exact further, because a travel's cost depends only on where it leaves,
-where it enters and the cells not stitched yet, the complement of the
+where it enters and the cells not filled yet, the complement of the
 set; it agrees with enumeration and reaches about eleven cells in ten
 seconds (`_subset_dp` in the tests). Against it, on combs, rows of holes
 and a band toothed on both sides, 5 to 11 cells, two angles, both links
@@ -1002,7 +1013,7 @@ a minute in Python; the C++ port is what would make 20 affordable.
 
 *What made it fast enough.* The travel graph is built once per plan, and
 each link is stored as its pieces, cut at cell edges and tagged with the
-cells each piece lies in: the visible length for any stitched set is a
+cells each piece lies in: the visible length for any filled set is a
 sum over pieces. Caching every segment's pieces, every route's costs,
 and stopping Dijkstra once all its goals are settled brought a 13-cell
 comb with 250 fill lines to 2.2 s (ad hoc).
@@ -1028,7 +1039,7 @@ once. It cannot stop early at its goals and was two to three times
 slower.
 
 One fill bug surfaced here: a grid line exactly on a portal was laid in
-both cells, so the row would be stitched twice. The cell below now stops
+both cells, so the row would be filled twice. The cell below now stops
 short of it.
 
 A travel bug followed from it. Where a cell rests on two portals and a
@@ -1045,10 +1056,22 @@ flattened curve. Both are now dropped or merged within `tol`.
 
 *Which stages are components.* Each stage had its own GHPython component
 while it was being built, so it could be checked in Grasshopper on its
-own. Only two answer a general question and ship: Hatch Region (cells,
-their lines, linked paths) and Plan Coverage (the whole path). The
-Decompose Region, Fill Cells and Travel Cells components were removed;
-their functions stay in the module, covered by the tests.
+own. Three answer a general question and ship, each in the tab of what it
+produces:
+
+| Component | Tab | Row | What it does |
+|---|---|---|---|
+| Plan Coverage | Travel | secondary | region to one continuous path; beside the waypoint builders, which join separate curves |
+| Resample On Lattice | Division | secondary | lines to points, beside Divide Curves and Sample Curve Points |
+| Hatch Region | Division | tertiary | region to lines; the first region-level component, its own row |
+
+The Decompose Region, Fill Cells and Travel Cells components were removed;
+their functions stay in the module, covered by the tests. Resample On
+Lattice was first called Stitch Points: the library keeps to geometric
+terms, so its parameters are `step`, `free_step` and `min_step`, and the
+coverage module says fill and filled rather than stitch. Its C++ port,
+`native/resample_on_lattice.cpp` (ABI 7), matches the Python point for
+point, tested on plans and on 200 random paths.
 
 **The C++ port.** `native/coverage_path.cpp` mirrors the module function
 for function and is what the Plan Coverage and Hatch Region components
@@ -1072,7 +1095,7 @@ fields, since its size is not known before the run.
 One thing the port made visible: with 20 kicks the flower's search cost
 fell (1206 to 1149) but its travel after `shortcut` rose (1082 to 1121).
 The search costs travels before the shortcut is applied, so it optimises
-a slightly different length from the one stitched. Open.
+a slightly different length from the one filled. Open.
 
 **Still to do.** The gap beyond eleven cells is unknown: the flower's
 4.7% from kicks says the search without them was not at the optimum
@@ -1220,7 +1243,7 @@ scale, square extent, evenly spaced arc lengths.
    equidistant points and exact ties in nearest-neighbour distance.
    Tie-breaking is untested at scale and does not occur in float-random data.
 4. **Mixed curve lengths** (`curves_*`) — `make_segments` draws lengths from
-   5–20. Real toolpaths mix long travel strokes with very short stitches, often
+   5–20. Real toolpaths mix long travel strokes with very short fills, often
    an order of magnitude apart, which changes how much 2-opt has to gain.
 5. **Long thin extent** (`points_*` or `curves_*`) — a border or a single row of
    lettering, far wider than tall. The generator always produces a square, and a
