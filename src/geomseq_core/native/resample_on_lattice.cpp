@@ -9,6 +9,17 @@
 #include <new>
 #include <vector>
 
+// sin and cos each called alone, as Python's math does. Called side by side,
+// clang fuses them into __sincos_stret, which on macOS arm64 can differ from
+// sin and cos in the last bit; a call it cannot see into stops the fusion.
+#if defined(_MSC_VER)
+#define GEOMSEQ_NOINLINE __declspec(noinline)
+#else
+#define GEOMSEQ_NOINLINE __attribute__((noinline))
+#endif
+static GEOMSEQ_NOINLINE double sin_alone(double a) { return std::sin(a); }
+static GEOMSEQ_NOINLINE double cos_alone(double a) { return std::cos(a); }
+
 #if defined(_WIN32)
     #define DLL_EXPORT __declspec(dllexport)
 #else
@@ -181,7 +192,7 @@ DLL_EXPORT int resample_on_lattice(const double* xy, const int* run_counts, cons
     if (min_step < 0.0)
         return RL_ERR_MIN_STEP;
     try {
-        double c = std::cos(-angle), s = std::sin(-angle);
+        double c = cos_alone(-angle), s = sin_alone(-angle);
         std::vector<Pt> out;
         size_t at = 0;
         for (int r = 0; r < num_runs; ++r) {
@@ -213,7 +224,7 @@ DLL_EXPORT int resample_on_lattice(const double* xy, const int* run_counts, cons
         *out_count = (int)out.size();
         if ((int)out.size() > out_capacity)
             return RL_OK;
-        double cb = std::cos(angle), sb = std::sin(angle);
+        double cb = cos_alone(angle), sb = sin_alone(angle);
         for (size_t i = 0; i < out.size(); ++i) {
             double x = out[i].x, y = out[i].y;
             out_xy[2 * i] = cb * x - sb * y;

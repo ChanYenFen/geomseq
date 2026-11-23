@@ -22,6 +22,17 @@
 #include <unordered_map>
 #include <vector>
 
+// sin and cos each called alone, as Python's math does. Called side by side,
+// clang fuses them into __sincos_stret, which on macOS arm64 can differ from
+// sin and cos in the last bit; a call it cannot see into stops the fusion.
+#if defined(_MSC_VER)
+#define GEOMSEQ_NOINLINE __declspec(noinline)
+#else
+#define GEOMSEQ_NOINLINE __attribute__((noinline))
+#endif
+static GEOMSEQ_NOINLINE double sin_alone(double a) { return std::sin(a); }
+static GEOMSEQ_NOINLINE double cos_alone(double a) { return std::cos(a); }
+
 #if defined(_WIN32)
     #define DLL_EXPORT __declspec(dllexport)
 #else
@@ -248,7 +259,7 @@ std::vector<Pt> strip_closing(const std::vector<Pt>& ring) {
 Decomposition decompose(const std::vector<std::vector<Pt>>& rings, double angle, double tol) {
     if (tol < 0.0)
         throw Error{CP_ERR_NEGATIVE_TOL};
-    double c = std::cos(-angle), s = std::sin(-angle);
+    double c = cos_alone(-angle), s = sin_alone(-angle);
     std::vector<Edge> edges;
     Decomposition dec;
     for (const auto& ring : rings) {
@@ -272,7 +283,7 @@ Decomposition decompose(const std::vector<std::vector<Pt>>& rings, double angle,
     std::vector<PortalRow> portal_rows;
     link_slabs(trapezoids, levels, tol, cells_rows, portal_rows);
 
-    double cb = std::cos(angle), sb = std::sin(angle);
+    double cb = cos_alone(angle), sb = sin_alone(angle);
     for (auto& rows : cells_rows) {
         Cell cell;
         for (const Pt& p : rows_to_outline(rows))
@@ -490,7 +501,7 @@ std::vector<Fill> fill_cells(const Decomposition& dec, double spacing, double ph
         throw Error{CP_ERR_SPACING};
     if (link != ZIGZAG && link != ONE_WAY && link != ONE_WAY_SEAMS)
         throw Error{CP_ERR_LINK};
-    double cb = std::cos(dec.angle), sb = std::sin(dec.angle);
+    double cb = cos_alone(dec.angle), sb = sin_alone(dec.angle);
     std::set<int> has_above;
     for (const Portal& p : dec.portals)
         has_above.insert(p.cell_a);
