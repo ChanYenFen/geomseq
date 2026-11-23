@@ -40,10 +40,10 @@ const int CP_ERR_RING_TOO_SHORT = -3;  // "a ring needs at least three distinct 
 const int CP_ERR_NO_HEIGHT = -4;       // "the region has no height along the sweep direction"
 const int CP_ERR_ODD_CROSSINGS = -5;   // "a scanline crossed the boundary an odd number of times..."
 const int CP_ERR_SPACING = -6;         // "spacing must be greater than 0"
-const int CP_ERR_LINK = -7;            // "link must be ZIGZAG (0) or ONE_WAY (1)"
+const int CP_ERR_LINK = -7;            // "link must be ZIGZAG (0), ONE_WAY (1) or ONE_WAY_SEAMS (2)"
 const int CP_ERR_INTERNAL = -99;       // out of memory or an unexpected failure
 
-const int ZIGZAG = 0, ONE_WAY = 1;
+const int ZIGZAG = 0, ONE_WAY = 1, ONE_WAY_SEAMS = 2;
 
 struct Pt {
     double x, y;
@@ -450,25 +450,75 @@ std::vector<Pt> one_way(const std::vector<Row>& rows, const std::vector<Line>& l
     return pts;
 }
 
+// _seam_lines: ONE_WAY_SEAMS' extra line below (side 0) and above (side 1)
+// each cell, through the middle of each portal band, owned by the cell that
+// holds the middle.
+struct Seams {
+    bool has[2] = {false, false};
+    Line line[2];
+};
+
+std::map<int, Seams> seam_lines(const Decomposition& dec, const std::vector<std::vector<Line>>& lines,
+                                double tol) {
+    std::map<int, Seams> out;
+    for (const Portal& p : dec.portals) {
+        int a = p.cell_a, b = p.cell_b;
+        if (lines[a].empty() || lines[b].empty())
+            continue;
+        double y_lo = lines[a].back().y, y_hi = lines[b].front().y;
+        double y_mid = 0.5 * (y_lo + y_hi);
+        if (y_hi - y_lo <= tol)
+            continue;
+        double y_portal = dec.cells[b].rows[0].y;
+        int owner = y_mid <= y_portal + tol ? a : b;
+        int side = owner == a ? 1 : 0;
+        Seams& pair = out[owner];
+        if (pair.has[side])
+            continue;
+        double xl, xr;
+        if (interval_at(dec.cells[owner].rows, y_mid, xl, xr) && xr - xl > tol) {
+            pair.has[side] = true;
+            pair.line[side] = {y_mid, xl, xr};
+        }
+    }
+    return out;
+}
+
 std::vector<Fill> fill_cells(const Decomposition& dec, double spacing, double phase, int link,
                              double tol) {
     if (!(spacing > 0.0))
         throw Error{CP_ERR_SPACING};
-    if (link != ZIGZAG && link != ONE_WAY)
+    if (link != ZIGZAG && link != ONE_WAY && link != ONE_WAY_SEAMS)
         throw Error{CP_ERR_LINK};
     double cb = std::cos(dec.angle), sb = std::sin(dec.angle);
     std::set<int> has_above;
     for (const Portal& p : dec.portals)
         has_above.insert(p.cell_a);
-    std::vector<Fill> fills;
-    for (size_t i = 0; i < dec.cells.size(); ++i) {
-        const std::vector<Row>& rows = dec.cells[i].rows;
+    size_t n = dec.cells.size();
+    std::vector<std::vector<Pt>> zig_pts(n), zig_mirrored(n);
+    std::vector<std::vector<Line>> zig_lines(n);
+    for (size_t i = 0; i < n; ++i) {
         bool drop_top = has_above.count((int)i) > 0;
-        std::vector<Pt> pts, mirrored;
-        std::vector<Line> lines, unused;
-        zigzag(rows, spacing, phase, tol, true, drop_top, pts, lines);
-        zigzag(rows, spacing, phase, tol, false, drop_top, mirrored, unused);
-        if (link == ONE_WAY) {
+        std::vector<Line> unused;
+        zigzag(dec.cells[i].rows, spacing, phase, tol, true, drop_top, zig_pts[i], zig_lines[i]);
+        zigzag(dec.cells[i].rows, spacing, phase, tol, false, drop_top, zig_mirrored[i], unused);
+    }
+    std::map<int, Seams> seams;
+    if (link == ONE_WAY_SEAMS)
+        seams = seam_lines(dec, zig_lines, tol);
+    std::vector<Fill> fills;
+    for (size_t i = 0; i < n; ++i) {
+        const std::vector<Row>& rows = dec.cells[i].rows;
+        std::vector<Pt> pts = zig_pts[i], mirrored = zig_mirrored[i];
+        std::vector<Line> lines = zig_lines[i];
+        if (link == ONE_WAY || link == ONE_WAY_SEAMS) {
+            auto s = seams.find((int)i);
+            if (!lines.empty() && s != seams.end()) {
+                if (s->second.has[0])
+                    lines.insert(lines.begin(), s->second.line[0]);
+                if (s->second.has[1])
+                    lines.push_back(s->second.line[1]);
+            }
             pts = one_way(rows, lines, true, tol);
             mirrored = one_way(rows, lines, false, tol);
         }

@@ -436,7 +436,7 @@ _COVERAGE_ERRORS = {
     -5: "a scanline crossed the boundary an odd number of times; the rings "
         "are not closed or they cross each other",
     -6: "spacing must be greater than 0",
-    -7: "link must be ZIGZAG (0) or ONE_WAY (1)",
+    -7: "link must be ZIGZAG (0), ONE_WAY (1) or ONE_WAY_SEAMS (2)",
     -8: "kicks cannot be negative",
     -9: "the cells left lie in another piece of the region",
 }

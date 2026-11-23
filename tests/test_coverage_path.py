@@ -22,6 +22,7 @@ from geomseq_core.coverage_path import (
     MIRRORED,
     MIRRORED_REVERSE,
     ONE_WAY,
+    ONE_WAY_SEAMS,
     REVERSE,
     ZIGZAG,
     FILL,
@@ -383,7 +384,7 @@ def _walk_inside(cell, walk):
 
 def test_unknown_link_is_refused():
     with pytest.raises(ValueError):
-        fill_cells(decompose([SQUARE]), 1.0, link=2)
+        fill_cells(decompose([SQUARE]), 1.0, link=3)
 
 
 @pytest.mark.parametrize("spacing", [1.0, 4.0 / 3.0])
@@ -945,3 +946,50 @@ def test_folding_the_midline_keeps_every_cost(rings):
             for (ca, pa), (cb, pb) in zip(a, b):
                 assert _cost_close(ca, cb)
                 assert _path_length(pa) == pytest.approx(_path_length(pb))
+
+
+# --- ONE_WAY_SEAMS -------------------------------------------------------------
+
+def _legs(y_portal):
+    """A bar resting on two legs, the portals at y_portal: the seam band
+    between the legs' top lines and the bar's bottom line."""
+    return [[(-10.0, -56.0), (-7.5, -56.0), (-7.5, y_portal), (-3.5, y_portal), (-3.5, -56.0),
+             (11.8, -56.0), (11.8, -53.0), (-10.0, -53.0)]]
+
+
+@pytest.mark.parametrize("y_portal,owner", [(-54.55, "bar"), (-54.45, "legs")])
+def test_seam_line_runs_through_the_middle_of_each_portal_band(y_portal, owner):
+    dec = decompose(_legs(y_portal))
+    plain = fill_cells(dec, 0.2, link=ONE_WAY)
+    seamed = fill_cells(dec, 0.2, link=ONE_WAY_SEAMS)
+    bar = max(range(len(dec.cells)), key=lambda c: dec.cells[c].rows[-1][0])
+    legs = [c for c in range(len(dec.cells)) if c != bar]
+    for p in dec.portals:
+        y_mid = 0.5 * (plain[p.cell_a].lines[-1][0][1] + plain[p.cell_b].lines[0][0][1])
+        holder = bar if owner == "bar" else p.cell_a
+        ys = [a[1] for a, _ in seamed[holder].lines]
+        assert any(abs(y - y_mid) < 1e-9 for y in ys)
+    # One extra line per owning cell, and nowhere else.
+    owners = [bar] if owner == "bar" else legs
+    for c in range(len(dec.cells)):
+        extra = len(seamed[c].lines) - len(plain[c].lines)
+        assert extra == (1 if c in owners else 0)
+        for w in seamed[c].walks:
+            ys = sorted(set(round(q[1], 9) for q in w))
+            assert all(round(a[1], 9) in ys for a, _ in seamed[c].lines)
+
+
+@pytest.mark.parametrize("name", ["legs-low", "legs-high", "comb", "donut", "u"])
+def test_seamed_plan_is_a_valid_plan(name):
+    rings = {"legs-low": _legs(-54.55), "legs-high": _legs(-54.45), "comb": [COMB],
+             "donut": [SQUARE, HOLE], "u": [U_SHAPE]}[name]
+    dec = decompose(rings)
+    fills = fill_cells(dec, 0.2 if name.startswith("legs") else 0.3, link=ONE_WAY_SEAMS)
+    _check_plan(dec, fills, plan(dec, fills))
+
+
+def test_seams_leave_cells_without_neighbours_as_one_way():
+    dec = decompose([SQUARE])
+    a = fill_cells(dec, 0.3, link=ONE_WAY)
+    b = fill_cells(dec, 0.3, link=ONE_WAY_SEAMS)
+    assert a[0].walks == b[0].walks and a[0].lines == b[0].lines

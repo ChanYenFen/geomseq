@@ -17,9 +17,9 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "src"))
 sys.path.insert(0, _HERE)
 
-from geomseq_core.coverage_path import ONE_WAY, ZIGZAG, hatch_region
+from geomseq_core.coverage_path import ONE_WAY, ONE_WAY_SEAMS, ZIGZAG, hatch_region
 from geomseq_core.geometry_utils import hatch_region_native
-from test_coverage_path import BENT, COMB, DIAMOND, HOLE, HOURGLASS, NOTCH, SQUARE, U_SHAPE, _holes_row
+from test_coverage_path import BENT, COMB, _legs, DIAMOND, HOLE, HOURGLASS, NOTCH, SQUARE, U_SHAPE, _holes_row
 
 SAWTOOTH = [(0.0, 0.0), (6.0, 0.0), (6.0, 3.0), (5.0, 2.0), (4.0, 3.0), (3.0, 2.0),
             (2.0, 3.0), (1.0, 2.0), (0.0, 3.0)]
@@ -32,6 +32,8 @@ SHAPES = {
     "hourglass": [HOURGLASS],
     "diamond": [DIAMOND],
     "bent": [BENT],
+    "legs-low": _legs(-54.55),
+    "legs-high": _legs(-54.45),
     "sawtooth": [SAWTOOTH],
     "holes3": _holes_row(3),
     "closed-ring": [SQUARE + [SQUARE[0]], HOLE],
@@ -48,7 +50,7 @@ def _same_points(ps, qs):
         assert _close(p, q), (p, q)
 
 
-@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY], ids=["zigzag", "one_way"])
+@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY, ONE_WAY_SEAMS], ids=["zigzag", "one_way", "seams"])
 @pytest.mark.parametrize("angle", [0.0, 0.5, math.pi / 2, 2.0])
 @pytest.mark.parametrize("name", sorted(SHAPES))
 def test_hatch_region_matches_python(name, angle, link):
@@ -70,7 +72,7 @@ def test_hatch_region_matches_python(name, angle, link):
 
 @pytest.mark.parametrize("rings,kwargs,message", [
     ([SQUARE], {"spacing": 0.0}, "spacing"),
-    ([SQUARE], {"spacing": 1.0, "link": 2}, "link"),
+    ([SQUARE], {"spacing": 1.0, "link": 3}, "link"),
     ([SQUARE], {"spacing": 1.0, "tol": -1.0}, "tol"),
     ([[(0.0, 0.0), (1.0, 0.0)]], {"spacing": 1.0}, "three distinct"),
     ([[(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)]], {"spacing": 1.0}, "no height"),
@@ -88,10 +90,11 @@ from geomseq_core.coverage_path import _Router, decompose, fill_cells, plan
 from geomseq_core.geometry_utils import plan_coverage_native
 from test_coverage_path import _check_plan, _cost_close, _order_cost
 
-PLAN_SHAPES = ["square", "donut", "u", "comb", "hourglass", "bent", "sawtooth", "holes3"]
+PLAN_SHAPES = ["square", "donut", "u", "comb", "hourglass", "bent", "sawtooth", "holes3",
+               "legs-low", "legs-high"]
 
 
-@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY], ids=["zigzag", "one_way"])
+@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY, ONE_WAY_SEAMS], ids=["zigzag", "one_way", "seams"])
 @pytest.mark.parametrize("angle", [0.0, 0.5])
 @pytest.mark.parametrize("name", PLAN_SHAPES)
 def test_plan_matches_python(name, angle, link):
@@ -128,7 +131,7 @@ def test_kicks_match_python(name):
                        _order_cost(router, fills, [c for c, _ in ref.order], [d for _, d in ref.order]))
 
 
-@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY], ids=["zigzag", "one_way"])
+@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY, ONE_WAY_SEAMS], ids=["zigzag", "one_way", "seams"])
 def test_plan_matches_python_with_a_line_on_two_portals(link):
     """A grid line on two portals: the port links the same way."""
     dec = decompose([NOTCH])
@@ -158,7 +161,7 @@ def _shortest_step(points):
     return min((math.dist(a, b) for a, b in zip(points, points[1:])), default=math.inf)
 
 
-@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY], ids=["zigzag", "one_way"])
+@pytest.mark.parametrize("link", [ZIGZAG, ONE_WAY, ONE_WAY_SEAMS], ids=["zigzag", "one_way", "seams"])
 @pytest.mark.parametrize("angle", [0.0, 0.5])
 @pytest.mark.parametrize("name", sorted(SHAPES) + ["notch"])
 def test_no_step_of_no_length(name, angle, link):

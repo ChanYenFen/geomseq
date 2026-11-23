@@ -30,7 +30,7 @@ internal static class NativeLibraryLoader
 
     // Must equal geomseq_abi_version() in src/geomseq_core/native/abi_version.cpp,
     // which says when to bump it. A binary with another version is refused.
-    private const int AbiVersion = 5;
+    private const int AbiVersion = 6;
     private const string AbiVersionExport = "geomseq_abi_version";
 
     private static readonly object Gate = new();

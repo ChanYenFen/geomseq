@@ -308,7 +308,15 @@ FORWARD, REVERSE, MIRRORED, MIRRORED_REVERSE = 0, 1, 2, 3
 #            the shortest way across the cell, from the end of one line
 #            to the start of the next (a straight diagonal unless a side
 #            bends into its way).
-ZIGZAG, ONE_WAY = 0, 1
+#   ONE_WAY_SEAMS  ONE_WAY, plus one more line through each seam between
+#            two cells. Inside a cell the diagonal joins cross the band
+#            between two lines; across a portal nothing does, and that band
+#            reads as a missing line. The extra line runs through the
+#            middle of the band, walked like the others, and belongs to the
+#            cell the middle falls in: the lower one when the portal lies at
+#            or above it, else the upper. The cells keep their four walks,
+#            so the order is still free to choose between them.
+ZIGZAG, ONE_WAY, ONE_WAY_SEAMS = 0, 1, 2
 
 
 class Fill(object):
@@ -361,22 +369,33 @@ def fill_cells(dec, spacing, phase=0.0, link=ZIGZAG, tol=DEFAULT_TOL):
         grid line gets one line through its middle.
     A grid line exactly on a portal belongs to the cell above it; the cell
     below stops short of it, or that row would be stitched twice.
-    link: ZIGZAG or ONE_WAY, see their definitions. The lines are the same
-        either way; only the joins between them differ.
+    link: ZIGZAG, ONE_WAY or ONE_WAY_SEAMS, see their definitions. The
+        grid lines are the same every way; only the joins between them
+        differ, and ONE_WAY_SEAMS adds its seam lines, off the grid, to the
+        cells' `lines` as well as their walks: travel is routed along them
+        like any other line, so a walk that ends on one leaves cleanly.
     Returns one Fill per cell, in cell order.
     """
     if spacing <= 0.0:
         raise ValueError("spacing must be greater than 0")
-    if link not in (ZIGZAG, ONE_WAY):
-        raise ValueError("link must be ZIGZAG (0) or ONE_WAY (1)")
+    if link not in (ZIGZAG, ONE_WAY, ONE_WAY_SEAMS):
+        raise ValueError("link must be ZIGZAG (0), ONE_WAY (1) or ONE_WAY_SEAMS (2)")
     cb, sb = math.cos(dec.angle), math.sin(dec.angle)
     has_above = set(p.cell_a for p in dec.portals)
-    fills = []
+    zig = []
     for i, cell in enumerate(dec.cells):
         drop_top = i in has_above
         pts, lines = _zigzag(cell.rows, spacing, phase, tol, True, drop_top)
         mirrored, _ = _zigzag(cell.rows, spacing, phase, tol, False, drop_top)
-        if link == ONE_WAY:
+        zig.append((pts, mirrored, lines))
+    seams = _seam_lines(dec, [lines for _, _, lines in zig], tol) if link == ONE_WAY_SEAMS else {}
+    fills = []
+    for i, cell in enumerate(dec.cells):
+        pts, mirrored, lines = zig[i]
+        if link in (ONE_WAY, ONE_WAY_SEAMS):
+            if lines and i in seams:
+                below, above = seams[i]
+                lines = ([below] if below else []) + lines + ([above] if above else [])
             pts = _one_way(cell.rows, lines, True, tol)
             mirrored = _one_way(cell.rows, lines, False, tol)
         fills.append(Fill(i,
@@ -473,6 +492,33 @@ def _add_corner(pts, v, nxt, tol):
     a step of no length makes an invalid curve."""
     if not _same(v, pts[-1], tol) and not _same(v, nxt, tol):
         pts.append(v)
+
+
+def _seam_lines(dec, lines, tol):
+    """ONE_WAY_SEAMS' extra lines: {cell: (below, above)}, each a line
+    (y, xl, xr) in the sweep frame or None. For each portal, the band runs
+    from the lower cell's top line to the upper cell's bottom line; its
+    middle goes to whichever cell holds it, across that cell's whole width
+    there. A cell gets at most one extra line on each side: every portal on
+    one side of a cell lies at the same height, so they share the middle."""
+    out = {}
+    for p in dec.portals:
+        a, b = p.cell_a, p.cell_b
+        if not lines[a] or not lines[b]:
+            continue
+        y_lo, y_hi = lines[a][-1][0], lines[b][0][0]
+        y_mid = 0.5 * (y_lo + y_hi)
+        if y_hi - y_lo <= tol:
+            continue
+        y_portal = dec.cells[b].rows[0][0]
+        owner, side = (a, 1) if y_mid <= y_portal + tol else (b, 0)
+        pair = out.setdefault(owner, [None, None])
+        if pair[side] is not None:
+            continue
+        xl, xr = _interval_at(dec.cells[owner].rows, y_mid)
+        if xl is not None and xr - xl > tol:
+            pair[side] = (y_mid, xl, xr)
+    return {c: (pair[0], pair[1]) for c, pair in out.items()}
 
 
 def _one_way(rows, lines, start_left, tol):

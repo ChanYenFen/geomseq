@@ -21,8 +21,10 @@ extern "C" {
 // 4: point_in_curves added.
 // 5: coverage_hatch_region, coverage_plan and the coverage_result_*
 //    functions added.
+// 6: the coverage exports' link accepts ONE_WAY_SEAMS (2). The signatures
+//    did not change; a version-5 binary would refuse 2 with its link error.
 DLL_EXPORT int geomseq_abi_version() {
-    return 5;
+    return 6;
 }
 
 } // extern "C"

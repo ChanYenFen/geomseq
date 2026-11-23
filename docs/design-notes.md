@@ -729,6 +729,38 @@ groups. The numbers exist; the reading of them does not.
     on reset, input change and removal), inputs changing mid-run, and an
     unconverged path exported unnoticed (output a converged flag). First
     step: the Python search as a stepper, tested chunked against one run.
+  - *Stitch placement, read off an Ink/Stitch DST.* This is the separate
+    stitch-generation step (a point grid sharing spacing, angle and phase,
+    picked where it meets the path), not the path. The coverage path stays
+    as it is: the file is a plain zig-zag. What was measured, from 46
+    points of a fill region:
+    - *Spacing is set at 0.175, rows read as 0.1, 0.2, 0.2, 0.2.* DST
+      stores 0.1 mm integer deltas, rounded against the integer position
+      already reached (pyembroidery `DstWriter.write`), so the error never
+      exceeds 0.05 mm but a step that is not a multiple of 0.1 alternates.
+      The same holds along a row. Use the true value as `spacing`; the
+      rounding belongs only to a DST writer, if one is ever added.
+    - *Needles are staggered by a quarter stitch per row.* Stitch length
+      4 mm; the interior needles of successive rows sit at x ≡ 2, 3, 0, 1
+      (mod 4) and repeat. This is Ink/Stitch's `staggers` (default 4):
+      `phase = (row / staggers) % 1`, needles at
+      `phase · stitch_length + k · stitch_length` on a grid anchored to the
+      origin, so abutting regions line up. A grid generator needs `stagger`
+      as an input.
+    - *Rows join last needle to first needle, so the joins slant.* There is
+      no step along the boundary: a row's last stitch goes straight to the
+      next row's first, and with staggered needles that line slants and
+      turns at a different x each time.
+    - *Some rows stop short of the boundary.* A row going right ended on its
+      stagger needle at x 128.9 (129 rounded), about 0.35 short of the
+      boundary at that height (≈129.25); its end on the boundary was
+      dropped. Ink/Stitch's legacy `fill.py` drops a row's end only with
+      `skip_last` (default off) or when it lies within 0.1 mm of the last
+      needle. But rows going left in the same file keep their boundary end,
+      so the rule is not confirmed. The newer auto-fill source could not be
+      read. To settle it, export the same region from Ink/Stitch with
+      `skip_last` on and off and compare. Either way, keeping the boundary
+      end is an option of the generator, not a constant.
 
 - **`point_in_curve` is swept in y now, and the sawtooth is what is left.**
   Done the same day the baseline was taken; see *Why the point-in-curve scan is

@@ -12,7 +12,7 @@ _LIB_NAMES = {
 
 
 # Must equal geomseq_abi_version() in native/abi_version.cpp, which says when to bump it.
-ABI_VERSION = 5
+ABI_VERSION = 6
 
 
 def _check_abi_version(lib, dll_path):

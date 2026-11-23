@@ -24,6 +24,7 @@ Inputs
     link             how each cell's fill lines join. Optional, 0
                      0  zig-zag: lines alternate, joined along the side
                      1  one-way: lines all one way, joined across the cell
+                     2  one-way, plus a line through each seam between cells
     kicks            restarts of the order search from a shaken copy of
                      its best order. Optional, 0. More finds shorter
                      travel on large regions and takes longer, each about

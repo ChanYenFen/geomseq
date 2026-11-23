@@ -21,6 +21,8 @@ Inputs
                         the next along the cell's side
                      1  one-way: lines all run one direction, each joined
                         to the next by the shortest way across the cell
+                     2  one-way, plus one more line through the middle of
+                        each seam between two cells, which 1 leaves empty
     direction        how every cell's path is walked. Optional, 0
                      0  bottom to top, from the left end of the lowest line
                      1  0 walked backwards, top to bottom
