@@ -18,7 +18,7 @@ reading front to back.
 Tests answer "is it correct"; benchmarks answer "what does it cost, and where".
 Timings are machine- and load-dependent, so they make bad assertions — nothing
 under `benchmarks/` runs in `pytest` and nothing there can fail a build. The
-correctness suite stays quick (546 tests in about 20 s on 2026-11-24) because
+correctness suite stays quick (546 tests in about 20 s on windows-amd64, 2026-11-24) because
 no large dataset is allowed into `tests/fixtures/`.
 
 ### Why two harnesses
@@ -288,7 +288,7 @@ segments at shallow angles — and no such input has been measured.
 **One mistake worth not repeating.** The first version collected every contact
 in one list and sorted it. On a 4,000 × 4,000 cross-hatch, where the contact
 count is itself quadratic, that sort made the broad phase *slower* than the pair
-loop it replaced (ad hoc: 1,148 ms against 690 ms). A bucket per segment
+loop it replaced (ad hoc, windows-amd64: 1,148 ms against 690 ms). A bucket per segment
 brought it back to parity, which is the most any method can do when the output
 is O(n²). Uniform scatter cannot reveal this, and the committed group still has
 no such case.
@@ -619,7 +619,7 @@ their own sections above, under *Verified*.
 ### What the first full baseline settled
 
 - **The `sort_curves` greedy jump between n=8,000 and 12,000 did not
-  reproduce.** The ad-hoc run that showed ~3.7× the time for 1.5× the input gave
+  reproduce.** The ad-hoc run (windows-amd64) that showed ~3.7× the time for 1.5× the input gave
   1.9×, then 1.18× on to 16,000. Treat the original as an artifact.
 - **Direction-fixed mode is not slower.** `if_flip=False` beat the flip-enabled
   greedy path at every n measured (153.4 ms against 218.8 ms at 16,000), which
@@ -707,7 +707,7 @@ their own sections above, under *Verified*.
     DLL was rebuilt on 2026-11-24 with the portal links, the steps of no
     length and the sqrt lengths; the steps of no length are what made the
     curves invalid before.
-  - *An 83-cell region takes 55.8 s natively, no kicks; the aim is about
+  - *An 83-cell region takes 55.8 s natively on windows-amd64, no kicks; the aim is about
     30 s.* Fen's own shape (528 vertices, spacing 0.6), not committed. The
     portal links took it from over ten minutes, with no travel left on the
     corner fallback. All of the time is the first local search: about 140k
@@ -1043,24 +1043,24 @@ step by step, on the flower) won most of it back:
 - Dijkstra's per-link visible sum is inlined.
 
 The 30-cell flower without kicks: 17.8 s with the larger moves before
-these, 9.8 s after; 4.1 s with only single moves and swaps (ad hoc, one
-run each, timings varying by a third between runs). Dropping runs of
+these, 9.8 s after; 4.1 s with only single moves and swaps (ad hoc,
+windows-amd64, one run each, timings varying by a third between runs). Dropping runs of
 three or reversals saves under a quarter of that and costs a little
 travel on the small shapes, so all moves stay. `kicks` defaults to 0, in
 Python and in the component. The C++ port runs the flower with 20 in 9.6 s
 (below), but an 83-cell region takes 55.8 s natively with none (ad hoc,
-2026-11-24), so 0 stays the default.
+windows-amd64, 2026-11-24), so 0 stays the default.
 
 *What made it fast enough.* The travel graph is built once per plan, and
 each link is stored as its pieces, cut at cell edges and tagged with the
 cells each piece lies in: the visible length for any filled set is a
 sum over pieces. Caching every segment's pieces, every route's costs,
 and stopping Dijkstra once all its goals are settled brought a 13-cell
-comb with 250 fill lines to 2.2 s (ad hoc).
+comb with 250 fill lines to 2.2 s (ad hoc, windows-amd64).
 
 A flower-like region (30 cells, 7 holes, about 1400 outline vertices)
 then took an estimated 20+ minutes. Four changes brought it to about
-10 s at 212 fill lines and 27 s at 423 (ad hoc), every plan still
+10 s at 212 fill lines and 27 s at 423 (ad hoc, windows-amd64), every plan still
 showing nothing:
 
 - Geometry queries (does a segment leave the region, touch a corner,
@@ -1129,7 +1129,7 @@ Python rounds twice. `tests/test_coverage_native.py`
 checks the same cells, lines and walks on ten shapes at four angles, and
 the same order, pieces and visible lengths for every plan on eight. On
 the 30-cell flower without kicks it runs 0.77 s against 8.0 s; with 20
-kicks, 9.6 s (ad hoc). A result comes back as a handle with numbered
+kicks, 9.6 s (ad hoc, windows-amd64). A result comes back as a handle with numbered
 fields, since its size is not known before the run.
 
 One thing the port made visible: with 20 kicks the flower's search cost
