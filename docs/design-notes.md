@@ -743,6 +743,33 @@ their own sections above, under *Verified*.
     on reset, input change and removal), inputs changing mid-run, and an
     unconverged path exported unnoticed (output a converged flag). First
     step: the Python search as a stepper, tested chunked against one run.
+  - *Plan Coverage Outside: a second component, decided, not yet written.*
+    Travel runs outside the region only, for work cut out along the
+    outline afterwards (a patch, an appliqué): travel there never shows,
+    so only its length counts, and it never crosses a cell, filled or not
+    (Fen, 2026-11-24). Travel cost then no longer depends on which cells
+    are filled. It is a fixed 4n × 4n table from each walk's exit to each
+    walk's entry, and the order search becomes a generalized TSP over that
+    table, far cheaper than the inside search. `decompose`, `fill_cells`,
+    the walks and the search are shared; only the router is new (shortest
+    paths in the exterior). Its own component rather than an option on
+    Plan Coverage, named to pair with it:
+
+    | Layer | Inside (shipped) | Outside |
+    |---|---|---|
+    | Component | Plan Coverage, `Cover` | Plan Coverage Outside, `CoverOut`, new GUID, Travel tab beside it |
+    | C# | `PlanCoverageComponent.cs` | `PlanCoverageOutsideComponent.cs` |
+    | GHPython shell | `gh/plan_coverage_component.py` | `gh/plan_coverage_outside_component.py` |
+    | Python | `coverage_path.plan` | `coverage_path.plan_outside` |
+    | Wrapper | `plan_coverage_native` | `plan_coverage_outside_native` |
+    | Export | `coverage_plan` | `coverage_plan_outside` (an added export: ABI 8) |
+
+    Inputs as Plan Coverage's. Plan Coverage keeps its name; it is not
+    renamed Plan Coverage Inside. Open before writing it: whether a hole
+    counts as outside (a fill end on a hole's edge cannot reach the outer
+    exterior without crossing the region, and there are no trims, so that
+    travel needs a fallback), and whether travel keeps a clearance from
+    the outline (if so a parameter, Clearance, `Cl`, appended last).
   - *Point placement, read off an Ink/Stitch DST.* Now `resample_on_lattice.py`,
     its C++ port (ABI 7) and the Resample On Lattice component: fill pieces on a
     staggered lattice (one-way joins in the columns of the row they reach),
