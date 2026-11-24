@@ -71,8 +71,8 @@ changing what a rule protects.
 - **Read points as `GH_Point`, and keep list inputs `Optional`.** A null
   `Point3d` arrives as the origin; a required input stops `SolveInstance` from
   running. *(Why some component behaviour is not obvious)*
-- **The "tested limit" warnings (16,000) come from a committed baseline.** Do not
-  replace them with a number that has not been.
+- **The "tested limit" notices (64,000 points, 50,000 curves) come from
+  committed baselines.** Do not replace them with a number that has not been.
 
 ## Working on this machine
 

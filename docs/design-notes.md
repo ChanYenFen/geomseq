@@ -18,8 +18,8 @@ reading front to back.
 Tests answer "is it correct"; benchmarks answer "what does it cost, and where".
 Timings are machine- and load-dependent, so they make bad assertions — nothing
 under `benchmarks/` runs in `pytest` and nothing there can fail a build. The
-correctness suite stays fast (0.06 s) precisely because no large dataset is
-allowed into `tests/fixtures/`.
+correctness suite stays quick (546 tests in about 20 s on 2026-11-24) because
+no large dataset is allowed into `tests/fixtures/`.
 
 ### Why two harnesses
 
@@ -534,19 +534,22 @@ fails if the three disagree. What it cannot catch is a signature changed
 
 ### Why some component behaviour is not obvious
 
-- **`D` is summed in C#.** The native side returns the travel segments, not
-  their total, and the C++ is frozen for this work.
+- **`D` is measured in C#.** The component takes the length of the sorted
+  path itself (`GeomSeqCore.PathLength`), from the previous branch's last point
+  when `Continuous` is on.
 - **Points are read as `GH_Point`, not `Point3d`.** A null item in a `Point3d`
   list arrives as the origin, so a skipped point would silently become a real one.
 - **The list inputs are `Optional`.** Otherwise Grasshopper emits its own
   missing-input warning and never calls `SolveInstance`, so the empty-input Remark
   could not happen.
-- **The "tested limit" warnings are now measured.** Both components warn above
-  16,000, which is the largest n in `baseline-windows-amd64-20260914-heavy` and
-  roughly where 2-opt stops feeling instant (~12 s). They started as
-  placeholders — 50,000 from an ad-hoc run, 10,000 borrowed from a threshold
-  that measured something else entirely — which is worth remembering before
-  quoting any other number that has not been re-checked against a committed run.
+- **The "tested limit" notices are measured.** Each is a Remark, raised per
+  branch, above the largest n in a committed run: 64,000 points
+  (`baseline-windows-amd64-20260915-heavy`) and 50,000 curves
+  (`baseline-windows-amd64-20260914-sort_curves_prune_check-pruned-heavy`).
+  They started as placeholders — 50,000 from an ad-hoc run, 10,000 borrowed
+  from a threshold that measured something else entirely — then sat at 16,000
+  until pruning made the larger runs affordable. Worth remembering before
+  quoting any number that has not been re-checked against a committed run.
 
 ### Contracts
 
@@ -607,15 +610,11 @@ exactly, and keeps step sizes within `[low, high]` — except the final step ont
 `total_length` and steps rescaled to land on a corner, which the native side
 breaks the band for by design. The turn test asserts both ends stay pinned to
 their extend points and that no waypoint turns by more than `theta_max_deg`
-(see *Watch out for* in the README).
+(see *Watch out for* in the README). Functions added since — shatter, point in
+curve, the coverage path, resample on lattice — say what their tests check in
+their own sections above, under *Verified*.
 
 ## Future directions
-
-### Write up the sort baseline
-
-`baseline-windows-amd64-20260914-heavy` is committed and covers all four
-functions, but `docs/benchmarks.md` still has no write-up of the two sort
-groups. The numbers exist; the reading of them does not.
 
 ### What the first full baseline settled
 
@@ -703,11 +702,22 @@ groups. The numbers exist; the reading of them does not.
   row because the bridge used to be under 0.1%; that reason expired with the
   pair loop. Add the row before optimising either side.
 
-- **Coverage path, as of 2026-11-23.**
-  - *The DLL lags the source.* The portal links, the steps of no length
-    and the sqrt lengths are in the dylib but not the DLL. Rebuild it on
-    Windows, then check in Rhino that Divide Curves takes Plan Coverage's
-    output.
+- **Coverage path, as of 2026-11-24.**
+  - *Check in Rhino that Divide Curves takes Plan Coverage's output.* The
+    DLL was rebuilt on 2026-11-24 with the portal links, the steps of no
+    length and the sqrt lengths; the steps of no length are what made the
+    curves invalid before.
+  - *An 83-cell region takes 55.8 s natively, no kicks; the aim is about
+    30 s.* Fen's own shape (528 vertices, spacing 0.6), not committed. The
+    portal links took it from over ten minutes, with no travel left on the
+    corner fallback. All of the time is the first local search: about 140k
+    route searches, nearly all costing candidate orders that are dropped
+    only after some rows are computed, since a swap or reversal changes
+    long stretches and each position has its own set of cells still to
+    come. The search itself is not the lever: A* with a straight-line
+    floor settled 16% fewer nodes, same distances (ad hoc, Python). Fewer
+    candidates needing rows is, but that can change plans, so it needs a
+    quality check against the current search first.
   - *An entry on a hop's landing point is reached the long way.* The route
     goes on to the line's midpoint and back, so the cost counts a detour
     the shortcut later removes, and plans undervalue the hop. Attaching the
@@ -733,8 +743,8 @@ groups. The numbers exist; the reading of them does not.
     on reset, input change and removal), inputs changing mid-run, and an
     unconverged path exported unnoticed (output a converged flag). First
     step: the Python search as a stepper, tested chunked against one run.
-  - *Point placement, read off an Ink/Stitch DST.* Now `resample_on_lattice.py`
-    and the Resample On Lattice component (Python only): fill pieces on a
+  - *Point placement, read off an Ink/Stitch DST.* Now `resample_on_lattice.py`,
+    its C++ port (ABI 7) and the Resample On Lattice component: fill pieces on a
     staggered lattice (one-way joins in the columns of the row they reach),
     travel pieces spread evenly by `free_step` (the DST's travels step about
     2 mm), points under `min_step` (default spacing) dropped,
@@ -914,14 +924,15 @@ hugs the boundary, which is why it is the fallback and not the rule. Only
 start and goal in separate pieces of the region raise.
 
 The travel also has to cross the cell it leaves: the last fill line stops
-inside it, below its top row. The component counts `from_cell` as
-unfilled, so that stretch, which rides along fresh rows, is not charged
-as visible. Whether it should be is a question for the ordering stage.
+inside it, below its top row. `travel` takes the unfilled set from its
+caller; whether the cell just left belongs in it was settled by the
+ordering stage below: it does not, so that stretch counts as visible.
 
 **Stage 4, landed: `coverage_path.plan`.** Returns a `Plan`: the order
 as `(cell, walk)` pairs, and the path as pieces, fills and travels
 alternating, each starting where the last ended; `path` joins them. The
-Grasshopper side is `gh/plan_coverage_component.py`.
+Grasshopper side is the Plan Coverage component, with
+`gh/plan_coverage_component.py` beside it.
 
 *What counts as visible.* Everything outside the cells still to come,
 the cell just finished included. The first version let a travel ride
@@ -1008,8 +1019,10 @@ The 30-cell flower without kicks: 17.8 s with the larger moves before
 these, 9.8 s after; 4.1 s with only single moves and swaps (ad hoc, one
 run each, timings varying by a third between runs). Dropping runs of
 three or reversals saves under a quarter of that and costs a little
-travel on the small shapes, so all moves stay. `kicks` defaults to 0 to keep a region of that size near half
-a minute in Python; the C++ port is what would make 20 affordable.
+travel on the small shapes, so all moves stay. `kicks` defaults to 0, in
+Python and in the component. The C++ port runs the flower with 20 in 9.6 s
+(below), but an 83-cell region takes 55.8 s natively with none (ad hoc,
+2026-11-24), so 0 stays the default.
 
 *What made it fast enough.* The travel graph is built once per plan, and
 each link is stored as its pieces, cut at cell edges and tagged with the
@@ -1101,10 +1114,7 @@ a slightly different length from the one filled. Open.
 4.7% from kicks says the search without them was not at the optimum
 there, not how far the search with them is. Whether learning has a role
 is decided by that gap, on regions the DP cannot reach, not before.
-C# components for Plan Coverage and Hatch Region, calling the two
-exports. Stitch placement on a lattice fixed to the plane is a separate
-topic (points on a grid, then the points on a curve), not a stage of
-this one.
+The rest of what is open is under *Still open → Coverage path*.
 
 ### Clustered sequencing for layered and zoned fabrication
 
@@ -1234,11 +1244,9 @@ scale, square extent, evenly spaced arc lengths.
 1. **Clustered real toolpath** (`points_*`, `curves_*`) — the headline gap.
    `make_points` scatters uniformly over a square, the friendliest possible case
    for a kd-tree; real stitch and cut data is locally dense and globally sparse.
-   Directly probes the degradation the repo README flags as unaddressed.
 2. **Non-uniform density** (`points_*`) — a dense region and a sparse one in the
    same file (fill plus outline). Stresses the kd-tree differently from uniform
-   clustering, and is what makes window expansion pathological rather than
-   merely slower.
+   clustering.
 3. **Grid / hatch structured** (`points_*`) — infill produces collinear,
    equidistant points and exact ties in nearest-neighbour distance.
    Tie-breaking is untested at scale and does not occur in float-random data.
