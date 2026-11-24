@@ -1,19 +1,21 @@
 # geomseq
 
-A C++ library for spatial sequencing and geometric primitives, with thin
-Python bindings and a Grasshopper plug-in built on the same core
-(see [src/gha/README.md](src/gha/README.md)).
+A C++ library of computational geometry and path-ordering algorithms, usable
+from Python or as a [Grasshopper plug-in](src/gha/README.md) for the Rhino CAD
+software.
 
 ## Background
 
-This C++ library grew out of a real bottleneck in a computational
-design pipeline: sorting thousands of geometries into an efficient
-traversal path. A pure-Python implementation worked, but performance
-dropped sharply at scale — minutes, not seconds, past a few thousand
-geometries.
+It began with one bottleneck in a computational design pipeline: sorting
+thousands of geometries into an efficient traversal path. Grasshopper tools
+are usually written for design-scale inputs — hundreds of elements. geomseq is
+aimed at the other end: tens of thousands, where the choice of algorithm and
+data structure decides whether a job takes seconds or minutes.
 
-The core algorithms — spatial sequencing and its supporting primitives
- — were reimplemented in C++ for raw speed and scalability at large n.
+The first version was Python. The hot loops moved into C++ behind ctypes, and
+the core has lived in C++ since. The shipped plug-in calls that core directly
+from C#; Python stays as the prototyping and test layer, where every algorithm
+is verified outside Rhino before it reaches the plug-in.
 
 ## Design
 
